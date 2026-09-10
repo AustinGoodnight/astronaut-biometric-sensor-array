@@ -41,18 +41,8 @@ management notes are in that same CLAUDE.md.
 
 ### machine-learning
 
-Nothing here yet — no toolchain has been picked. Once one is (likely
-Python + PyTorch/TensorFlow/scikit-learn), setup will be a standard
-`requirements.txt`/`pyproject.toml` environment; see
-[machine-learning/README.md](machine-learning/README.md) for the current
-plan and what's still open.
+Machine Learning using Pytorch and Exutorch 
 
 ### web-ui
 
-Nothing here yet — no framework has been picked. Once one is, setup will
-be the standard install/dev-server flow for that stack (e.g.
-`npm install && npm run dev`); see
-[web-ui/README.md](web-ui/README.md) for the current plan and what's
-still open.
-
-See [CLAUDE.md](CLAUDE.md) for repo-wide conventions.
+Web UI with Node, Tailwind, and likely Astro
