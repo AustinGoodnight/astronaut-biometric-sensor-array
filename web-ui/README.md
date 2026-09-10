@@ -2,7 +2,7 @@
 
 Web dashboard for monitoring/visualizing the LoRa link (e.g. live RSSI,
 packet history) fed by [firmware/lora-testing](../firmware/lora-testing)
-and/or [signal-processing](../signal-processing) output.
+and/or [machine-learning](../machine-learning) output.
 
 Nothing here yet — no framework has been picked. When code lands, this
 README should cover:
