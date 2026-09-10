@@ -1,4 +1,4 @@
-# RF Testing — LoRa TX/RX Link
+# LoRa TX/RX Link
 
 A minimal point-to-point LoRa link between two [Seeed XIAO ESP32C3](https://wiki.seeedstudio.com/XIAO_ESP32C3_Getting_Started/)
 boards, built with [PlatformIO](https://platformio.org) and the Arduino

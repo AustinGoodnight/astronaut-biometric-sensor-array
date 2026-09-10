@@ -1,4 +1,4 @@
-# RF Testing — LoRa TX/RX Firmware
+# LoRa TX/RX Firmware
 
 PlatformIO project for two Seeed XIAO ESP32C3 boards running a LoRa
 point-to-point link (SX127x via the `sandeepmistry/LoRa` library, Arduino
