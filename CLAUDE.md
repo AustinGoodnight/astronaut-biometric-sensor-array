@@ -1,4 +1,4 @@
-# Capstone — RF Testing (repo root)
+# Astronaut Biometric Sensor Array (repo root)
 
 This is a monorepo with independent subsystems, each with its own
 toolchain and its own detailed setup docs. This file only covers
@@ -9,8 +9,9 @@ own README/CLAUDE.md:
   for the LoRa TX/RX boards. See
   [firmware/lora-testing/CLAUDE.md](firmware/lora-testing/CLAUDE.md) for
   macOS/Windows setup, library management, and port configuration.
-- **[signal-processing](signal-processing)** — RF data analysis. See
-  [signal-processing/README.md](signal-processing/README.md).
+- **[machine-learning](machine-learning)** — ML on captured
+  biometric/sensor data. See
+  [machine-learning/README.md](machine-learning/README.md).
 - **[web-ui](web-ui)** — monitoring/visualization web app. See
   [web-ui/README.md](web-ui/README.md).
 
@@ -23,7 +24,7 @@ own README/CLAUDE.md:
   junk (`.DS_Store`, etc.) — add subsystem-specific ignores inside that
   subsystem's own `.gitignore`, not the root one.
 - Don't add cross-subsystem dependencies unless there's a real shared
-  need (e.g. a common data format between firmware and signal-processing)
+  need (e.g. a common data format between firmware and machine-learning)
   — keep each subsystem buildable/runnable independently.
 - When adding a new subsystem, give it its own top-level folder with a
   README, and add a row to the table in the root [README.md](README.md).
