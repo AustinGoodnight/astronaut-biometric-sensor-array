@@ -42,7 +42,9 @@ management notes are in that same CLAUDE.md.
 ### machine-learning
 
 Machine Learning using Pytorch and Exutorch 
+** Not yet configured **
 
 ### web-ui
 
 Web UI with Node, Tailwind, and likely Astro
+** Not yet configured **
