@@ -9,6 +9,10 @@ own README/CLAUDE.md:
   for the LoRa TX/RX boards. See
   [firmware/lora-testing/CLAUDE.md](firmware/lora-testing/CLAUDE.md) for
   macOS/Windows setup, library management, and port configuration.
+- **[firmware/main-app](firmware/main-app)** — firmware for the real
+  sensor-node board. See
+  [firmware/main-app/README.md](firmware/main-app/README.md) for the
+  current TODO list.
 - **[machine-learning](machine-learning)** — ML on captured
   biometric/sensor data. See
   [machine-learning/README.md](machine-learning/README.md).
