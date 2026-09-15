@@ -1,0 +1,16 @@
+---
+import LiveBadge from "./LiveBadge.astro";
+---
+
+<!-- Status indicator -->
+<div class="rounded-[20px] bg-card px-5 py-4">
+  <div class="flex items-center gap-2.5">
+    <div class="text-[11.5px] font-bold uppercase tracking-[.06em] text-muted">Status</div>
+    <LiveBadge />
+  </div>
+  <div class="mt-3 inline-flex gap-0.5 rounded-full bg-panel p-1" data-live-state>
+    <div data-state="good" class="rounded-full px-5 py-[9px] text-[13px] font-bold text-muted transition-colors">Okay</div>
+    <div data-state="okay" class="rounded-full bg-ink-black px-5 py-[9px] text-[13px] font-bold text-white transition-colors">Warning</div>
+    <div data-state="bad" class="rounded-full px-5 py-[9px] text-[13px] font-bold text-muted transition-colors">Danger</div>
+  </div>
+</div>

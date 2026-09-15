@@ -1,0 +1,65 @@
+---
+import Shell from "../layouts/Shell.astro";
+import Icon from "../components/Icon.astro";
+import { listSessions, seedIfEmpty } from "../lib/db";
+import { formatDateLabel, formatTimeRange, formatDuration } from "../lib/format";
+
+export const prerender = false;
+
+seedIfEmpty();
+const sessions = listSessions();
+---
+
+<Shell active="history" title="History · Vitals" fixedHeight>
+  <Fragment slot="full">
+    <div class="flex items-center justify-between rounded-[22px] bg-card px-[30px] py-6">
+      <div>
+        <div class="text-[27px] font-extrabold tracking-[-0.4px]">History</div>
+        <div class="mt-1.5 text-sm font-medium text-muted">Previous sessions — open one to see all its data.</div>
+      </div>
+      <div class="shrink-0 text-[12.5px] font-semibold text-muted">{sessions.length} sessions</div>
+    </div>
+
+    <div class="mt-[22px] flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto pr-1">
+      {sessions.map((s) => (
+        <a
+          href={`/history/${s.id}`}
+          class="flex items-center gap-4 rounded-2xl bg-card px-5 py-4 transition-colors hover:bg-panel"
+        >
+          <div class="min-w-[190px]">
+            <div class="text-[14.5px] font-bold">{s.label}</div>
+            <div class="mt-0.5 text-xs text-muted">
+              {formatDateLabel(s.started_at)} · {formatTimeRange(s.started_at, s.ended_at)} · {s.user}
+            </div>
+          </div>
+
+          <div class="w-20 text-[13px] font-semibold text-ink-soft">{formatDuration(s.started_at, s.ended_at)}</div>
+
+          <div class="w-24 font-mono text-[12.5px] font-bold tabular-nums">
+            {s.avg_hr != null ? `${Math.round(s.avg_hr)} bpm` : "—"}
+          </div>
+
+          <div class="flex-1"></div>
+
+          {!s.ended_at ? (
+            <span class="flex items-center gap-1.5 rounded-full bg-ink-black px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-white">
+              <span class="relative flex h-1.5 w-1.5">
+                <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-white/70"></span>
+                <span class="relative inline-flex h-1.5 w-1.5 rounded-full bg-white"></span>
+              </span>
+              Live
+            </span>
+          ) : s.flagged_count > 0 ? (
+            <span class="rounded-full bg-ink-black px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-white">
+              {s.flagged_count} flagged
+            </span>
+          ) : (
+            <span class="rounded-full bg-panel px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-muted">Normal</span>
+          )}
+
+          <Icon name="chevron" class="h-4 w-4 shrink-0 -rotate-90 text-muted" />
+        </a>
+      ))}
+    </div>
+  </Fragment>
+</Shell>

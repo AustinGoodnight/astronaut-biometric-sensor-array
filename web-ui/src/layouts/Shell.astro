@@ -1,0 +1,48 @@
+---
+import Sidebar from "../components/Sidebar.astro";
+import "../styles/global.css";
+
+interface Props {
+  active: "home" | "overview" | "sensors" | "history" | "users";
+  title?: string;
+  /** Cap the panel at a fixed height instead of letting it grow with content — use for pages with lists that can grow unbounded (History, Users), so they scroll internally instead of expanding the whole view. */
+  fixedHeight?: boolean;
+}
+
+const { active, title = "Vitals Dashboard", fixedHeight = false } = Astro.props;
+const isFull = Astro.slots.has("full");
+---
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+  </head>
+  <body class="min-h-screen bg-page font-sans text-ink">
+    <div class="flex min-h-screen items-start justify-center p-4 sm:p-7">
+      <div
+        class:list={[
+          "flex w-full max-w-[1440px] gap-4 rounded-[32px] bg-panel p-4 shadow-[0_30px_60px_-30px_rgba(20,20,22,0.28)] sm:gap-7 sm:p-7",
+          fixedHeight ? "lg:h-[890px] lg:overflow-hidden" : "lg:min-h-[890px]",
+        ]}
+      >
+        <Sidebar active={active} />
+        {isFull ? (
+          <div class="flex min-h-0 min-w-0 flex-1 flex-col">
+            <slot name="full" />
+          </div>
+        ) : (
+          <div class="grid min-h-0 min-w-0 flex-1 grid-cols-1 gap-[22px] lg:grid-cols-[1.62fr_1fr] lg:gap-7">
+            <div class="flex min-h-0 min-w-0 flex-col gap-[22px] lg:justify-between">
+              <slot name="left" />
+            </div>
+            <div class="flex min-h-0 min-w-0 flex-col gap-[22px] lg:justify-between">
+              <slot name="right" />
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  </body>
+</html>

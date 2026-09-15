@@ -1,0 +1,22 @@
+---
+// 7 rows (days) x 10 columns (weeks), true = flagged reading
+const grid: boolean[][] = [
+  [false, false, false, false, false, true, false, false, false, false],
+  [false, true, false, false, false, false, false, false, false, false],
+  [false, false, false, false, false, false, false, false, false, true],
+  [false, false, false, false, false, false, false, true, false, false],
+  [false, false, true, false, false, false, false, false, false, false],
+  [false, false, false, false, false, false, false, false, false, false],
+  [false, false, false, false, false, true, false, false, false, false],
+];
+---
+
+<div class="flex flex-col gap-[5px]">
+  {grid.map((row) => (
+    <div class="flex gap-[5px]">
+      {row.map((flagged) => (
+        <div class:list={["h-5 w-5 rounded-[5px]", flagged ? "bg-ink-black" : "bg-line"]}></div>
+      ))}
+    </div>
+  ))}
+</div>

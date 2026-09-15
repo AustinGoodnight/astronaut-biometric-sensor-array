@@ -1,0 +1,102 @@
+---
+import Shell from "../../layouts/Shell.astro";
+import Icon from "../../components/Icon.astro";
+import StatCard from "../../components/StatCard.astro";
+import CompareRow from "../../components/CompareRow.astro";
+import LongTermChart from "../../components/LongTermChart.astro";
+import { getSession, getReadings } from "../../lib/db";
+import { METRICS } from "../../lib/metrics";
+import { formatDateLabel, formatTimeRange, formatDuration } from "../../lib/format";
+import { downsample, sparseLabels, DB_KEY } from "../../lib/chartData";
+
+export const prerender = false;
+
+const { id } = Astro.params;
+const session = id ? getSession(id) : undefined;
+
+if (!session) {
+  return Astro.redirect("/history");
+}
+
+const readings = getReadings(session.id);
+const hasData = readings.length > 0;
+const bucketed = hasData ? downsample(readings, 9) : [];
+const timeLabels = hasData ? sparseLabels(bucketed.length) : [];
+
+const series = METRICS.map((m) => ({
+  key: m.key,
+  tabLabel: m.label.replace("Temperature", "Temp"),
+  decimals: m.decimals,
+  values: bucketed.map((r) => Number((Number(r[DB_KEY[m.key]]) || 0).toFixed(m.decimals))),
+}));
+
+const summary = METRICS.map((m) => {
+  if (!hasData) return { ...m, avgLabel: "—", trendIcon: "minus" as const, trendText: "no data" };
+  const col = DB_KEY[m.key];
+  const avg = readings.reduce((a, r) => a + (Number(r[col]) || 0), 0) / readings.length;
+  const delta = Number(readings[readings.length - 1][col]) - Number(readings[0][col]);
+  const trendIcon = Math.abs(delta) < (m.decimals === 0 ? 1 : 0.05) ? "minus" : delta > 0 ? "up" : "down";
+  return {
+    ...m,
+    avgLabel: `${avg.toFixed(m.decimals)}${m.unit}`,
+    trendIcon: trendIcon as "up" | "down" | "minus",
+    trendText: trendIcon === "minus" ? "steady" : `${Math.abs(delta).toFixed(m.decimals)}${m.unit} ${delta > 0 ? "up" : "down"}`,
+  };
+});
+
+const avgHrLabel = session.avg_hr != null ? `${Math.round(session.avg_hr)} bpm` : "—";
+---
+
+<Shell active="history" title={`${session.label} · History`}>
+  <Fragment slot="left">
+    <div class="flex flex-col gap-[22px]">
+      <div class="rounded-[22px] bg-card px-[30px] py-6">
+        <a href="/history" class="inline-flex items-center gap-1.5 text-[12.5px] font-bold text-muted hover:text-ink">
+          <Icon name="chevron" class="h-3.5 w-3.5 rotate-90" />
+          History
+        </a>
+        <div class="mt-3 flex items-center justify-between">
+          <div>
+            <div class="text-[27px] font-extrabold tracking-[-0.4px]">{session.label}</div>
+            <div class="mt-1.5 text-sm font-medium text-muted">
+              {formatDateLabel(session.started_at)} · {formatTimeRange(session.started_at, session.ended_at)} · {session.user}
+            </div>
+          </div>
+          <div class="shrink-0 rounded-full border-[1.5px] border-line bg-panel px-3.5 py-2 text-[12.5px] font-bold">
+            {formatDuration(session.started_at, session.ended_at)}
+          </div>
+        </div>
+      </div>
+
+      {hasData ? (
+        <LongTermChart title="Session Trend" scopeLabel={formatDuration(session.started_at, session.ended_at)} series={series} timeLabels={timeLabels} />
+      ) : (
+        <div class="rounded-[22px] bg-card px-6 py-10 text-center text-sm font-medium text-muted">
+          No readings were recorded for this session.
+        </div>
+      )}
+    </div>
+  </Fragment>
+
+  <Fragment slot="right">
+    <div class="grid grid-cols-2 gap-4">
+      <StatCard value={String(session.flagged_count)} label="Flagged readings" icon="alert" dark={session.flagged_count > 0} />
+      <StatCard value={avgHrLabel} label="Avg heart rate" icon="heart" />
+    </div>
+
+    <div class="rounded-[22px] bg-card px-6 py-5">
+      <div class="text-base font-extrabold">Session Summary</div>
+      {summary.map((m, i) => (
+        <CompareRow
+          first={i === 0}
+          icon={m.icon}
+          name={m.label.replace("Temperature", "Temp")}
+          value={m.avgLabel}
+          trendIcon={m.trendIcon}
+          trendText={m.trendText}
+          trendStrong={m.trendIcon !== "minus"}
+        />
+      ))}
+    </div>
+  </Fragment>
+</Shell>

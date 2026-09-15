@@ -1,0 +1,370 @@
+---
+import Shell from "../layouts/Shell.astro";
+import Icon from "../components/Icon.astro";
+import VitalRow from "../components/VitalRow.astro";
+import CombinedChart from "../components/CombinedChart.astro";
+import LongTermChart from "../components/LongTermChart.astro";
+import { metric, normalRangeText, METRICS } from "../lib/metrics";
+import { listUserNames, seedIfEmpty, getCurrentOrLatestSession, getReadings } from "../lib/db";
+import { downsample, sparseLabels, DB_KEY } from "../lib/chartData";
+import { formatDuration } from "../lib/format";
+import { getLiveSnapshot } from "../lib/sensorLoop";
+
+seedIfEmpty();
+const userNames = listUserNames();
+
+const currentSession = getCurrentOrLatestSession();
+const sessionReadings = currentSession ? getReadings(currentSession.id) : [];
+const hasLongTermData = sessionReadings.length > 0;
+const bucketed = hasLongTermData ? downsample(sessionReadings, 9) : [];
+const isLive = currentSession != null && currentSession.ended_at == null;
+
+const longTermSeries = METRICS.map((m) => ({
+  key: m.key,
+  tabLabel: m.label.replace("Temperature", "Temp"),
+  decimals: m.decimals,
+  values: bucketed.map((r) => Number((Number(r[DB_KEY[m.key]]) || 0).toFixed(m.decimals))),
+}));
+
+const longTermLabels = hasLongTermData ? sparseLabels(bucketed.length, isLive ? "now" : "end") : sparseLabels(9, "now");
+
+const longTermScope = currentSession
+  ? `${isLive ? "Live · " : ""}${formatDuration(currentSession.started_at, currentSession.ended_at)}`
+  : "No sessions yet";
+
+// Seed the live sim from the device's current in-memory feed (the same
+// data /api/live polls) so the chart shows real, moving values immediately
+// on load instead of a moment of flat baseline before the first poll.
+const { current: seedCurrent, history: seedHistory } = getLiveSnapshot();
+---
+
+<Shell active="home" title="Dashboard · Vitals">
+  <Fragment slot="left">
+    <div class="flex flex-col gap-[22px]">
+    <!-- Session control -->
+    <div class="flex flex-wrap items-center gap-2.5">
+      <input
+        id="session-name"
+        type="text"
+        placeholder="Name this session…"
+        maxlength="40"
+        class="w-[190px] rounded-full border-[1.5px] border-line bg-card px-4 py-2.5 text-[13px] font-semibold text-ink placeholder:font-medium placeholder:text-muted focus:outline-none focus:border-ink-soft"
+      />
+
+      <div class="relative">
+        <select
+          id="session-user"
+          class="appearance-none rounded-full border-[1.5px] border-line bg-card py-2.5 pl-4 pr-9 text-[13px] font-semibold text-ink focus:outline-none focus:border-ink-soft"
+        >
+          {userNames.map((n) => <option>{n}</option>)}
+        </select>
+        <Icon name="chevron" class="pointer-events-none absolute right-3.5 top-1/2 h-3 w-3 -translate-y-1/2 text-muted" />
+      </div>
+
+      <button
+        id="session-btn"
+        type="button"
+        data-recording="false"
+        class="inline-flex items-center gap-2 rounded-full bg-ink-black px-5 py-2.5 text-[13px] font-bold text-white"
+      >
+        <Icon name="play" class="h-3.5 w-3.5" id="session-icon-play" />
+        <Icon name="stop" class="hidden h-3.5 w-3.5" id="session-icon-stop" />
+        <span id="session-btn-label">Start Session</span>
+      </button>
+
+      <div id="session-timer" class="hidden items-center gap-2 font-mono text-[13px] font-bold text-ink-soft">
+        <span class="relative flex h-2 w-2">
+          <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-ink-black/60"></span>
+          <span class="relative inline-flex h-2 w-2 rounded-full bg-ink-black"></span>
+        </span>
+        <span id="session-elapsed">00:00</span>
+      </div>
+    </div>
+
+    <!-- Combined live chart -->
+    <CombinedChart bento={false} colored />
+
+    <!-- Vitals heading + filters -->
+    <div class="flex items-center justify-between">
+      <div class="text-[19px] font-extrabold">Vitals</div>
+      <div class="text-[13px] font-semibold text-muted">All Metrics</div>
+    </div>
+
+    <!-- Vitals list -->
+    <div class="flex flex-col gap-2.5">
+      <VitalRow
+        icon="heart"
+        name="Heart Rate"
+        subtitle="Resting · wrist sensor"
+        value="72"
+        unit=" bpm"
+        liveKey="hr"
+        trendIcon="up"
+        trendText="3 vs last week"
+        color={metric("hr").color}
+        high="78"
+        low="69"
+        status="Normal"
+        normalRange={normalRangeText("hr")}
+      />
+      <VitalRow
+        icon="droplet"
+        name="Perspiration"
+        subtitle="Chest patch"
+        value="0.40"
+        unit=" mg/min"
+        liveKey="perspiration"
+        trendIcon="minus"
+        trendText="steady"
+        color={metric("perspiration").color}
+        high="0.46"
+        low="0.36"
+        status="Normal"
+        normalRange={normalRangeText("perspiration")}
+      />
+      <VitalRow
+        icon="therm"
+        name="Skin Temperature"
+        subtitle="Wrist sensor"
+        value="33.2"
+        unit=" °C"
+        liveKey="skinTemp"
+        trendIcon="down"
+        trendText="0.3° vs avg"
+        color={metric("skinTemp").color}
+        high="33.4°"
+        low="33.0°"
+        status="Normal"
+        normalRange={normalRangeText("skinTemp")}
+      />
+      <VitalRow
+        icon="flame"
+        name="Core Temperature"
+        subtitle="Ingestible sensor"
+        value="38.3"
+        unit=" °C"
+        liveKey="coreTemp"
+        trendIcon="alert"
+        trendText="Elevated · 0.6° above avg"
+        color={metric("coreTemp").color}
+        high="38.5°"
+        low="38.2°"
+        status="High"
+        normalRange={normalRangeText("coreTemp")}
+      />
+      <VitalRow
+        icon="lungs"
+        name="Respiration"
+        subtitle="Chest band"
+        value="16"
+        unit=" br/min"
+        liveKey="respiration"
+        trendIcon="minus"
+        trendText="steady"
+        color={metric("respiration").color}
+        high="18"
+        low="15"
+        status="Normal"
+        normalRange={normalRangeText("respiration")}
+      />
+    </div>
+    </div>
+  </Fragment>
+
+  <Fragment slot="right">
+    <!-- Long term panel -->
+    {hasLongTermData ? (
+      <LongTermChart title="Long Term" scopeLabel={longTermScope} series={longTermSeries} timeLabels={longTermLabels} />
+    ) : (
+      <div class="rounded-[22px] bg-card px-6 py-10 text-center text-sm font-medium text-muted">
+        No readings recorded yet — give it a second.
+      </div>
+    )}
+
+    <!-- Device connection -->
+    <div class="rounded-[20px] bg-card px-5 py-4">
+      <div class="flex items-center gap-3.5">
+        <div class="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-[13px] bg-ink-black">
+          <Icon name="signal" class="h-[21px] w-[21px] text-white" />
+        </div>
+        <div class="min-w-0">
+          <div class="text-[15px] font-bold">Sensor Hub Connected</div>
+          <div class="mt-[3px] truncate font-mono text-[11.5px] tracking-[.01em] text-muted">BLE 5.2 · -58dBm · 12ms</div>
+        </div>
+      </div>
+      <div class="mt-3.5 flex items-center justify-between gap-3">
+        <div class="flex items-center gap-1.5 font-mono text-[12.5px] font-bold text-ink-soft">
+          <Icon name="battery" class="h-4 w-4" /> 82% · 3.91V
+        </div>
+        <a href="#" class="inline-flex items-center justify-center whitespace-nowrap rounded-full border-[1.5px] border-line bg-white px-[18px] py-2.5 text-[13px] font-bold text-ink">
+          Diagnostics
+        </a>
+      </div>
+    </div>
+
+    <!-- Device telemetry -->
+    <div class="rounded-[22px] bg-card px-6 py-5">
+      <div class="flex items-center justify-between">
+        <div class="text-base font-extrabold">Device Telemetry</div>
+        <div class="flex items-center gap-[5px] text-[11px] font-bold text-ink-soft">
+          <span class="inline-block h-1.5 w-1.5 rounded-full bg-ink-black"></span> ACTIVE
+        </div>
+      </div>
+
+      <div class="mt-2 flex flex-col font-mono">
+        {[
+          ["model", "Sensor Hub M2"],
+          ["firmware", "v2.4.1"],
+          ["connection", "BLE 5.2 · -58dBm"],
+          ["battery", "82% · 3.91V"],
+          ["est. runtime", "~14h"],
+          ["uptime", "6d 14h"],
+          ["last sync", "just now"],
+        ].map(([label, value]) => (
+          <div class="flex items-center justify-between border-t border-line py-[9px]">
+            <span class="text-[11px] font-semibold uppercase tracking-[.04em] text-muted">{label}</span>
+            <span class="text-[12.5px] font-bold">{value}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  </Fragment>
+</Shell>
+
+<script define:vars={{ seedCurrent, seedHistory }} is:inline>
+  window.__vitalsSeed = { current: seedCurrent, history: seedHistory };
+</script>
+
+<script>
+  import { initVitalsSim, setThresholds } from "../scripts/vitalsSim";
+  import { getActiveSession, startSession, stopSession, formatElapsed } from "../scripts/sessionRecorder";
+
+  initVitalsSim((window as any).__vitalsSeed, { poll: true });
+
+  const btn = document.getElementById("session-btn") as HTMLButtonElement;
+  const label = document.getElementById("session-btn-label")!;
+  const playIcon = document.getElementById("session-icon-play")!;
+  const stopIcon = document.getElementById("session-icon-stop")!;
+  const timerEl = document.getElementById("session-timer")!;
+  const elapsedEl = document.getElementById("session-elapsed")!;
+  const nameInput = document.getElementById("session-name") as HTMLInputElement;
+  const userSelect = document.getElementById("session-user") as HTMLSelectElement;
+
+  // --- Per-user thresholds: drive live status badges + normal-range text ---
+  const METRIC_META: Record<string, { decimals: number; unit: string }> = {
+    hr: { decimals: 0, unit: " bpm" },
+    perspiration: { decimals: 2, unit: " mg/min" },
+    skinTemp: { decimals: 1, unit: " °C" },
+    coreTemp: { decimals: 1, unit: " °C" },
+    respiration: { decimals: 0, unit: " br/min" },
+  };
+
+  let currentThresholds: Record<string, [number, number]> = {};
+
+  function updateRowStatuses() {
+    document.querySelectorAll<HTMLElement>("[data-vital-row]").forEach((row) => {
+      const key = row.dataset.metric;
+      if (!key || !currentThresholds[key]) return;
+      const valueEl = row.querySelector<HTMLElement>(`[data-live="${key}"]`);
+      const statusEl = row.querySelector<HTMLElement>(`[data-status="${key}"]`);
+      const rangeEl = row.querySelector<HTMLElement>(`[data-normal-range="${key}"]`);
+      if (!valueEl || !statusEl) return;
+
+      const value = parseFloat(valueEl.textContent || "0");
+      const [low, high] = currentThresholds[key];
+      const status = value < low ? "Low" : value > high ? "High" : "Normal";
+      statusEl.textContent = status;
+
+      const isNormal = status === "Normal";
+      statusEl.classList.toggle("bg-panel", isNormal);
+      statusEl.classList.toggle("text-muted", isNormal);
+      if (isNormal) {
+        statusEl.style.backgroundColor = "";
+        statusEl.style.color = "";
+      } else {
+        const color = row.dataset.color;
+        if (color) {
+          statusEl.style.backgroundColor = `color-mix(in oklch, ${color} 20%, white)`;
+          statusEl.style.color = color;
+        }
+      }
+
+      const meta = METRIC_META[key];
+      if (rangeEl && meta) {
+        rangeEl.textContent = `${low.toFixed(meta.decimals)}–${high.toFixed(meta.decimals)}${meta.unit}`;
+      }
+    });
+  }
+
+  async function applyUserThresholds(name: string) {
+    try {
+      const res = await fetch(`/api/users/${encodeURIComponent(name)}/thresholds`);
+      const data = await res.json();
+      currentThresholds = data.thresholds;
+      setThresholds(currentThresholds);
+      updateRowStatuses();
+      try {
+        localStorage.setItem("vitals:selectedUser", name);
+      } catch {}
+    } catch {}
+  }
+
+  userSelect.addEventListener("change", () => applyUserThresholds(userSelect.value));
+
+  let initialUser = userSelect.value;
+  try {
+    const stored = localStorage.getItem("vitals:selectedUser");
+    if (stored) initialUser = stored;
+  } catch {}
+  userSelect.value = initialUser;
+  applyUserThresholds(initialUser);
+
+  let activeId: string | null = null;
+  let activeStartedAt: number | null = null;
+
+  function renderRecording(on: boolean) {
+    btn.dataset.recording = on ? "true" : "false";
+    btn.disabled = false;
+    label.textContent = on ? "Stop Session" : "Start Session";
+    playIcon.classList.toggle("hidden", on);
+    stopIcon.classList.toggle("hidden", !on);
+    timerEl.classList.toggle("hidden", !on);
+    timerEl.classList.toggle("flex", on);
+    nameInput.disabled = on;
+    userSelect.disabled = on;
+    nameInput.classList.toggle("opacity-50", on);
+    userSelect.parentElement?.classList.toggle("opacity-50", on);
+  }
+
+  const existing = getActiveSession();
+  if (existing) {
+    activeId = existing.id;
+    activeStartedAt = existing.startedAt;
+    renderRecording(true);
+    elapsedEl.textContent = formatElapsed(Date.now() - activeStartedAt);
+  }
+
+  btn.addEventListener("click", async () => {
+    btn.disabled = true;
+    if (activeId) {
+      await stopSession();
+      activeId = null;
+      activeStartedAt = null;
+      renderRecording(false);
+      nameInput.value = "";
+    } else {
+      const session = await startSession(nameInput.value, userSelect.value);
+      activeId = session.id;
+      activeStartedAt = session.startedAt;
+      renderRecording(true);
+      elapsedEl.textContent = "00:00";
+    }
+  });
+
+  window.addEventListener("vitals:tick", () => {
+    updateRowStatuses();
+    if (activeId && activeStartedAt) {
+      elapsedEl.textContent = formatElapsed(Date.now() - activeStartedAt);
+    }
+  });
+</script>
