@@ -1,0 +1,181 @@
+---
+import Shell from "../layouts/Shell.astro";
+import Icon from "../components/Icon.astro";
+import { listUsersWithStats, seedIfEmpty, type UserWithStats } from "../lib/db";
+import { METRICS } from "../lib/metrics";
+
+export const prerender = false;
+
+seedIfEmpty();
+const users = listUsersWithStats();
+
+const DB_PREFIX: Record<string, string> = {
+  hr: "hr",
+  perspiration: "perspiration",
+  skinTemp: "skin_temp",
+  coreTemp: "core_temp",
+  respiration: "respiration",
+};
+
+function low(u: UserWithStats, key: string): number {
+  return (u as any)[`${DB_PREFIX[key]}_low`];
+}
+function high(u: UserWithStats, key: string): number {
+  return (u as any)[`${DB_PREFIX[key]}_high`];
+}
+---
+
+<Shell active="users" title="Users · Vitals" fixedHeight>
+  <Fragment slot="full">
+    <div class="flex items-center justify-between rounded-[22px] bg-card px-[30px] py-6">
+      <div>
+        <div class="text-[27px] font-extrabold tracking-[-0.4px]">Users</div>
+        <div class="mt-1.5 text-sm font-medium text-muted">Averages across every session, and each person's own normal ranges.</div>
+      </div>
+      <div class="shrink-0 text-[12.5px] font-semibold text-muted">{users.length} users</div>
+    </div>
+
+    <div class="mt-[22px] grid min-h-0 flex-1 auto-rows-min grid-cols-1 gap-[22px] overflow-y-auto pr-1 lg:grid-cols-2">
+      {users.map((u) => (
+        <div class="flex flex-col rounded-[22px] bg-card px-6 py-5">
+          <div class="flex items-center justify-between">
+            <div class="min-w-0 flex-1">
+              <input
+                type="text"
+                value={u.name}
+                data-name-input={u.name}
+                maxlength="40"
+                class="w-full rounded-lg border border-transparent bg-transparent px-1.5 py-0.5 -mx-1.5 text-[16px] font-extrabold text-ink hover:border-line focus:border-ink-soft focus:bg-panel focus:outline-none"
+              />
+              <div class="mt-0.5 px-1.5 text-xs text-muted">
+                {u.sessionCount} session{u.sessionCount === 1 ? "" : "s"} · {u.flaggedTotal} flagged reading{u.flaggedTotal === 1 ? "" : "s"}
+              </div>
+            </div>
+          </div>
+
+          <!-- Averages -->
+          <div class="mt-4 grid grid-cols-5 gap-1.5">
+            {METRICS.map((m) => (
+              <div class="rounded-xl px-1.5 py-2 text-center" style={`background-color: color-mix(in oklch, ${m.color} 12%, white);`}>
+                <div class="truncate text-[9.5px] font-semibold text-muted">{m.label.replace("Temperature", "Temp")}</div>
+                <div class="mt-0.5 text-[12.5px] font-bold tabular-nums" style={`color:${m.color}`}>
+                  {u.averages[m.key] != null ? u.averages[m.key]!.toFixed(m.decimals) : "—"}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <!-- Threshold editor -->
+          <div class="mt-4 flex flex-col gap-2 border-t border-line pt-4" data-user-card={u.name}>
+            {METRICS.map((m) => (
+              <div class="flex items-center gap-2.5">
+                <Icon name={m.icon} class="h-4 w-4 shrink-0" style={`color:${m.color};`} />
+                <div class="w-[100px] shrink-0 text-[12px] font-semibold">{m.label.replace("Temperature", "Temp")}</div>
+                <input
+                  type="number"
+                  step="any"
+                  data-user={u.name}
+                  data-metric={m.key}
+                  data-bound="low"
+                  value={low(u, m.key)}
+                  class="w-16 rounded-lg border border-line bg-panel px-2 py-1 text-center text-[12px] font-semibold tabular-nums focus:outline-none focus:border-ink-soft"
+                />
+                <span class="text-xs text-muted">–</span>
+                <input
+                  type="number"
+                  step="any"
+                  data-user={u.name}
+                  data-metric={m.key}
+                  data-bound="high"
+                  value={high(u, m.key)}
+                  class="w-16 rounded-lg border border-line bg-panel px-2 py-1 text-center text-[12px] font-semibold tabular-nums focus:outline-none focus:border-ink-soft"
+                />
+                <span class="text-[11px] text-muted">{m.unit.trim()}</span>
+              </div>
+            ))}
+          </div>
+
+          <div class="mt-4 flex items-center justify-end gap-3">
+            <span data-error-label={u.name} class="hidden text-[11px] font-semibold text-ink"></span>
+            <span data-saved-label={u.name} class="hidden text-[11px] font-semibold text-muted">Saved</span>
+            <button
+              type="button"
+              data-save-user={u.name}
+              class="rounded-full bg-ink-black px-4 py-2 text-[12px] font-bold text-white"
+            >
+              Save changes
+            </button>
+          </div>
+        </div>
+      ))}
+    </div>
+  </Fragment>
+</Shell>
+
+<script>
+  document.querySelectorAll<HTMLButtonElement>("[data-save-user]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const originalName = btn.dataset.saveUser!;
+      const inputs = document.querySelectorAll<HTMLInputElement>(`input[data-user="${CSS.escape(originalName)}"]`);
+      const payload: Record<string, number | string> = {};
+      inputs.forEach((input) => {
+        const metric = input.dataset.metric!;
+        const bound = input.dataset.bound!;
+        payload[`${metric}${bound === "low" ? "Low" : "High"}`] = Number(input.value);
+      });
+
+      const nameInput = document.querySelector<HTMLInputElement>(`[data-name-input="${CSS.escape(originalName)}"]`);
+      const newName = nameInput?.value.trim();
+      if (newName && newName !== originalName) payload.newName = newName;
+
+      const errorLabel = document.querySelector<HTMLElement>(`[data-error-label="${CSS.escape(originalName)}"]`);
+      const savedLabel = document.querySelector<HTMLElement>(`[data-saved-label="${CSS.escape(originalName)}"]`);
+      errorLabel?.classList.add("hidden");
+
+      btn.disabled = true;
+      const original = btn.textContent;
+      btn.textContent = "Saving…";
+
+      try {
+        const res = await fetch(`/api/users/${encodeURIComponent(originalName)}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+
+        if (!res.ok) {
+          if (errorLabel) {
+            errorLabel.textContent = data.error || "Couldn't save";
+            errorLabel.classList.remove("hidden");
+          }
+          return;
+        }
+
+        if (payload.newName) {
+          try {
+            if (localStorage.getItem("vitals:selectedUser") === originalName) {
+              localStorage.setItem("vitals:selectedUser", String(payload.newName));
+            }
+          } catch {}
+          // Name changed — reload so every card, dropdown, and reference reflects it.
+          window.location.reload();
+          return;
+        }
+
+        if (savedLabel) {
+          savedLabel.classList.remove("hidden");
+          setTimeout(() => savedLabel.classList.add("hidden"), 2000);
+        }
+      } catch {
+        if (errorLabel) {
+          errorLabel.textContent = "Couldn't reach the server";
+          errorLabel.classList.remove("hidden");
+        }
+      } finally {
+        btn.disabled = false;
+        btn.textContent = original;
+      }
+    });
+  });
+</script>

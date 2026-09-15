@@ -1,0 +1,34 @@
+---
+import Icon from "./Icon.astro";
+
+interface Props {
+  active: "home" | "overview" | "sensors" | "history" | "users";
+}
+
+const { active } = Astro.props;
+
+const items: { key: Props["active"]; href: string; icon: string }[] = [
+  { key: "home", href: "/", icon: "home" },
+  { key: "overview", href: "/overview", icon: "chart" },
+  { key: "sensors", href: "/sensors", icon: "grid" },
+  { key: "history", href: "/history", icon: "clock" },
+  { key: "users", href: "/users", icon: "users" },
+];
+---
+
+<div class="flex w-[84px] shrink-0 flex-col items-center justify-center gap-[22px] rounded-3xl bg-ink-black py-[22px]">
+  {items.map((item) => (
+    <a
+      href={item.href}
+      class:list={[
+        "flex h-11 w-11 items-center justify-center rounded-2xl",
+        active === item.key ? "bg-white" : "hover:opacity-80",
+      ]}
+    >
+      <Icon
+        name={item.icon}
+        class:list={["h-[21px] w-[21px]", active === item.key ? "text-ink-black" : "text-white/55"]}
+      />
+    </a>
+  ))}
+</div>

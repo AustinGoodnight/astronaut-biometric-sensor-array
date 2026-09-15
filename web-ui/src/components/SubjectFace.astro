@@ -1,0 +1,37 @@
+---
+interface Props {
+  class?: string;
+}
+
+const { class: className = "h-[92px] w-[92px]" } = Astro.props;
+---
+
+<svg class={className} viewBox="0 0 84 92">
+  <path d="M14,92 Q14,58 30,50 L54,50 Q70,58 70,92 Z" fill="#141416"></path>
+  <circle cx="42" cy="30" r="24" fill="#fff" stroke="#141416" stroke-width="2.4"></circle>
+  <path d="M18,22 Q42,-6 66,22 L66,30 Q42,8 18,30 Z" fill="#141416"></path>
+  <path
+    d="M30,20.5 L34.5,17.5 L39,20.5"
+    fill="none"
+    stroke="#141416"
+    stroke-width="1.8"
+    stroke-linecap="round"
+    stroke-linejoin="round"></path>
+  <path
+    d="M45,20.5 L49.5,17.5 L54,20.5"
+    fill="none"
+    stroke="#141416"
+    stroke-width="1.8"
+    stroke-linecap="round"
+    stroke-linejoin="round"></path>
+  <circle cx="34.5" cy="30" r="2.2" fill="#141416"></circle>
+  <circle cx="49.5" cy="30" r="2.2" fill="#141416"></circle>
+  <line x1="34" y1="42" x2="50" y2="42" stroke="#141416" stroke-width="2" stroke-linecap="round"></line>
+  <polyline
+    points="26,56 34,56 38,46 45,64 51,56 58,56"
+    fill="none"
+    stroke="#fff"
+    stroke-width="2.4"
+    stroke-linecap="round"
+    stroke-linejoin="round"></polyline>
+</svg>

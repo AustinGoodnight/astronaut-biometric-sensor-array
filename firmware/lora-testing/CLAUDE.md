@@ -40,6 +40,9 @@ automatically on first build (per [platformio.ini](platformio.ini)).
    pio device monitor -e tx
    ```
 
+
+   pio run -e rx -t upload
+   pio device monitor -e rx
 ## Windows setup
 
 1. Install VS Code, then install the `pioarduino.pioarduino-ide` extension.
