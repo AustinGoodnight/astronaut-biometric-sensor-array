@@ -60,6 +60,9 @@ automatically on first build (per [platformio.ini](platformio.ini)).
    pio device monitor -e tx
    ```
 
+   pio run -e rx -t upload
+   pio device monitor -e rx
+
 ## Managing libraries
 
 Libraries are declared in [platformio.ini](platformio.ini) under `lib_deps`
