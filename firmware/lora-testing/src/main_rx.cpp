@@ -22,6 +22,8 @@ void setup() {
   Serial.println("LoRa init succeeded. Starting receiver.");
 }
 
+unsigned long lastHeartbeat = 0;
+
 void loop() {
   int packetSize = LoRa.parsePacket();
   if (packetSize) {
@@ -33,5 +35,10 @@ void loop() {
 
     Serial.print(" | RSSI: ");
     Serial.println(LoRa.packetRssi());
+  }
+
+  if (millis() - lastHeartbeat >= 1000) {
+    lastHeartbeat = millis();
+    Serial.println("Heartbeat: listening...");
   }
 }

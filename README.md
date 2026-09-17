@@ -6,6 +6,7 @@ plus the software that trains on and displays what it captures.
 | Subsystem | What it is | Docs |
 |---|---|---|
 | [firmware/lora-testing](firmware/lora-testing) | PlatformIO firmware for the two Seeed XIAO ESP32C3 LoRa TX/RX boards | [README](firmware/lora-testing/README.md) · [CLAUDE.md](firmware/lora-testing/CLAUDE.md) |
+| [firmware/hr-testing](firmware/hr-testing) | PlatformIO firmware bringing up a MAX30102 heart-rate sensor on a Seeed XIAO ESP32C6 | [README](firmware/hr-testing/README.md) · [CLAUDE.md](firmware/hr-testing/CLAUDE.md) |
 | [firmware/main-app](firmware/main-app) | Firmware for the real sensor-node board (per-second sensor read + LoRa transmit) | [README](firmware/main-app/README.md) |
 | [machine-learning](machine-learning) | ML models on the captured biometric/sensor data | [README](machine-learning/README.md) |
 | [web-ui](web-ui) | Web UI for monitoring/visualizing the link | [README](web-ui/README.md) |
