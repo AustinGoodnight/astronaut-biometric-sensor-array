@@ -2,5 +2,7 @@
 .vscode/c_cpp_properties.json
 .vscode/launch.json
 platformio.local.ini
+include/wifi_secrets.h
 __pycache__/
 .venv/
+*.csv
