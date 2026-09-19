@@ -1,0 +1,12 @@
+; Copy this file to platformio.local.ini (gitignored) and fill in your
+; machine's actual serial port. Only needed if PlatformIO's auto-detection
+; is ever ambiguous (e.g. multiple boards plugged in at once) - with a
+; single board plugged in, PlatformIO auto-detects the port and this file
+; isn't necessary.
+;
+; macOS: find yours with `ls /dev/cu.usbmodem*`
+; Windows: find yours in Device Manager under "Ports (COM & LPT)"
+
+[env:xiao_c6]
+upload_port = /dev/cu.usbmodem1101
+monitor_port = /dev/cu.usbmodem1101
