@@ -72,6 +72,8 @@ body {
 header { display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: center; justify-content: space-between; margin-bottom: 12px; }
 h1 { font-size: 18px; font-weight: 650; margin: 0; letter-spacing: -.01em; }
 .sub { color: var(--ink3); font-size: 12px; }
+.title-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
+body.settings-hidden #ctlPanel, body.settings-hidden #filterPanel { display: none; }
 .controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 button, .btn, select, input[type=text] {
   font: inherit; color: var(--ink); background: var(--surface);
@@ -207,11 +209,14 @@ th { color: var(--ink2); font-weight: 600; position: sticky; top: 0; background:
 <div class="wrap">
   <header>
     <div>
-      <h1>PPG Monitor</h1>
+      <div class="title-row">
+        <h1>PPG Monitor</h1>
+        <span class="chip" id="conn"><span class="dot" id="connDot"></span><span id="connText">Not connected</span></span>
+        <button id="btnSettings" aria-pressed="false" aria-controls="ctlPanel filterPanel" title="Show or hide the connection and view settings">Settings</button>
+      </div>
       <div class="sub">MAX30102 via USB or BLE (HR-Testing) &middot; live waveform, beats, and signal quality</div>
     </div>
-    <div class="controls">
-      <span class="chip" id="conn"><span class="dot" id="connDot"></span><span id="connText">Not connected</span></span>
+    <div class="controls" id="ctlPanel">
       <button class="primary" id="btnConnect">Connect BLE</button>
       <button class="primary" id="btnUsb">Connect USB</button>
       <button id="btnDemo">Demo</button>
@@ -274,7 +279,7 @@ th { color: var(--ink2); font-weight: 600; position: sticky; top: 0; background:
     </div>
   </section>
 
-  <div class="filters" aria-label="View controls">
+  <div class="filters" id="filterPanel" aria-label="View controls">
     <label>Window
       <select id="winSel">
         <option value="5">5 s</option>
@@ -1451,6 +1456,14 @@ function wire() {
     if (Date.now() - clearArm < 3000) { resetAll(); toast('Cleared.'); $('btnClear').textContent = 'Clear'; clearArm = 0; }
     else { clearArm = Date.now(); $('btnClear').textContent = 'Click again to clear'; setTimeout(() => { if (Date.now() - clearArm >= 2900) $('btnClear').textContent = 'Clear'; }, 3000); }
   };
+  const setSettingsHidden = hide => {
+    document.body.classList.toggle('settings-hidden', hide);
+    $('btnSettings').setAttribute('aria-pressed', String(!hide));
+    try { localStorage.setItem('ppgSettingsHidden', hide ? '1' : '0'); } catch (e) {}
+    S.dirty = true;   // canvases change size when the panels collapse
+  };
+  $('btnSettings').onclick = () => setSettingsHidden(!document.body.classList.contains('settings-hidden'));
+  try { setSettingsHidden(localStorage.getItem('ppgSettingsHidden') === '1'); } catch (e) { setSettingsHidden(false); }
   $('btnTheme').onclick = () => {
     const cur = document.documentElement.dataset.theme || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
     document.documentElement.dataset.theme = cur === 'dark' ? 'light' : 'dark'; themeChanged();
