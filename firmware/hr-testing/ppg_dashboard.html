@@ -174,9 +174,32 @@ th { color: var(--ink2); font-weight: 600; position: sticky; top: 0; background:
   .two { grid-template-columns: 1fr; }
 }
 @media (max-width: 520px) {
-  .tiles { grid-template-columns: 1fr; }
   .hero-val { font-size: 52px; }
   .filters input[type=range] { width: 100%; }
+}
+/* Phone layout: live waveform first, then heart rate / r / strength in a 3-wide row */
+@media (max-width: 700px) {
+  .wrap { display: flex; flex-direction: column; padding: 10px 10px 32px; }
+  .wrap > * { min-width: 0; }
+  header { order: 0; margin-bottom: 8px; }
+  header .sub { display: none; }
+  #wavCard { order: 1; }
+  .tiles { order: 2; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .filters, .wrap > .card, .wrap > .two { order: 3; }
+  .tiles .hero { grid-column: auto; }
+  .tiles .tile { padding: 8px 8px; }
+  .tile .label { font-size: 11px; }
+  .tile .val { font-size: 22px; }
+  .tile .val small { font-size: 11px; }
+  .tiles .hero .hero-val { font-size: 36px; margin: 2px 0 4px; }
+  .hero-val .unit { display: block; font-size: 11px; margin: 2px 0 0; }
+  .tile .note { font-size: 10px; min-height: 0; }
+  .tiles .tile:not(.hero) .note { display: none; }
+  .state { font-size: 11px; align-items: flex-start; }
+  .tiles .tile:nth-child(n+4) { grid-column: 1 / -1; }
+  #wavCard .card-h .sub { display: none; }
+  #cvWave { height: 200px; }
+  .card { padding: 10px; }
 }
 </style>
 </head>
@@ -222,9 +245,9 @@ th { color: var(--ink2); font-weight: 600; position: sticky; top: 0; background:
     <div class="tile">
       <div class="label">Pulse strength (AC/DC)</div>
       <div class="val" id="aVal">--</div>
-      <div class="meter" id="aMeter" aria-hidden="true"><div class="fill"></div><div class="tick" style="left:50%"></div></div>
+      <div class="meter" id="aMeter" aria-hidden="true"><div class="fill"></div><div class="tick" style="left:30%"></div></div>
       <div class="state" id="aState"></div>
-      <div class="note">Aim for 0.5% or more. Lighter pressure usually helps.</div>
+      <div class="note">Aim for 0.3% or more. Lighter pressure usually helps.</div>
     </div>
     <div class="tile">
       <div class="label">IR light level (DC)</div>
@@ -276,7 +299,7 @@ th { color: var(--ink2); font-weight: 600; position: sticky; top: 0; background:
     <button id="btnMark">Mark (M)</button>
   </div>
 
-  <section class="card">
+  <section class="card" id="wavCard">
     <div class="card-h">
       <h2>Pulse waveform</h2>
       <div class="sub">Filtered IR (0.7&ndash;3.5 Hz), flipped so each beat points up. Dots are beats the detector counted.</div>
@@ -1248,7 +1271,7 @@ function makePanels() {
   })));
   panels.push(new Panel('cvA', p => drawTicks(p, {
     lo: 0, hi: 1, auto: false, yTicks: 4, unit: '%', fmt: v => v.toFixed(2).replace(/0$/, '').replace(/\.$/, ''),
-    thresholds: [{ v: 0.5, label: 'target 0.5%' }],
+    thresholds: [{ v: 0.3, label: 'target 0.3%' }],
     series: [
       { kind: 'line', color: T.s2, name: 'Browser', data: dataBrowser('acdc', 100), nearest: nearestIn(() => S.ticks, 'acdc', 100) },
       { kind: 'line', color: T.s1, name: 'Device', data: dataDevice('acdc', 100), nearest: nearestIn(() => S.dticks, 'acdc', 100) }
@@ -1321,7 +1344,7 @@ function updateTiles() {
   const a = rd ? rd.acdc * 100 : NaN;
   document.getElementById('aVal').innerHTML = isFinite(a) ? a.toFixed(2) + '<small>%</small>' : '--';
   if (isFinite(a)) {
-    const lvl = a >= 0.5 ? 'good' : a >= 0.15 ? 'warn' : 'bad';
+    const lvl = a >= 0.3 ? 'good' : a >= 0.15 ? 'warn' : 'bad';
     setMeter('aMeter', a / 1.0, lvl === 'good' ? T.good : lvl === 'warn' ? T.warning : T.serious);
     setState('aState', lvl, lvl === 'good' ? 'Strong pulse' : lvl === 'warn' ? 'Weak: try lighter pressure' : 'Very weak: reseat the finger');
   } else { setMeter('aMeter', 0, T.s1); setState('aState', null); }
