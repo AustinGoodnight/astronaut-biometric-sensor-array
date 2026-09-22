@@ -52,7 +52,7 @@ void TaskReadFast(void *pvParameters) {
   TickType_t xLastWakeTime = xTaskGetTickCount();
 
   for (;;) {
-    int fastValue = analogRead(FAST_SENSOR_PIN);
+    int fastValue = (analogRead(FAST_SENSOR_PIN)/4095) * 3.3;
     Serial.printf("[Live Fast] Value: %d\n", fastValue);
 
     // Secure the shared variables and add this reading to the buffer
@@ -77,7 +77,7 @@ void TaskReadSlow(void *pvParameters) {
   for (;;) {
     vTaskDelayUntil(&xLastWakeTime, xDelay);
 
-    int slowValue = analogRead(SLOW_SENSOR_PIN);
+    int slowValue = (analogRead(SLOW_SENSOR_PIN)/4095)*3.3;
 
     // Secure the shared variables and save the latest slow reading
     if (xSemaphoreTake(xDataMutex, portMAX_DELAY) == pdTRUE) {
