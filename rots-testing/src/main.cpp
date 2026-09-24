@@ -1,4 +1,6 @@
 #include <Arduino.h>
+#include <Wire.h>
+#include "SparkFun_SCD30_Arduino_Library.h" // Include the SparkFun SCD30 library
 
 #define FAST_SENSOR_PIN A0  
 #define SLOW_SENSOR_PIN A2  
@@ -8,19 +10,31 @@ SemaphoreHandle_t xDataMutex;
 // Notification tool: Tells the processing task when a slow execution occurs
 SemaphoreHandle_t xProcessingSemaphore;
 
+SCD30 co2Sensor;
+
 // Shared volatile variables protected by the Mutex
 int fastReadings[50]; 
 int fastReadingCount = 0;
-int lastSlowValue = 0;
+int lastCO2Value = 0;
 
 // Function prototypes
 void TaskReadFast(void *pvParameters);
-void TaskReadSlow(void *pvParameters);
+void TaskReadCO2(void *pvParameters);
 void TaskProcessBackground(void *pvParameters);
 
 void setup() {
   Serial.begin(1115200); 
   while (!Serial) { delay(10); } 
+
+  Wire.begin(); 
+  
+  // Initialize the sensor
+  if (co2Sensor.begin() == false) {
+    Serial.println("SCD30 not detected. Please check your wiring.");
+    while (1); // Halt execution if sensor isn't found
+  }
+  
+  Serial.println("SCD30 detected. Reading data...");
 
   pinMode(FAST_SENSOR_PIN, INPUT);
   pinMode(SLOW_SENSOR_PIN, INPUT);
@@ -33,7 +47,7 @@ void setup() {
 
   xTaskCreate(TaskReadFast, "FastTask", 3072, NULL, 3, NULL);
 
-  xTaskCreate(TaskReadSlow, "SlowTask", 3072, NULL, 2, NULL);
+  xTaskCreate(TaskReadCO2, "Co2Task", 3072, NULL, 2, NULL);
 
   xTaskCreate(TaskProcessBackground, "ProcessTask", 3072, NULL, 1, NULL);
 }
@@ -69,7 +83,7 @@ void TaskReadFast(void *pvParameters) {
 }
 
 // Slow Task: Reads every 2 seconds (every 2000ms)
-void TaskReadSlow(void *pvParameters) {
+void TaskReadCO2(void *pvParameters) {
   (void) pvParameters;
   const TickType_t xDelay = pdMS_TO_TICKS(2000);
   TickType_t xLastWakeTime = xTaskGetTickCount();
@@ -77,11 +91,11 @@ void TaskReadSlow(void *pvParameters) {
   for (;;) {
     vTaskDelayUntil(&xLastWakeTime, xDelay);
 
-    int slowValue = analogRead(SLOW_SENSOR_PIN);
+    int CO2Value = co2Sensor.getCO2();
 
     // Secure the shared variables and save the latest slow reading
     if (xSemaphoreTake(xDataMutex, portMAX_DELAY) == pdTRUE) {
-      lastSlowValue = slowValue;
+      lastCO2Value = CO2Value;
       xSemaphoreGive(xDataMutex);
     }
 
@@ -101,12 +115,12 @@ void TaskProcessBackground(void *pvParameters) {
       long sum = 0;
       float average = 0.0;
       int countCopy = 0;
-      int slowValueCopy = 0;
+      int CO2ValueCopy = 0;
 
       // Lock data briefly to safely copy shared values out into local memory
       if (xSemaphoreTake(xDataMutex, portMAX_DELAY) == pdTRUE) {
         countCopy = fastReadingCount;
-        slowValueCopy = lastSlowValue;
+        CO2ValueCopy = lastCO2Value;
         
         for (int i = 0; i < countCopy; i++) {
           sum += fastReadings[i];
@@ -127,7 +141,7 @@ void TaskProcessBackground(void *pvParameters) {
       Serial.printf("[BACKGROUND REPORT]\n");
       Serial.printf(" -> Captured Fast Readings: %d\n", countCopy);
       Serial.printf(" -> Calculated Fast Avg:    %.2f\n", average);
-      Serial.printf(" -> Matched Slow Value:     %d\n", slowValueCopy);
+      Serial.printf(" -> Matched CO2 value     %d\n", CO2ValueCopy);
       Serial.println("=============================================\n");
     }
   }
