@@ -1,6 +1,0 @@
-.pio
-.vscode/c_cpp_properties.json
-.vscode/launch.json
-platformio.local.ini
-__pycache__/
-.venv/
