@@ -11,6 +11,7 @@ SemaphoreHandle_t xDataMutex;
 SemaphoreHandle_t xProcessingSemaphore;
 
 SCD30 co2Sensor;
+bool co2SensorReady = false;
 
 // Shared volatile variables protected by the Mutex
 int fastReadings[50]; 
@@ -23,18 +24,18 @@ void TaskReadCO2(void *pvParameters);
 void TaskProcessBackground(void *pvParameters);
 
 void setup() {
-  Serial.begin(1115200); 
-  while (!Serial) { delay(10); } 
+  Serial.begin(115200); 
+  Serial.println("Starting setup");
 
   Wire.begin(); 
   
   // Initialize the sensor
-  if (co2Sensor.begin() == false) {
+  co2SensorReady = co2Sensor.begin();
+  if (!co2SensorReady) {
     Serial.println("SCD30 not detected. Please check your wiring.");
-    while (1); // Halt execution if sensor isn't found
+  } else {
+    Serial.println("SCD30 detected. Reading data...");
   }
-  
-  Serial.println("SCD30 detected. Reading data...");
 
   pinMode(FAST_SENSOR_PIN, INPUT);
   pinMode(SLOW_SENSOR_PIN, INPUT);
@@ -47,13 +48,14 @@ void setup() {
 
   xTaskCreate(TaskReadFast, "FastTask", 3072, NULL, 3, NULL);
 
-  xTaskCreate(TaskReadCO2, "Co2Task", 3072, NULL, 2, NULL);
+  if (co2SensorReady) {
+    xTaskCreate(TaskReadCO2, "Co2Task", 3072, NULL, 2, NULL);
+  }
 
   xTaskCreate(TaskProcessBackground, "ProcessTask", 3072, NULL, 1, NULL);
 }
 
 void loop() {
-  // Main thread remains empty and dormant
 }
 
 // TASKS
@@ -67,7 +69,7 @@ void TaskReadFast(void *pvParameters) {
 
   for (;;) {
     int fastValue = analogRead(FAST_SENSOR_PIN);
-    Serial.printf("[Live Fast] Value: %d\n", fastValue);
+    // Serial.printf("[Live Fast] Value: %d\n", fastValue);
 
     // Secure the shared variables and add this reading to the buffer
     if (xSemaphoreTake(xDataMutex, portMAX_DELAY) == pdTRUE) {
@@ -85,11 +87,17 @@ void TaskReadFast(void *pvParameters) {
 // Slow Task: Reads every 2 seconds (every 2000ms)
 void TaskReadCO2(void *pvParameters) {
   (void) pvParameters;
-  const TickType_t xDelay = pdMS_TO_TICKS(2000);
+  const TickType_t xDelay = pdMS_TO_TICKS(500);
   TickType_t xLastWakeTime = xTaskGetTickCount();
 
   for (;;) {
     vTaskDelayUntil(&xLastWakeTime, xDelay);
+
+    // Serial.printf("Attempting CO2 value... %c\n", co2Sensor.dataAvailable() ? 'Y' : 'N');
+
+    if (!co2Sensor.readMeasurement()) {
+      continue;
+    }
 
     int CO2Value = co2Sensor.getCO2();
 
