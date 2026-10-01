@@ -64,8 +64,12 @@ field range tests, made for **Bluefy** on iOS (Safari has no Web
 Bluetooth). It connects to a board over BLE, tags every packet with a
 high-accuracy GPS fix, and computes distance from a fixed anchor.
 
-- **Live** — RSSI, SNR, distance to anchor, time since last packet,
-  delivery %, start/stop logging, radio settings.
+- **Home** — dashboard of everything at once: live RSSI/SNR, distance,
+  time since last packet, delivery %, start/stop logging, a mini map, RSSI
+  and delivery vs distance, anchor + your position, export, and recent
+  board output. Each card links to its full tab.
+- **Board** — radio settings (SF / bandwidth / TX power) and the full
+  board output.
 - **Map** — every packet as a dot colored by RSSI, missed packets as
   hollow dots, the anchor as a star with distance rings.
 - **Charts** — RSSI and SNR vs distance, delivery % per distance band,
