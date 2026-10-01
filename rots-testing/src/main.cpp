@@ -63,7 +63,7 @@ void loop() {
 // Fast Task: Reads 5 times a second
 void TaskReadFast(void *pvParameters) {
   (void) pvParameters;
-  const TickType_t xDelay = pdMS_TO_TICKS(200);
+  const TickType_t xDelay = pdMS_TO_TICKS(1000);
   TickType_t xLastWakeTime = xTaskGetTickCount();
 
   for (;;) {
@@ -86,7 +86,7 @@ void TaskReadFast(void *pvParameters) {
 // Slow Task: Reads every 2 seconds (every 2000ms)
 void TaskReadCO2(void *pvParameters) {
   (void) pvParameters;
-  const TickType_t xDelay = pdMS_TO_TICKS(500);
+  const TickType_t xDelay = pdMS_TO_TICKS(2000);
   TickType_t xLastWakeTime = xTaskGetTickCount();
 
   for (;;) {
