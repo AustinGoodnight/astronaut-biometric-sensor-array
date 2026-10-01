@@ -1,10 +1,12 @@
-name: Deploy HR dashboard
+name: Deploy web apps (HR dashboard, LoRa range test)
 
 on:
   push:
-    branches: [main, test]
+    branches: [main, test, lora-sx-testing]
     paths:
       - 'firmware/hr-testing/ppg_dashboard.html'
+      - 'firmware/lora-sx-testing/range-app/**'
+      - '.github/pages/**'
       - '.github/workflows/pages.yml'
   workflow_dispatch:
 
@@ -25,10 +27,13 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
-      - name: Stage only the dashboard
+      # One sub-URL per app; the root is a small index linking to each.
+      - name: Stage the apps
         run: |
-          mkdir site
-          cp firmware/hr-testing/ppg_dashboard.html site/index.html
+          mkdir -p site/hr-testing site/lora-range
+          cp .github/pages/index.html site/index.html
+          cp firmware/hr-testing/ppg_dashboard.html site/hr-testing/index.html
+          cp firmware/lora-sx-testing/range-app/index.html site/lora-range/index.html
       - uses: actions/upload-pages-artifact@v3
         with:
           path: site

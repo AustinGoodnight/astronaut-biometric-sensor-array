@@ -49,9 +49,68 @@ the ports (see [../lora-testing/CLAUDE.md](../lora-testing/CLAUDE.md#local-port-
 ## Live config
 
 The firmware speaks the same `SET sf=..,bw=..,pwr=..` / `GET` serial
-protocol as the C3 boards, so [../lora-testing/config-ui](../lora-testing/config-ui)
+protocol (also over BLE, see below) as the C3 boards, so [../lora-testing/config-ui](../lora-testing/config-ui)
 works with these boards unchanged. The SX1262 accepts TX power from -9 to
 22 dBm (the UI slider covers 2–20).
+
+## Bluetooth + range-test app
+
+Both boards also advertise over BLE as **`LoRa-TX`** / **`LoRa-RX`**
+([lib/BleLink](lib/BleLink)). Every serial line is mirrored to the phone,
+and the phone can send the same `SET`/`GET` commands.
+
+[range-app/index.html](range-app/index.html) is a single-page web app for
+field range tests, made for **Bluefy** on iOS (Safari has no Web
+Bluetooth). It connects to a board over BLE, tags every packet with a
+high-accuracy GPS fix, and computes distance from a fixed anchor.
+
+- **Live** — RSSI, SNR, distance to anchor, time since last packet,
+  delivery %, start/stop logging, radio settings.
+- **Map** — every packet as a dot colored by RSSI, missed packets as
+  hollow dots, the anchor as a star with distance rings.
+- **Charts** — RSSI and SNR vs distance, delivery % per distance band,
+  RSSI over time.
+- **Location** — set the anchor by pasting coordinates (or a Google/Apple
+  Maps link), or measure your position as a 30 s weighted average and
+  share it with the other person.
+- **Data** — export everything as CSV via the iOS share sheet, or copy it.
+
+Missed packets are detected from gaps in the TX's `count:` field, plus a
+timeout while nothing arrives (so the map shows where reception stopped).
+Gaps caused by the phone's BLE link dropping or the app being backgrounded
+are not counted as radio misses.
+
+### Running a range test
+
+1. Flash both boards. The person at the fixed spot keeps the **TX** board
+   there (the default "TX fixed, RX moves" mode).
+2. Both people open the app in Bluefy and allow precise location
+   (iOS Settings → Bluefy → Location → *While Using* + *Precise Location*).
+3. At the TX: **Location → Measure (30 s average)**, standing still at the
+   board, then **Share** the coordinates to the other person (or tap
+   **Set as anchor** if the same phone will walk).
+4. With the RX: paste the shared text into **Location → Use pasted
+   coordinates**, **Connect board** → `LoRa-RX`, then **Start logging**.
+   Keep the screen on while walking — iOS pauses GPS and Bluetooth when
+   the phone locks.
+5. **Data → Export CSV** afterwards. Use **New session** between
+   configurations (different SF/power) and put the settings in the session
+   note so they end up in every CSV row.
+
+Phone GPS is good to about ±3–5 m in the open. Every row records the fix
+accuracy and the anchor accuracy, so you can filter out bad fixes.
+
+CSV columns: `session, time_iso, epoch_ms, board, event (received / missed /
+crc_fail / sent), count, rssi_dbm, snr_db, sf, bw_hz, pwr_dbm, lat, lon,
+gps_accuracy_m, altitude_m, altitude_accuracy_m, speed_mps, gps_fix_age_ms,
+anchor_board, anchor_lat, anchor_lon, anchor_accuracy_m, distance_m, note,
+payload`.
+
+Web Bluetooth and precise GPS both need HTTPS, so the app is served via
+GitHub Pages at
+`https://austingoodnight.github.io/astronaut-biometric-sensor-array/lora-range/`
+(the HR dashboard is at `/hr-testing/`; see
+[../../.github/workflows/pages.yml](../../.github/workflows/pages.yml)).
 
 ## Differences from lora-testing
 

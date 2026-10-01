@@ -212,14 +212,18 @@ const state = {
   path: { tx: null, rx: null },
   cfg: { tx: {}, rx: {} },
   packets: {
-    tx: { lastAt: null, lastRSSI: null, lastMalformed: null, malformedCount: 0, total: 0 },
-    rx: { lastAt: null, lastRSSI: null, lastMalformed: null, malformedCount: 0, total: 0 },
+    tx: { lastAt: null, lastRSSI: null, lastSNR: null, lastMalformed: null, lastCrcFail: false, malformedCount: 0, total: 0 },
+    rx: { lastAt: null, lastRSSI: null, lastSNR: null, lastMalformed: null, lastCrcFail: false, malformedCount: 0, total: 0 },
   },
   pendingApply: { tx: null, rx: null },
   pendingApplyTimer: { tx: null, rx: null },
 };
 
-const RX_PACKET_RE = /^Received packet: ([\s\S]*) \| RSSI: (-?\d+)$/;
+// SX127x boards (lora-testing) print "... | RSSI: -42"; SX1262 boards
+// (lora-sx-testing) print "... | RSSI: -42.00 | SNR: 9.75".
+const RX_PACKET_RE = /^Received packet: ([\s\S]*) \| RSSI: (-?\d+(?:\.\d+)?)(?: \| SNR: (-?\d+(?:\.\d+)?))?$/;
+// SX1262 boards report packets that fail CRC instead of printing them.
+const RX_CRC_FAIL_RE = /^Received packet with bad CRC/;
 const TX_SEND_RE = /^Sending packet: (\d+)$/;
 
 // Characters outside printable ASCII (space through ~) indicate line noise /
@@ -246,13 +250,25 @@ function trackPacket(role, text) {
 
   const rxMatch = text.match(RX_PACKET_RE);
   if (rxMatch) {
-    const [, payload, rssi] = rxMatch;
+    const [, payload, rssi, snr] = rxMatch;
     const bad = findMalformedChars(payload);
     stats.lastAt = Date.now();
     stats.lastRSSI = Number(rssi);
+    stats.lastSNR = snr === undefined ? null : Number(snr);
     stats.lastMalformed = bad;
+    stats.lastCrcFail = false;
     stats.total += 1;
     if (bad.length > 0) stats.malformedCount += 1;
+    renderStats(role);
+    return;
+  }
+
+  if (RX_CRC_FAIL_RE.test(text)) {
+    stats.lastAt = Date.now();
+    stats.lastMalformed = [];
+    stats.lastCrcFail = true;
+    stats.total += 1;
+    stats.malformedCount += 1;
     renderStats(role);
     return;
   }
@@ -277,6 +293,8 @@ function renderStats(role) {
     strengthEl.className =
       "stat-value " + (stats.lastRSSI >= -80 ? "good" : stats.lastRSSI >= -100 ? "warn" : "bad");
   }
+  document.getElementById(`stat-strength-sub-${role}`).textContent =
+    stats.lastSNR == null ? "" : `SNR ${stats.lastSNR} dB`;
 
   const ageEl = document.getElementById(`stat-age-${role}`);
   const age = stats.lastAt == null ? null : Date.now() - stats.lastAt;
@@ -295,6 +313,10 @@ function renderStats(role) {
     integrityEl.textContent = "n/a";
     integrityEl.className = "stat-value muted";
     integritySubEl.textContent = `${stats.total} sent`;
+  } else if (stats.lastCrcFail) {
+    integrityEl.textContent = "CRC fail";
+    integrityEl.className = "stat-value bad";
+    integritySubEl.textContent = `${stats.malformedCount} bad / ${stats.total} total`;
   } else if (stats.lastMalformed.length === 0) {
     integrityEl.textContent = "clean";
     integrityEl.className = "stat-value good";
@@ -308,7 +330,7 @@ function renderStats(role) {
 }
 
 function resetStats(role) {
-  state.packets[role] = { lastAt: null, lastRSSI: null, lastMalformed: null, malformedCount: 0, total: 0 };
+  state.packets[role] = { lastAt: null, lastRSSI: null, lastSNR: null, lastMalformed: null, lastCrcFail: false, malformedCount: 0, total: 0 };
   renderStats(role);
 }
 
@@ -387,6 +409,7 @@ function buildPanel({ role, title, hasPower }) {
   stats.appendChild(el("div", { class: "stat" }, [
     el("div", { class: "stat-label", text: "Signal Strength" }),
     el("div", { class: "stat-value muted", id: `stat-strength-${role}`, text: "—" }),
+    el("div", { class: "stat-sub", id: `stat-strength-sub-${role}`, text: "" }),
   ]));
   stats.appendChild(el("div", { class: "stat" }, [
     el("div", { class: "stat-label", text: "Since Last Packet" }),

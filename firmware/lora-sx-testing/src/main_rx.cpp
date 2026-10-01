@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include <RadioLib.h>
+#include <BleLink.h>
 
 // Wio-SX1262 for XIAO (header board) on a XIAO ESP32C6. SPI uses the
 // board's default hardware SPI pins (D8 SCK / D9 MISO / D10 MOSI).
@@ -14,9 +15,10 @@
 
 SX1262 radio = new Module(LORA_NSS, LORA_DIO1, LORA_RST, LORA_BUSY);
 
-// Live-tunable radio settings, changed at runtime via serial commands
-// from the host-side config UI (../lora-testing/config-ui). Same protocol
-// as the ESP32C3/SX127x boards. See handleSerialCommands().
+// Live-tunable radio settings, changed at runtime via commands from the
+// USB config UI (../lora-testing/config-ui) or the BLE range-test app
+// (../range-app). Same protocol as the ESP32C3/SX127x boards. See
+// handleCommand().
 // No TX power here — this board only receives.
 int currentSF = 9;
 long currentBW = 125000;  // Hz on the wire; RadioLib takes kHz
@@ -37,21 +39,12 @@ bool isValidBandwidth(long bw) {
 }
 
 void printConfig() {
-  Serial.print("CFG sf=");
-  Serial.print(currentSF);
-  Serial.print(" bw=");
-  Serial.println(currentBW);
+  BleLink::logLine("CFG sf=" + String(currentSF) + " bw=" + String(currentBW));
 }
 
-// Parses lines like "SET sf=9,bw=125000" or "GET" from Serial and applies
-// them to the radio immediately, without needing a reflash.
-void handleSerialCommands() {
-  if (!Serial.available()) return;
-
-  String line = Serial.readStringUntil('\n');
-  line.trim();
-  if (line.length() == 0) return;
-
+// Applies lines like "SET sf=9,bw=125000" or "GET" to the radio
+// immediately, without needing a reflash.
+void handleCommand(const String &line) {
   if (line == "GET") {
     printConfig();
     return;
@@ -100,6 +93,18 @@ void handleSerialCommands() {
   }
 }
 
+// Commands can arrive over USB serial or BLE; both feed handleCommand().
+void pollCommands() {
+  if (Serial.available()) {
+    String line = Serial.readStringUntil('\n');
+    line.trim();
+    if (line.length() > 0) handleCommand(line);
+  }
+
+  String bleLine;
+  if (BleLink::pollCommand(bleLine)) handleCommand(bleLine);
+}
+
 void setup() {
   Serial.begin(115200);
   // Native USB serial blocks on every print while the host isn't reading
@@ -108,14 +113,17 @@ void setup() {
   Serial.setTxTimeoutMs(0);
   delay(2000); // give the serial monitor a moment to connect
 
+  BleLink::begin("LoRa-RX");
+
   int state = radio.begin(LORA_FREQ_MHZ, currentBW / 1000.0, currentSF, 5,
                           RADIOLIB_SX126X_SYNC_WORD_PRIVATE, 10,
                           8, LORA_TCXO_VOLTAGE);
   if (state != RADIOLIB_ERR_NONE) {
-    Serial.print("LoRa init failed, code ");
-    Serial.print(state);
-    Serial.println(". Check your connections.");
-    while (1);
+    // Keep repeating so a phone that connects later still sees why.
+    while (1) {
+      BleLink::logLine("LoRa init failed, code " + String(state) + ". Check your connections.");
+      delay(2000);
+    }
   }
 
   // DIO2 drives the module's TX path; RF_SW is toggled by RadioLib (HIGH in RX).
@@ -126,19 +134,20 @@ void setup() {
 
   state = radio.startReceive();
   if (state != RADIOLIB_ERR_NONE) {
-    Serial.print("startReceive failed, code ");
-    Serial.println(state);
-    while (1);
+    while (1) {
+      BleLink::logLine("startReceive failed, code " + String(state));
+      delay(2000);
+    }
   }
 
-  Serial.println("LoRa init succeeded. Starting receiver.");
+  BleLink::logLine("LoRa init succeeded. Starting receiver.");
   printConfig();
 }
 
 unsigned long lastHeartbeat = 0;
 
 void loop() {
-  handleSerialCommands();
+  pollCommands();
 
   if (rxFlag) {
     rxFlag = false;
@@ -147,22 +156,17 @@ void loop() {
     int state = radio.readData(packet);
 
     if (state == RADIOLIB_ERR_NONE) {
-      Serial.print("Received packet: ");
-      Serial.print(packet);
-      Serial.print(" | RSSI: ");
-      Serial.print(radio.getRSSI());
-      Serial.print(" | SNR: ");
-      Serial.println(radio.getSNR());
+      BleLink::logLine("Received packet: " + packet + " | RSSI: " + String(radio.getRSSI()) +
+                       " | SNR: " + String(radio.getSNR()));
     } else if (state == RADIOLIB_ERR_CRC_MISMATCH) {
-      Serial.println("Received packet with bad CRC, dropped.");
+      BleLink::logLine("Received packet with bad CRC, dropped.");
     } else {
-      Serial.print("readData failed, code ");
-      Serial.println(state);
+      BleLink::logLine("readData failed, code " + String(state));
     }
   }
 
   if (millis() - lastHeartbeat >= 1000) {
     lastHeartbeat = millis();
-    Serial.println("Heartbeat: listening...");
+    BleLink::logLine("Heartbeat: listening...");
   }
 }
