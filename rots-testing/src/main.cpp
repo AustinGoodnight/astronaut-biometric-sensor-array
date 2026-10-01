@@ -1,7 +1,7 @@
 #include <Arduino.h>
-#include <Wire.h>
 #include <array>
-#include "SparkFun_SCD30_Arduino_Library.h" // Include the SparkFun SCD30 library
+#include "i2cSensor.h"
+#include "sensorPayload.h"
 
 #define FAST_SENSOR_PIN A0  
 #define SLOW_SENSOR_PIN A2  
@@ -11,43 +11,7 @@ SemaphoreHandle_t xDataMutex;
 // Notification tool: Tells the processing task when a slow execution occurs
 SemaphoreHandle_t xProcessingSemaphore;
 
-SCD30 co2Sensor;
 bool co2SensorReady = false;
-
-typedef struct __attribute__((packed)) {
-  uint32_t timestamp_ms;
-  uint16_t i2c_value;
-  uint8_t fast_count;
-  uint8_t status_flags;
-  uint16_t fast_values[50];
-} SensorPayload_t;
-
-static_assert(sizeof(SensorPayload_t) == 108, "SensorPayload_t must be 108 bytes");
-
-constexpr uint8_t STATUS_I2C_VALID = 1 << 0;
-constexpr uint8_t STATUS_I2C_ERROR = 1 << 1;
-constexpr size_t PAYLOAD_HEADER_SIZE = 8;
-constexpr size_t MAX_SERIALIZED_PAYLOAD_SIZE = PAYLOAD_HEADER_SIZE + 50 * sizeof(uint16_t);
-
-using SerializedPayload = std::array<uint8_t, MAX_SERIALIZED_PAYLOAD_SIZE>;
-
-size_t serializePayload(const SensorPayload_t &payload, SerializedPayload &bytes) {
-  bytes[0] = static_cast<uint8_t>(payload.timestamp_ms >> 24);
-  bytes[1] = static_cast<uint8_t>(payload.timestamp_ms >> 16);
-  bytes[2] = static_cast<uint8_t>(payload.timestamp_ms >> 8);
-  bytes[3] = static_cast<uint8_t>(payload.timestamp_ms);
-  bytes[4] = payload.fast_count;
-  bytes[5] = static_cast<uint8_t>(payload.i2c_value >> 8);
-  bytes[6] = static_cast<uint8_t>(payload.i2c_value);
-  bytes[7] = payload.status_flags;
-
-  for (size_t i = 0; i < payload.fast_count; i++) {
-    bytes[PAYLOAD_HEADER_SIZE + 2 * i] = static_cast<uint8_t>(payload.fast_values[i] >> 8);
-    bytes[PAYLOAD_HEADER_SIZE + 2 * i + 1] = static_cast<uint8_t>(payload.fast_values[i]);
-  }
-
-  return PAYLOAD_HEADER_SIZE + 2 * payload.fast_count;
-}
 
 // Shared volatile variables protected by the Mutex
 std::array<int, 50> fastReadings{};
@@ -64,10 +28,8 @@ void setup() {
   Serial.begin(115200); 
   Serial.println("Starting setup");
 
-  Wire.begin(); 
-  
   // Initialize the sensor
-  co2SensorReady = co2Sensor.begin();
+  co2SensorReady = beginI2CSensor();
   if (!co2SensorReady) {
     Serial.println("SCD30 not detected. Please check your wiring.");
   } else {
@@ -132,15 +94,14 @@ void TaskReadCO2(void *pvParameters) {
 
     // Serial.printf("Attempting CO2 value... %c\n", co2Sensor.dataAvailable() ? 'Y' : 'N');
 
-    if (!co2Sensor.readMeasurement()) {
+    uint16_t co2Value = 0;
+    if (!readI2CSensorCO2(co2Value)) {
       continue;
     }
 
-    int CO2Value = co2Sensor.getCO2();
-
     // Secure the shared variables and save the latest slow reading
     if (xSemaphoreTake(xDataMutex, portMAX_DELAY) == pdTRUE) {
-      lastCO2Value = CO2Value;
+      lastCO2Value = co2Value;
       lastCO2Valid = true;
       xSemaphoreGive(xDataMutex);
     }
