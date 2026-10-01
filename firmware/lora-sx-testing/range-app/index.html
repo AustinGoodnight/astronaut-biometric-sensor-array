@@ -75,7 +75,7 @@ button {
 button.secondary { background: var(--track); color: var(--ink); }
 button.danger { background: var(--bad); color: #fff; }
 button:disabled { opacity: .45; }
-main { padding: 12px 16px calc(env(safe-area-inset-bottom) + 84px); max-width: 900px; margin: 0 auto; }
+main { padding: 12px 16px calc(env(safe-area-inset-bottom) + 84px); max-width: 1100px; margin: 0 auto; }
 section.tab { display: none; }
 section.tab.active { display: block; }
 .card {
@@ -107,13 +107,21 @@ textarea { min-height: 64px; resize: vertical; }
 .legend { display: flex; gap: 12px; flex-wrap: wrap; font-size: 12px; color: var(--ink2); margin-top: 8px; }
 .swatch { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; vertical-align: -1px; }
 .chart-box { position: relative; height: 240px; }
+.chart-box.small { height: 180px; }
+#homeMap { height: 240px; border-radius: 10px; }
+.home-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0 12px; }
+@media (min-width: 760px) { .home-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } #homeMap { height: 380px; } }
+.card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+.card-head h2 { margin: 0; }
+button.link { background: none; color: var(--accent); padding: 0; font-size: 14px; }
+
 nav.tabs {
   position: fixed; bottom: 0; left: 0; right: 0; z-index: 1000;
   display: flex; background: var(--surface); border-top: 1px solid var(--rule);
   padding-bottom: env(safe-area-inset-bottom);
 }
 nav.tabs button {
-  flex: 1; background: none; color: var(--ink3); border-radius: 0; padding: 12px 4px; font-size: 13px;
+  flex: 1; background: none; color: var(--ink3); border-radius: 0; padding: 12px 2px; font-size: 12px;
 }
 nav.tabs button.active { color: var(--accent); }
 .toast {
@@ -137,8 +145,8 @@ nav.tabs button.active { color: var(--accent); }
 </header>
 
 <main>
-  <!-- LIVE -->
-  <section class="tab active" id="tab-live">
+  <!-- HOME: a summary of every tab -->
+  <section class="tab active" id="tab-home">
     <div class="card">
       <div class="grid">
         <div class="stat"><div class="label">Signal (RSSI)</div><div class="value muted" id="vRssi">—</div><div class="sub" id="vSnr"></div></div>
@@ -160,6 +168,41 @@ nav.tabs button.active { color: var(--accent); }
       <p class="hint" id="logHint"></p>
     </div>
 
+    <div class="home-grid">
+      <div class="card">
+        <div class="card-head"><h2>Map</h2><button class="link" data-goto="map">Open map ›</button></div>
+        <div id="homeMap"></div>
+      </div>
+      <div class="card">
+        <div class="card-head"><h2>Signal vs distance</h2><button class="link" data-goto="charts">All charts ›</button></div>
+        <div class="chart-box small"><canvas id="chHomeRssi"></canvas></div>
+        <div class="chart-box small" style="margin-top:10px"><canvas id="chHomeDelivery"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-head"><h2>Location</h2><button class="link" data-goto="anchor">Open ›</button></div>
+        <div class="stat"><div class="label">Anchor</div><div class="coords" id="vHomeAnchor">not set</div><div class="sub" id="vHomeAnchorSub"></div></div>
+        <div class="stat" style="margin-top:10px"><div class="label">Me</div><div class="coords" id="vHomeMe">waiting for GPS…</div><div class="sub" id="vHomeMeSub"></div></div>
+        <div class="row" style="margin-top:10px">
+          <button class="secondary" id="btnHomeShareMe">Share my location</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-head"><h2>Data</h2><button class="link" data-goto="data">Open ›</button></div>
+        <p id="vHomeData" style="margin:0">No data yet.</p>
+        <div class="row" style="margin-top:10px">
+          <button id="btnHomeExport">Export CSV</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-head"><h2>Board</h2><button class="link" data-goto="board">Settings &amp; output ›</button></div>
+        <p style="margin:0" id="vHomeBoard">Not connected.</p>
+        <div class="log" id="homeLog" style="max-height:110px;margin-top:8px"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- BOARD -->
+  <section class="tab" id="tab-board">
     <div class="card">
       <h2>Radio settings (this board)</h2>
       <div class="grid">
@@ -281,11 +324,12 @@ nav.tabs button.active { color: var(--accent); }
 </main>
 
 <nav class="tabs">
-  <button data-tab="live" class="active">Live</button>
+  <button data-tab="home" class="active">Home</button>
   <button data-tab="map">Map</button>
   <button data-tab="charts">Charts</button>
   <button data-tab="anchor">Location</button>
   <button data-tab="data">Data</button>
+  <button data-tab="board">Board</button>
 </nav>
 <div class="toast" id="toast"></div>
 
@@ -476,10 +520,16 @@ function onNotify(e) {
 }
 function setBlePill(text, cls) {
   const p = $('pillBle');
-  if (text) { p.textContent = `Board: ${text}`; p.className = 'pill ' + (cls || ''); return; }
-  if (S.dev && S.dev.gatt && S.dev.gatt.connected) {
+  if (text) { p.textContent = `Board: ${text}`; p.className = 'pill ' + (cls || ''); }
+  else if (S.dev && S.dev.gatt && S.dev.gatt.connected) {
     p.textContent = `Board: ${S.name} (${S.role.toUpperCase()})`; p.className = 'pill good';
   } else { p.textContent = 'Board: not connected'; p.className = 'pill'; }
+  renderHomeBoard();
+}
+function renderHomeBoard() {
+  const connected = S.dev && S.dev.gatt && S.dev.gatt.connected;
+  $('vHomeBoard').textContent = !connected ? 'Not connected.' :
+    `${S.name} (${S.role.toUpperCase()})` + (S.cfg.sf != null ? ` · ${$('vCfg').textContent}` : '');
 }
 
 /* ---- Board output ---- */
@@ -505,6 +555,9 @@ function addLog(text) {
   log.textContent += `${t}  ${text}\n`;
   if (log.textContent.length > 20000) log.textContent = log.textContent.slice(-15000);
   log.scrollTop = log.scrollHeight;
+  const homeLog = $('homeLog');
+  homeLog.textContent = log.textContent.split('\n').slice(-6).join('\n');
+  homeLog.scrollTop = homeLog.scrollHeight;
 }
 
 /* ---- GPS ---- */
@@ -562,8 +615,7 @@ function removeRow(row) {
   if (i !== -1) S.rows.splice(i, 1);
   removeMarker(row); dataChanged();
 }
-let chartsDirty = true;
-function dataChanged() { chartsDirty = true; save(); renderStats(); }
+function dataChanged() { markChartsDirty(); save(); renderStats(); }
 
 function expectedInterval() { return median(S.rx.intervals) || DEFAULT_INTERVAL_MS; }
 
@@ -643,7 +695,7 @@ async function toggleLogging() {
 function newSession() {
   const max = S.rows.reduce((m, r) => Math.max(m, r.session), 0);
   S.session = Math.max(S.session, max) + 1;
-  resetGapTracking(); save(); renderLogState(); renderSessions(); rebuildMap(); chartsDirty = true;
+  resetGapTracking(); save(); renderLogState(); renderSessions(); rebuildMap(); markChartsDirty();
   toast(`Session ${S.session} started`);
 }
 
@@ -709,7 +761,7 @@ async function copyText(text) {
 }
 function setAnchor(p, source) {
   S.anchor = { lat: p.lat, lon: p.lon, acc: p.acc ?? null, source, setAt: Date.now() };
-  save(); renderAnchor(); renderDistance(); rebuildMap(); chartsDirty = true;
+  save(); renderAnchor(); renderDistance(); rebuildMap(); markChartsDirty();
   toast('Anchor set');
 }
 
@@ -757,7 +809,7 @@ function renderStats() {
     $('vLoss').className = 'value ' + (!c.total ? 'muted' : c.received / c.total >= .9 ? 'good' : c.received / c.total >= .5 ? 'warn' : 'bad');
     $('vLossSub').textContent = `${c.received} ok · ${c.missed} missed · ${c.crc} CRC`;
   }
-  $('vDataSummary').textContent = S.rows.length
+  $('vDataSummary').textContent = $('vHomeData').textContent = S.rows.length
     ? `${S.rows.length} rows across ${new Set(S.rows.map(r => r.session)).size} session(s).`
     : 'No data yet.';
   renderSessions();
@@ -802,49 +854,69 @@ function renderCfg() {
   if (bw != null) $('selBw').value = String(bw);
   if (pwr != null) $('inPwr').value = String(pwr);
   $('fieldPwr').style.display = S.role === 'tx' ? '' : 'none';
+  renderHomeBoard();
 }
 function renderAnchor() {
   $('selAnchorBoard').value = S.anchorBoard;
-  if (!S.anchor) { $('vAnchor').textContent = 'not set'; $('vAnchorSub').textContent = ''; return; }
-  $('vAnchor').textContent = fmtCoord(S.anchor.lat, S.anchor.lon);
+  if (!S.anchor) {
+    $('vAnchor').textContent = $('vHomeAnchor').textContent = 'not set';
+    $('vAnchorSub').textContent = '';
+    $('vHomeAnchorSub').textContent = 'set it in the Location tab';
+    return;
+  }
+  $('vAnchor').textContent = $('vHomeAnchor').textContent = fmtCoord(S.anchor.lat, S.anchor.lon);
   $('vAnchorSub').textContent = (S.anchor.acc != null ? `±${S.anchor.acc.toFixed(1)} m · ` : '') +
     `set ${new Date(S.anchor.setAt).toLocaleString()} (${S.anchor.source})`;
+  $('vHomeAnchorSub').textContent = `${S.anchorBoard.toUpperCase()} board` +
+    (S.anchor.acc != null ? ` · ±${S.anchor.acc.toFixed(1)} m` : '');
 }
 function renderMe() {
   if (!S.fix) return;
-  $('vMe').textContent = fmtCoord(S.fix.lat, S.fix.lon);
+  $('vMe').textContent = $('vHomeMe').textContent = fmtCoord(S.fix.lat, S.fix.lon);
   $('vMeSub').textContent = `±${S.fix.acc.toFixed(1)} m` +
     (S.fix.alt != null ? ` · altitude ${S.fix.alt.toFixed(1)} m` : '') +
     (S.fix.acc > 10 ? ' · move away from buildings/trees for a better fix' : '');
+  $('vHomeMeSub').textContent = `±${S.fix.acc.toFixed(1)} m`;
 }
 
-/* ---- Map ---- */
-let map = null, pointLayer = null, anchorLayer = null, meMarker = null, meCircle = null;
-const markers = new WeakMap();
-function initMap() {
-  if (map) return;
-  map = L.map('map', { zoomControl: true });
-  const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19, attribution: '&copy; OpenStreetMap contributors',
-  });
-  const sat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-    maxZoom: 19, attribution: 'Imagery &copy; Esri',
-  });
-  osm.addTo(map);
-  L.control.layers({ Map: osm, Satellite: sat }).addTo(map);
-  anchorLayer = L.layerGroup().addTo(map);
-  pointLayer = L.layerGroup().addTo(map);
-  if (S.anchor) map.setView([S.anchor.lat, S.anchor.lon], 16);
-  else if (S.fix) map.setView([S.fix.lat, S.fix.lon], 16);
-  else map.setView([39.5, -98.35], 4);
-  rebuildMap(); updateMeMarker();
+/* ---- Maps: the full Map tab and the mini map on Home ---- */
+// Each view keeps its own layers; rows are drawn on every view whose session filter matches.
+const mapViews = {
+  full: { elId: 'map', session: () => $('selSessionMap').value, layerControl: true, ringEl: 'vRing' },
+  home: { elId: 'homeMap', session: () => String(S.session), layerControl: false, ringEl: null },
+};
+function tileLayers() {
+  return {
+    Map: L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19, attribution: '&copy; OpenStreetMap contributors',
+    }),
+    Satellite: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+      maxZoom: 19, attribution: 'Imagery &copy; Esri',
+    }),
+  };
 }
-function mapSessionMatches(row) {
-  const v = $('selSessionMap').value;
-  return v === 'all' || row.session === +v;
+function initMapView(key) {
+  const v = mapViews[key];
+  if (v.map) return v;
+  v.map = L.map(v.elId, { zoomControl: true });
+  v.markers = new WeakMap();
+  const layers = tileLayers();
+  layers.Map.addTo(v.map);
+  if (v.layerControl) L.control.layers(layers).addTo(v.map);
+  v.anchorLayer = L.layerGroup().addTo(v.map);
+  v.pointLayer = L.layerGroup().addTo(v.map);
+  if (S.anchor) v.map.setView([S.anchor.lat, S.anchor.lon], 16);
+  else if (S.fix) v.map.setView([S.fix.lat, S.fix.lon], 16);
+  else v.map.setView([39.5, -98.35], 4);
+  rebuildView(v); updateMeOn(v);
+  return v;
 }
-function addMarker(row) {
-  if (!map || row.lat == null || !mapSessionMatches(row)) return;
+function viewMatches(v, row) {
+  const sel = v.session();
+  return sel === 'all' || row.session === +sel;
+}
+function addMarkerTo(v, row) {
+  if (!v.map || row.lat == null || !viewMatches(v, row)) return;
   let m;
   const ll = [row.lat, row.lon];
   if (row.event === 'received') {
@@ -862,48 +934,62 @@ function addMarker(row) {
     (row.distance_m != null ? `${fmtDist(row.distance_m)} from anchor<br>` : '') +
     `GPS ±${row.gps_accuracy_m != null ? row.gps_accuracy_m.toFixed(1) : '—'} m<br>` +
     new Date(row.epoch_ms).toLocaleTimeString());
-  m.addTo(pointLayer);
-  markers.set(row, m);
+  m.addTo(v.pointLayer);
+  v.markers.set(row, m);
 }
-function removeMarker(row) { const m = markers.get(row); if (m && pointLayer) pointLayer.removeLayer(m); markers.delete(row); }
+function addMarker(row) { for (const v of Object.values(mapViews)) addMarkerTo(v, row); }
+function removeMarker(row) {
+  for (const v of Object.values(mapViews)) {
+    if (!v.map) continue;
+    const m = v.markers.get(row);
+    if (m) v.pointLayer.removeLayer(m);
+    v.markers.delete(row);
+  }
+}
 function niceStep(x) {
   const p = 10 ** Math.floor(Math.log10(x)), f = x / p;
   return (f < 1.5 ? 1 : f < 3.5 ? 2.5 : f < 7.5 ? 5 : 10) * p;
 }
-function rebuildMap() {
-  if (!map) return;
-  pointLayer.clearLayers(); anchorLayer.clearLayers();
-  for (const r of S.rows) addMarker(r);
+function rebuildView(v) {
+  if (!v.map) return;
+  v.pointLayer.clearLayers(); v.anchorLayer.clearLayers();
+  for (const r of S.rows) addMarkerTo(v, r);
   if (S.anchor) {
     const a = [S.anchor.lat, S.anchor.lon];
     L.marker(a, { icon: L.divIcon({ className: '', html: '<div style="font-size:26px;line-height:26px;color:#d97706;text-shadow:0 0 3px #000">★</div>', iconSize: [26, 26], iconAnchor: [13, 13] }) })
-      .bindPopup(`Anchor (${S.anchorBoard.toUpperCase()})<br>${fmtCoord(S.anchor.lat, S.anchor.lon)}`).addTo(anchorLayer);
-    const maxD = Math.max(100, ...S.rows.filter(mapSessionMatches).map(r => r.distance_m || 0));
+      .bindPopup(`Anchor (${S.anchorBoard.toUpperCase()})<br>${fmtCoord(S.anchor.lat, S.anchor.lon)}`).addTo(v.anchorLayer);
+    const maxD = Math.max(100, ...S.rows.filter(r => viewMatches(v, r)).map(r => r.distance_m || 0));
     const step = niceStep(maxD / 4);
-    $('vRing').textContent = fmtDist(step).replace('.0 m', ' m');
+    if (v.ringEl) $(v.ringEl).textContent = fmtDist(step).replace('.0 m', ' m');
     for (let d = step; d <= maxD + step; d += step) {
-      L.circle(a, { radius: d, color: cssVar('--ink3'), weight: 1, fill: false, dashArray: '4 6', interactive: false }).addTo(anchorLayer);
+      L.circle(a, { radius: d, color: cssVar('--ink3'), weight: 1, fill: false, dashArray: '4 6', interactive: false }).addTo(v.anchorLayer);
     }
   }
 }
-function updateMeMarker() {
-  if (!map || !S.fix) return;
+function rebuildMap() { for (const v of Object.values(mapViews)) rebuildView(v); }
+function updateMeOn(v) {
+  if (!v.map || !S.fix) return;
   const ll = [S.fix.lat, S.fix.lon];
-  if (!meMarker) {
-    meCircle = L.circle(ll, { radius: S.fix.acc, color: '#2a78d6', weight: 1, fillOpacity: .12, interactive: false }).addTo(map);
-    meMarker = L.circleMarker(ll, { radius: 7, color: '#fff', weight: 2, fillColor: '#2a78d6', fillOpacity: 1 }).addTo(map);
-  } else { meMarker.setLatLng(ll); meCircle.setLatLng(ll).setRadius(S.fix.acc); }
+  if (!v.meMarker) {
+    v.meCircle = L.circle(ll, { radius: S.fix.acc, color: '#2a78d6', weight: 1, fillOpacity: .12, interactive: false }).addTo(v.map);
+    v.meMarker = L.circleMarker(ll, { radius: 7, color: '#fff', weight: 2, fillColor: '#2a78d6', fillOpacity: 1 }).addTo(v.map);
+  } else { v.meMarker.setLatLng(ll); v.meCircle.setLatLng(ll).setRadius(S.fix.acc); }
 }
-function fitAll() {
-  if (!map) return;
-  const pts = S.rows.filter(r => r.lat != null && mapSessionMatches(r)).map(r => [r.lat, r.lon]);
+function updateMeMarker() { for (const v of Object.values(mapViews)) updateMeOn(v); }
+function fitView(v) {
+  if (!v.map) return;
+  const pts = S.rows.filter(r => r.lat != null && viewMatches(v, r)).map(r => [r.lat, r.lon]);
   if (S.anchor) pts.push([S.anchor.lat, S.anchor.lon]);
   if (S.fix) pts.push([S.fix.lat, S.fix.lon]);
-  if (pts.length) map.fitBounds(L.latLngBounds(pts).pad(0.15), { maxZoom: 18 });
+  if (pts.length) v.map.fitBounds(L.latLngBounds(pts).pad(0.15), { maxZoom: 18 });
 }
 
-/* ---- Charts ---- */
-const charts = {};
+/* ---- Charts: the full Charts tab and two summary charts on Home ---- */
+const chartSets = {
+  full: { session: () => $('selSessionCharts').value, ids: { rssi: 'chRssi', snr: 'chSnr', delivery: 'chDelivery', time: 'chTime' }, dirty: true },
+  home: { session: () => String(S.session), ids: { rssi: 'chHomeRssi', delivery: 'chHomeDelivery' }, dirty: true },
+};
+function markChartsDirty() { for (const set of Object.values(chartSets)) set.dirty = true; }
 function chartDefaults() {
   Chart.defaults.color = cssVar('--ink2');
   Chart.defaults.borderColor = cssVar('--rule');
@@ -912,67 +998,88 @@ function chartDefaults() {
   Chart.defaults.maintainAspectRatio = false;
 }
 function axis(title, extra = {}) { return { title: { display: true, text: title }, ...extra }; }
-function updateCharts() {
+function makeScatter(id, y) {
+  return new Chart($(id), {
+    type: 'scatter', data: { datasets: [{ data: [], pointRadius: 3, pointBackgroundColor: [] }] },
+    options: { plugins: { legend: { display: false } }, scales: { x: axis('Distance (m)', { min: 0 }), y: axis(y) } },
+  });
+}
+function makeDelivery(id) {
+  const chart = new Chart($(id), {
+    type: 'bar', data: { labels: [], datasets: [{ data: [], backgroundColor: [] }] },
+    options: {
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: (c) => `${c.raw.toFixed(0)}% (${chart.$n[c.dataIndex]} packets)` } } },
+      scales: { x: axis('Distance band (m)'), y: axis('Delivered (%)', { min: 0, max: 100 }) },
+    },
+  });
+  return chart;
+}
+function makeTime(id) {
+  return new Chart($(id), {
+    type: 'scatter', data: { datasets: [{ data: [], pointRadius: 2, showLine: true, borderWidth: 1, borderColor: cssVar('--accent'), pointBackgroundColor: cssVar('--accent') }] },
+    options: { plugins: { legend: { display: false } }, scales: { x: axis('Minutes since session start'), y: axis('RSSI (dBm)') } },
+  });
+}
+let chartDefaultsSet = false;
+function updateCharts(key) {
   if (typeof Chart === 'undefined') return;
-  if (!charts.rssi) {
-    chartDefaults();
-    const scatter = (id, y) => new Chart($(id), {
-      type: 'scatter', data: { datasets: [{ data: [], pointRadius: 3, pointBackgroundColor: [] }] },
-      options: { plugins: { legend: { display: false } }, scales: { x: axis('Distance (m)', { min: 0 }), y: axis(y) } },
-    });
-    charts.rssi = scatter('chRssi', 'RSSI (dBm)');
-    charts.snr = scatter('chSnr', 'SNR (dB)');
-    charts.delivery = new Chart($('chDelivery'), {
-      type: 'bar', data: { labels: [], datasets: [{ data: [], backgroundColor: [] }] },
-      options: {
-        plugins: { legend: { display: false }, tooltip: { callbacks: { label: (c) => `${c.raw.toFixed(0)}% (${charts.delivery.$n[c.dataIndex]} packets)` } } },
-        scales: { x: axis('Distance band (m)'), y: axis('Delivered (%)', { min: 0, max: 100 }) },
-      },
-    });
-    charts.time = new Chart($('chTime'), {
-      type: 'scatter', data: { datasets: [{ data: [], pointRadius: 2, showLine: true, borderWidth: 1, borderColor: cssVar('--accent'), pointBackgroundColor: cssVar('--accent') }] },
-      options: { plugins: { legend: { display: false } }, scales: { x: axis('Minutes since session start'), y: axis('RSSI (dBm)') } },
-    });
+  const set = chartSets[key];
+  if (!set.charts) {
+    if (!chartDefaultsSet) { chartDefaults(); chartDefaultsSet = true; }
+    const { ids } = set;
+    set.charts = {
+      rssi: ids.rssi && makeScatter(ids.rssi, 'RSSI (dBm)'),
+      snr: ids.snr && makeScatter(ids.snr, 'SNR (dB)'),
+      delivery: ids.delivery && makeDelivery(ids.delivery),
+      time: ids.time && makeTime(ids.time),
+    };
   }
-  const rows = sessionRows($('selSessionCharts').value);
+  const charts = set.charts;
+  const rows = sessionRows(set.session());
   const rec = rows.filter(r => r.event === 'received');
   const withD = rec.filter(r => r.distance_m != null);
 
-  charts.rssi.data.datasets[0].data = withD.map(r => ({ x: r.distance_m, y: r.rssi_dbm }));
-  charts.rssi.data.datasets[0].pointBackgroundColor = withD.map(r => rssiColor(r.rssi_dbm));
-  charts.rssi.update();
-  const snrRows = withD.filter(r => r.snr_db != null);
-  charts.snr.data.datasets[0].data = snrRows.map(r => ({ x: r.distance_m, y: r.snr_db }));
-  charts.snr.data.datasets[0].pointBackgroundColor = snrRows.map(r => rssiColor(r.rssi_dbm));
-  charts.snr.update();
-
-  const counted = rows.filter(r => r.distance_m != null && ['received', 'missed', 'crc_fail'].includes(r.event));
-  const maxD = Math.max(0, ...counted.map(r => r.distance_m));
-  const step = niceStep(Math.max(maxD, 50) / 8);
-  const bins = [];
-  for (const r of counted) {
-    const b = Math.floor(r.distance_m / step);
-    bins[b] = bins[b] || { ok: 0, n: 0 };
-    bins[b].n++; if (r.event === 'received') bins[b].ok++;
+  if (charts.rssi) {
+    charts.rssi.data.datasets[0].data = withD.map(r => ({ x: r.distance_m, y: r.rssi_dbm }));
+    charts.rssi.data.datasets[0].pointBackgroundColor = withD.map(r => rssiColor(r.rssi_dbm));
+    charts.rssi.update();
   }
-  const labels = [], vals = [], colors = [], ns = [];
-  for (let i = 0; i < bins.length; i++) {
-    if (!bins[i]) continue;
-    labels.push(`${Math.round(i * step)}–${Math.round((i + 1) * step)}`);
-    const pct = 100 * bins[i].ok / bins[i].n;
-    vals.push(pct); ns.push(bins[i].n);
-    colors.push(pct >= 90 ? cssVar('--good') : pct >= 50 ? cssVar('--warn') : cssVar('--bad'));
+  if (charts.snr) {
+    const snrRows = withD.filter(r => r.snr_db != null);
+    charts.snr.data.datasets[0].data = snrRows.map(r => ({ x: r.distance_m, y: r.snr_db }));
+    charts.snr.data.datasets[0].pointBackgroundColor = snrRows.map(r => rssiColor(r.rssi_dbm));
+    charts.snr.update();
   }
-  charts.delivery.data.labels = labels;
-  charts.delivery.data.datasets[0].data = vals;
-  charts.delivery.data.datasets[0].backgroundColor = colors;
-  charts.delivery.$n = ns;
-  charts.delivery.update();
-
-  const t0 = rows.length ? rows[0].epoch_ms : 0;
-  charts.time.data.datasets[0].data = rec.map(r => ({ x: (r.epoch_ms - t0) / 60000, y: r.rssi_dbm }));
-  charts.time.update();
-  chartsDirty = false;
+  if (charts.delivery) {
+    const counted = rows.filter(r => r.distance_m != null && ['received', 'missed', 'crc_fail'].includes(r.event));
+    const maxD = Math.max(0, ...counted.map(r => r.distance_m));
+    const step = niceStep(Math.max(maxD, 50) / 8);
+    const bins = [];
+    for (const r of counted) {
+      const b = Math.floor(r.distance_m / step);
+      bins[b] = bins[b] || { ok: 0, n: 0 };
+      bins[b].n++; if (r.event === 'received') bins[b].ok++;
+    }
+    const labels = [], vals = [], colors = [], ns = [];
+    for (let i = 0; i < bins.length; i++) {
+      if (!bins[i]) continue;
+      labels.push(`${Math.round(i * step)}–${Math.round((i + 1) * step)}`);
+      const pct = 100 * bins[i].ok / bins[i].n;
+      vals.push(pct); ns.push(bins[i].n);
+      colors.push(pct >= 90 ? cssVar('--good') : pct >= 50 ? cssVar('--warn') : cssVar('--bad'));
+    }
+    charts.delivery.data.labels = labels;
+    charts.delivery.data.datasets[0].data = vals;
+    charts.delivery.data.datasets[0].backgroundColor = colors;
+    charts.delivery.$n = ns;
+    charts.delivery.update();
+  }
+  if (charts.time) {
+    const t0 = rows.length ? rows[0].epoch_ms : 0;
+    charts.time.data.datasets[0].data = rec.map(r => ({ x: (r.epoch_ms - t0) / 60000, y: r.rssi_dbm }));
+    charts.time.update();
+  }
+  set.dirty = false;
 }
 
 /* ---- CSV ---- */
@@ -1010,13 +1117,18 @@ async function exportCsv() {
 }
 
 /* ---- Tabs ---- */
-let activeTab = 'live';
+let activeTab = 'home';
 function showTab(name) {
   activeTab = name;
   document.querySelectorAll('nav.tabs button').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
   document.querySelectorAll('section.tab').forEach(s => s.classList.toggle('active', s.id === `tab-${name}`));
-  if (name === 'map') { initMap(); setTimeout(() => map.invalidateSize(), 50); }
-  if (name === 'charts') updateCharts();
+  if (name === 'map') { const v = initMapView('full'); setTimeout(() => v.map.invalidateSize(), 50); }
+  if (name === 'home') {
+    const fresh = !mapViews.home.map, v = initMapView('home');
+    setTimeout(() => { v.map.invalidateSize(); if (fresh) fitView(v); }, 50);
+    updateCharts('home');
+  }
+  if (name === 'charts') updateCharts('full');
   window.scrollTo(0, 0);
 }
 
@@ -1056,18 +1168,29 @@ function init() {
     if (!confirm(`Delete all ${S.rows.length} logged rows? Export first if you need them.`)) return;
     S.rows = []; S.session = 1; resetGapTracking(); save(); rebuildMap(); dataChanged(); renderLogState();
   };
-  $('btnFit').onclick = fitAll;
-  $('btnMe').onclick = () => { if (map && S.fix) map.setView([S.fix.lat, S.fix.lon], Math.max(map.getZoom(), 17)); };
+  $('btnFit').onclick = () => fitView(mapViews.full);
+  $('btnMe').onclick = () => {
+    const m = mapViews.full.map;
+    if (m && S.fix) m.setView([S.fix.lat, S.fix.lon], Math.max(m.getZoom(), 17));
+  };
+  $('btnHomeExport').onclick = exportCsv;
+  $('btnHomeShareMe').onclick = () => {
+    if (!S.fix) { toast('No GPS fix yet.'); return; }
+    shareText(coordText(S.fix, 'My location'));
+  };
+  document.querySelectorAll('[data-goto]').forEach(b => { b.onclick = () => showTab(b.dataset.goto); });
   $('selSessionMap').onchange = rebuildMap;
-  $('selSessionCharts').onchange = updateCharts;
+  $('selSessionCharts').onchange = () => updateCharts('full');
   document.querySelectorAll('nav.tabs button').forEach(b => { b.onclick = () => showTab(b.dataset.tab); });
 
   renderLogState(); renderAnchor(); renderStats(); renderLive(); renderDistance(); renderCfg();
   startGps();
+  showTab('home');
 
   setInterval(() => {
     checkSilence(); renderAge();
-    if (activeTab === 'charts' && chartsDirty) updateCharts();
+    if (activeTab === 'charts' && chartSets.full.dirty) updateCharts('full');
+    if (activeTab === 'home' && chartSets.home.dirty) updateCharts('home');
   }, 500);
   window.addEventListener('beforeunload', (e) => { if (S.logging) { e.preventDefault(); e.returnValue = ''; } });
 }
