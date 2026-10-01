@@ -1,0 +1,1077 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>LoRa Range Test</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" integrity="sha512-h9FcoyWjHcOcmEVkxOfTLnmZFWIH0iZhZT1H2TbOq55xssQGEJHEaIm+PgoUaZbRvQTNTluNOEfb1ZRy6D3BOw==" crossorigin="anonymous">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" integrity="sha512-puJW3E/qXDqYp9IfhAI54BJEaWIfloJ7JWs7OeD5i6ruC9JZL1gERT1wjtwXFlh7CjE7ZJ+/vcRZRkIYIb6p4g==" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js" integrity="sha512-CQBWl4fJHWbryGE+Pc7UAxWMUMNMWzWxF4SQo9CgkJIN1kx6djDQZjh3Y8SZ1d+6I+1zze6Z7kHXO7q3UyZAWw==" crossorigin="anonymous"></script>
+<style>
+:root {
+  color-scheme: light;
+  --page: #f3f2ef;
+  --surface: #fcfcfb;
+  --ink: #0b0b0b;
+  --ink2: #52514e;
+  --ink3: #6b6a66;
+  --rule: #dcdad4;
+  --track: #e6e4de;
+  --accent: #2a78d6;
+  --accent-ink: #ffffff;
+  --good: #0ca30c;
+  --warn: #c98a00;
+  --bad: #d03b3b;
+  --miss: #8a8984;
+  --shadow: 0 6px 20px rgba(0, 0, 0, .14);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --page: #121212;
+    --surface: #1c1c1b;
+    --ink: #f2f1ee;
+    --ink2: #b5b3ae;
+    --ink3: #8f8d88;
+    --rule: #34332f;
+    --track: #2a2926;
+    --accent: #4a92ea;
+    --good: #3cc23c;
+    --warn: #f0b429;
+    --bad: #ef5b5b;
+    --miss: #77756f;
+    --shadow: 0 6px 20px rgba(0, 0, 0, .5);
+  }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body {
+  background: var(--page);
+  color: var(--ink);
+  font: 15px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  -webkit-text-size-adjust: 100%;
+}
+header {
+  position: sticky; top: 0; z-index: 1000;
+  background: var(--surface);
+  border-bottom: 1px solid var(--rule);
+  padding: calc(env(safe-area-inset-top) + 10px) 16px 10px;
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+}
+header h1 { font-size: 17px; margin: 0; flex: 1 1 auto; }
+.pills { display: flex; gap: 6px; flex-wrap: wrap; width: 100%; }
+.pill {
+  font-size: 12px; padding: 3px 9px; border-radius: 999px;
+  background: var(--track); color: var(--ink2); white-space: nowrap;
+}
+.pill.good { background: color-mix(in srgb, var(--good) 18%, transparent); color: var(--good); }
+.pill.warn { background: color-mix(in srgb, var(--warn) 20%, transparent); color: var(--warn); }
+.pill.bad { background: color-mix(in srgb, var(--bad) 18%, transparent); color: var(--bad); }
+button {
+  font: inherit; font-weight: 600; border: 0; border-radius: 10px;
+  padding: 10px 14px; background: var(--accent); color: var(--accent-ink);
+  cursor: pointer; touch-action: manipulation;
+}
+button.secondary { background: var(--track); color: var(--ink); }
+button.danger { background: var(--bad); color: #fff; }
+button:disabled { opacity: .45; }
+main { padding: 12px 16px calc(env(safe-area-inset-bottom) + 84px); max-width: 900px; margin: 0 auto; }
+section.tab { display: none; }
+section.tab.active { display: block; }
+.card {
+  background: var(--surface); border: 1px solid var(--rule); border-radius: 14px;
+  padding: 14px; margin-bottom: 12px;
+}
+.card h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .05em; color: var(--ink3); margin: 0 0 10px; }
+.grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+@media (min-width: 640px) { .grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.stat .label { font-size: 12px; color: var(--ink3); }
+.stat .value { font-size: 26px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.stat .sub { font-size: 12px; color: var(--ink2); font-variant-numeric: tabular-nums; }
+.good { color: var(--good); } .warn { color: var(--warn); } .bad { color: var(--bad); } .muted { color: var(--ink3); }
+.row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.row > * { flex: 1 1 auto; }
+label.field { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--ink3); }
+input, select, textarea {
+  font: inherit; font-size: 16px; color: var(--ink); background: var(--page);
+  border: 1px solid var(--rule); border-radius: 10px; padding: 9px 10px; width: 100%;
+}
+textarea { min-height: 64px; resize: vertical; }
+.coords { font: 600 17px ui-monospace, SFMono-Regular, Menlo, monospace; word-break: break-all; }
+.hint { font-size: 13px; color: var(--ink2); margin: 8px 0 0; }
+.log {
+  font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--ink2);
+  max-height: 220px; overflow-y: auto; white-space: pre-wrap; word-break: break-all;
+}
+#map { height: calc(100vh - 260px); min-height: 320px; border-radius: 14px; border: 1px solid var(--rule); }
+.legend { display: flex; gap: 12px; flex-wrap: wrap; font-size: 12px; color: var(--ink2); margin-top: 8px; }
+.swatch { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; vertical-align: -1px; }
+.chart-box { position: relative; height: 240px; }
+nav.tabs {
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 1000;
+  display: flex; background: var(--surface); border-top: 1px solid var(--rule);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+nav.tabs button {
+  flex: 1; background: none; color: var(--ink3); border-radius: 0; padding: 12px 4px; font-size: 13px;
+}
+nav.tabs button.active { color: var(--accent); }
+.toast {
+  position: fixed; left: 16px; right: 16px; bottom: calc(env(safe-area-inset-bottom) + 70px); z-index: 2000;
+  background: var(--ink); color: var(--page); padding: 10px 14px; border-radius: 10px;
+  box-shadow: var(--shadow); font-size: 14px; display: none;
+}
+.progress { height: 6px; background: var(--track); border-radius: 3px; overflow: hidden; margin-top: 8px; }
+.progress > div { height: 100%; width: 0; background: var(--accent); transition: width .3s; }
+</style>
+</head>
+<body>
+<header>
+  <h1>LoRa Range Test</h1>
+  <button id="btnConnect">Connect board</button>
+  <div class="pills">
+    <span class="pill" id="pillBle">Board: not connected</span>
+    <span class="pill" id="pillGps">GPS: starting…</span>
+    <span class="pill" id="pillLog">Not logging</span>
+  </div>
+</header>
+
+<main>
+  <!-- LIVE -->
+  <section class="tab active" id="tab-live">
+    <div class="card">
+      <div class="grid">
+        <div class="stat"><div class="label">Signal (RSSI)</div><div class="value muted" id="vRssi">—</div><div class="sub" id="vSnr"></div></div>
+        <div class="stat"><div class="label">Distance to anchor</div><div class="value muted" id="vDist">—</div><div class="sub" id="vDistSub"></div></div>
+        <div class="stat"><div class="label">Since last packet</div><div class="value muted" id="vAge">—</div><div class="sub" id="vAgeSub"></div></div>
+        <div class="stat"><div class="label">Delivery (session)</div><div class="value muted" id="vLoss">—</div><div class="sub" id="vLossSub"></div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Logging</h2>
+      <div class="row">
+        <button id="btnLog">Start logging</button>
+        <button class="secondary" id="btnNewSession">New session</button>
+      </div>
+      <label class="field" style="margin-top:10px">Session note (goes in every CSV row, e.g. "TX 17 dBm, walking north")
+        <input id="inNote" placeholder="optional">
+      </label>
+      <p class="hint" id="logHint"></p>
+    </div>
+
+    <div class="card">
+      <h2>Radio settings (this board)</h2>
+      <div class="grid">
+        <label class="field">Spreading factor
+          <select id="selSf"></select>
+        </label>
+        <label class="field">Bandwidth
+          <select id="selBw"></select>
+        </label>
+        <label class="field" id="fieldPwr">TX power (dBm)
+          <input id="inPwr" type="number" min="-9" max="22" step="1" value="17">
+        </label>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <button id="btnApply" disabled>Apply to board</button>
+      </div>
+      <p class="hint">SF and bandwidth must match on both boards or nothing gets through. Current: <span id="vCfg">unknown</span></p>
+    </div>
+
+    <div class="card">
+      <h2>Board output</h2>
+      <label class="row" style="font-size:13px;color:var(--ink2);gap:6px;justify-content:flex-start">
+        <input type="checkbox" id="chkHeartbeat" style="width:auto;flex:0 0 auto"> show heartbeats
+      </label>
+      <div class="log" id="log"></div>
+    </div>
+  </section>
+
+  <!-- MAP -->
+  <section class="tab" id="tab-map">
+    <div class="row" style="margin-bottom:8px">
+      <select id="selSessionMap"></select>
+      <button class="secondary" id="btnFit">Fit all</button>
+      <button class="secondary" id="btnMe">Me</button>
+    </div>
+    <div id="map"></div>
+    <div class="legend">
+      <span><span class="swatch" style="background:#1fa64a"></span>strong</span>
+      <span><span class="swatch" style="background:#e3b505"></span>medium</span>
+      <span><span class="swatch" style="background:#d03b3b"></span>weak</span>
+      <span><span class="swatch" style="background:#fff;border:2px solid var(--miss)"></span>missed</span>
+      <span><span class="swatch" style="background:#8a2be2"></span>CRC fail</span>
+      <span>★ anchor · rings every <span id="vRing">—</span></span>
+    </div>
+  </section>
+
+  <!-- CHARTS -->
+  <section class="tab" id="tab-charts">
+    <div class="row" style="margin-bottom:8px"><select id="selSessionCharts"></select></div>
+    <div class="card"><h2>RSSI vs distance</h2><div class="chart-box"><canvas id="chRssi"></canvas></div></div>
+    <div class="card"><h2>SNR vs distance</h2><div class="chart-box"><canvas id="chSnr"></canvas></div></div>
+    <div class="card"><h2>Packets delivered by distance</h2><div class="chart-box"><canvas id="chDelivery"></canvas></div>
+      <p class="hint">Share of expected packets that arrived, per distance band. Missed packets are detected from gaps in the transmitter's packet counter.</p></div>
+    <div class="card"><h2>RSSI over time</h2><div class="chart-box"><canvas id="chTime"></canvas></div></div>
+  </section>
+
+  <!-- LOCATION -->
+  <section class="tab" id="tab-anchor">
+    <div class="card">
+      <h2>Anchor (fixed board)</h2>
+      <label class="field">Which board stays put?
+        <select id="selAnchorBoard">
+          <option value="tx">TX fixed, RX moves (recommended)</option>
+          <option value="rx">RX fixed, TX moves</option>
+        </select>
+      </label>
+      <p class="coords" id="vAnchor" style="margin:12px 0 4px">not set</p>
+      <p class="hint" id="vAnchorSub"></p>
+      <label class="field" style="margin-top:10px">Set anchor by pasting coordinates or a map link
+        <textarea id="inAnchorPaste" placeholder="40.0149856, -105.2705456"></textarea>
+      </label>
+      <div class="row" style="margin-top:8px">
+        <button id="btnAnchorPaste">Use pasted coordinates</button>
+        <button class="secondary" id="btnAnchorClear">Clear</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>My precise location</h2>
+      <p class="coords" id="vMe">waiting for GPS…</p>
+      <p class="hint" id="vMeSub"></p>
+      <p class="hint">At the anchor: measure for 30 s standing still with the phone held at the board, then share the result with the other person (or set it as the anchor here directly).</p>
+      <div class="row" style="margin-top:8px">
+        <button id="btnMeasure">Measure (30 s average)</button>
+      </div>
+      <div class="progress" id="measureProgress" style="display:none"><div></div></div>
+      <div id="measureResult" style="display:none;margin-top:12px">
+        <p class="coords" id="vMeasured"></p>
+        <p class="hint" id="vMeasuredSub"></p>
+        <div class="row" style="margin-top:8px">
+          <button id="btnShareMeasured">Share</button>
+          <button class="secondary" id="btnCopyMeasured">Copy</button>
+          <button class="secondary" id="btnAnchorMeasured">Set as anchor</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- DATA -->
+  <section class="tab" id="tab-data">
+    <div class="card">
+      <h2>Logged data</h2>
+      <p id="vDataSummary">No data yet.</p>
+      <div class="row" style="margin-top:8px">
+        <button id="btnExport">Export CSV</button>
+        <button class="secondary" id="btnCopyCsv">Copy CSV</button>
+      </div>
+      <p class="hint">Export uses the iOS share sheet (Save to Files, AirDrop, Mail…). Data is kept on this phone until you clear it, including across reloads.</p>
+    </div>
+    <div class="card">
+      <h2>Sessions</h2>
+      <div id="vSessions" class="hint"></div>
+    </div>
+    <div class="card">
+      <h2>Danger zone</h2>
+      <button class="danger" id="btnClear">Delete all logged data</button>
+    </div>
+  </section>
+</main>
+
+<nav class="tabs">
+  <button data-tab="live" class="active">Live</button>
+  <button data-tab="map">Map</button>
+  <button data-tab="charts">Charts</button>
+  <button data-tab="anchor">Location</button>
+  <button data-tab="data">Data</button>
+</nav>
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+
+/* ---- Constants ---- */
+// Nordic UART Service, matching lib/BleLink in the firmware.
+const NUS_SERVICE = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
+const NUS_RX = '6e400002-b5a3-f393-e0a9-e50e24dcca9e'; // phone -> board (write)
+const NUS_TX = '6e400003-b5a3-f393-e0a9-e50e24dcca9e'; // board -> phone (notify)
+const BANDWIDTHS = [7800, 10400, 15600, 20800, 31250, 41700, 62500, 125000, 250000, 500000];
+const STORE_KEY = 'loraRange.v1';
+const DEFAULT_INTERVAL_MS = 2000; // firmware sends every 2 s unless time-on-air is longer
+const MEASURE_SECONDS = 30;
+const TRACK_KEEP_MS = 60 * 60 * 1000;
+
+const RX_PACKET_RE = /^Received packet: ([\s\S]*) \| RSSI: (-?\d+(?:\.\d+)?)(?: \| SNR: (-?\d+(?:\.\d+)?))?$/;
+const RX_CRC_FAIL_RE = /^Received packet with bad CRC/;
+const TX_SEND_RE = /^Sending packet: (\d+)$/;
+const CFG_RE = /^CFG sf=(\d+) bw=(\d+)(?: pwr=(-?\d+))?$/;
+const COUNT_RE = /count:(\d+)/;
+
+const CSV_COLUMNS = [
+  'session', 'time_iso', 'epoch_ms', 'board', 'event', 'count', 'rssi_dbm', 'snr_db',
+  'sf', 'bw_hz', 'pwr_dbm', 'lat', 'lon', 'gps_accuracy_m', 'altitude_m', 'altitude_accuracy_m',
+  'speed_mps', 'gps_fix_age_ms', 'anchor_board', 'anchor_lat', 'anchor_lon', 'anchor_accuracy_m',
+  'distance_m', 'note', 'payload'
+];
+
+/* ---- State ---- */
+const S = {
+  dev: null, txChar: null, rxChar: null, wantConnected: false,
+  role: null, name: null, cfg: { sf: null, bw: null, pwr: null },
+  lineBuf: '', decoder: new TextDecoder(),
+  fix: null, track: [],
+  anchor: null, anchorBoard: 'tx',
+  logging: false, session: 1, note: '',
+  rows: [],
+  live: { lastRssi: null, lastSnr: null, lastPacketAt: null },
+  rx: { lastCount: null, lastAt: null, highestLogged: null, intervals: [], provisional: new Map() },
+  measuring: null, measured: null,
+  wakeLock: null,
+};
+
+/* ---- Utilities ---- */
+const $ = (id) => document.getElementById(id);
+function toast(msg, ms = 3500) {
+  const t = $('toast'); t.textContent = msg; t.style.display = 'block';
+  clearTimeout(toast.timer); toast.timer = setTimeout(() => { t.style.display = 'none'; }, ms);
+}
+function haversine(lat1, lon1, lat2, lon2) {
+  const R = 6371008.8, rad = Math.PI / 180;
+  const dLat = (lat2 - lat1) * rad, dLon = (lon2 - lon1) * rad;
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * rad) * Math.cos(lat2 * rad) * Math.sin(dLon / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(a));
+}
+function fmtDist(m) {
+  if (m == null) return '—';
+  return m < 1000 ? `${m.toFixed(1)} m` : `${(m / 1000).toFixed(3)} km`;
+}
+function fmtCoord(lat, lon) { return `${lat.toFixed(7)}, ${lon.toFixed(7)}`; }
+function fmtAge(ms) {
+  if (ms == null) return '—';
+  if (ms < 1000) return 'just now';
+  if (ms < 60000) return `${(ms / 1000).toFixed(1)} s`;
+  const s = Math.floor(ms / 1000); return `${Math.floor(s / 60)}m ${s % 60}s`;
+}
+function median(arr) {
+  if (!arr.length) return null;
+  const s = [...arr].sort((a, b) => a - b), m = s.length >> 1;
+  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+}
+function rssiColor(rssi) {
+  // -60 dBm and up = green, -95 = yellow, -120 and below = red
+  const stops = [[-60, [31, 166, 74]], [-95, [227, 181, 5]], [-120, [208, 59, 59]]];
+  if (rssi >= stops[0][0]) return `rgb(${stops[0][1]})`;
+  if (rssi <= stops[2][0]) return `rgb(${stops[2][1]})`;
+  const [a, b] = rssi > stops[1][0] ? [stops[0], stops[1]] : [stops[1], stops[2]];
+  const f = (a[0] - rssi) / (a[0] - b[0]);
+  return `rgb(${a[1].map((c, i) => Math.round(c + (b[1][i] - c) * f)).join(',')})`;
+}
+function cssVar(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+
+// Accepts "lat, lon", "lat lon", Google/Apple Maps links (q=lat,lon / @lat,lon / ll=lat,lon).
+function parseCoords(text) {
+  const nums = (text.match(/-?\d{1,3}\.\d+/g) || []).map(Number);
+  for (let i = 0; i + 1 < nums.length; i++) {
+    const lat = nums[i], lon = nums[i + 1];
+    if (Math.abs(lat) <= 90 && Math.abs(lon) <= 180) return { lat, lon };
+  }
+  return null;
+}
+
+/* ---- Persistence ---- */
+function save() {
+  clearTimeout(save.timer);
+  save.timer = setTimeout(() => {
+    try {
+      localStorage.setItem(STORE_KEY, JSON.stringify({
+        anchor: S.anchor, anchorBoard: S.anchorBoard, session: S.session, note: S.note, rows: S.rows,
+      }));
+    } catch (e) { toast('Could not save to phone storage — export your CSV soon.'); }
+  }, 1000);
+}
+function load() {
+  try {
+    const d = JSON.parse(localStorage.getItem(STORE_KEY) || 'null');
+    if (!d) return;
+    S.anchor = d.anchor || null; S.anchorBoard = d.anchorBoard || 'tx';
+    S.session = d.session || 1; S.note = d.note || ''; S.rows = d.rows || [];
+  } catch (e) { /* storage unavailable: start empty */ }
+}
+
+/* ---- BLE ---- */
+async function connectBle() {
+  if (S.dev && S.dev.gatt.connected) { S.wantConnected = false; S.dev.gatt.disconnect(); return; }
+  if (!navigator.bluetooth) {
+    toast('Web Bluetooth is not available. On iPhone, open this page in the Bluefy browser.', 6000);
+    return;
+  }
+  try {
+    const dev = await navigator.bluetooth.requestDevice({
+      filters: [{ namePrefix: 'LoRa-' }, { services: [NUS_SERVICE] }],
+      optionalServices: [NUS_SERVICE],
+    });
+    if (S.dev && S.dev !== dev) S.dev.removeEventListener('gattserverdisconnected', onBleDisconnected);
+    S.dev = dev; S.wantConnected = true;
+    dev.addEventListener('gattserverdisconnected', onBleDisconnected);
+    await openGatt();
+  } catch (err) {
+    if (err && err.name === 'NotFoundError') return; // chooser dismissed
+    toast('Bluetooth: ' + (err && err.message ? err.message : err));
+    setBlePill();
+  }
+}
+async function openGatt() {
+  setBlePill('Connecting…', 'warn');
+  const server = await S.dev.gatt.connect();
+  const svc = await server.getPrimaryService(NUS_SERVICE);
+  S.txChar = await svc.getCharacteristic(NUS_TX);
+  S.rxChar = await svc.getCharacteristic(NUS_RX);
+  S.txChar.addEventListener('characteristicvaluechanged', onNotify);
+  await S.txChar.startNotifications();
+  S.name = S.dev.name || 'board';
+  S.role = /TX/i.test(S.name) ? 'tx' : 'rx';
+  S.lineBuf = '';
+  setBlePill();
+  $('btnConnect').textContent = 'Disconnect';
+  $('btnApply').disabled = false;
+  $('fieldPwr').style.display = S.role === 'tx' ? '' : 'none';
+  addLog(`connected to ${S.name}`);
+  await sendCommand('GET');
+}
+async function onBleDisconnected() {
+  S.txChar = null; S.rxChar = null;
+  // Packets that arrive over LoRa while BLE is down never reach the phone;
+  // don't log that gap as radio misses.
+  resetGapTracking();
+  $('btnApply').disabled = true;
+  addLog('disconnected');
+  if (!S.wantConnected) {
+    setBlePill(); $('btnConnect').textContent = 'Connect board'; return;
+  }
+  // Unexpected drop: keep trying to reconnect to the same board.
+  for (let attempt = 1; S.wantConnected && attempt <= 20; attempt++) {
+    setBlePill(`Reconnecting (${attempt})…`, 'bad');
+    try { await openGatt(); return; } catch (e) { await new Promise(r => setTimeout(r, 1500)); }
+  }
+  setBlePill('Lost connection', 'bad');
+  $('btnConnect').textContent = 'Connect board';
+}
+async function sendCommand(cmd) {
+  if (!S.rxChar) return;
+  try { await S.rxChar.writeValue(new TextEncoder().encode(cmd)); }
+  catch (e) { toast('Could not send to board: ' + e.message); }
+}
+function onNotify(e) {
+  // Firmware splits each newline-terminated line into MTU-sized chunks.
+  S.lineBuf += S.decoder.decode(e.target.value, { stream: true });
+  let nl;
+  while ((nl = S.lineBuf.indexOf('\n')) !== -1) {
+    const line = S.lineBuf.slice(0, nl).trim();
+    S.lineBuf = S.lineBuf.slice(nl + 1);
+    if (line) handleLine(line);
+  }
+  if (S.lineBuf.length > 2000) S.lineBuf = '';
+}
+function setBlePill(text, cls) {
+  const p = $('pillBle');
+  if (text) { p.textContent = `Board: ${text}`; p.className = 'pill ' + (cls || ''); return; }
+  if (S.dev && S.dev.gatt && S.dev.gatt.connected) {
+    p.textContent = `Board: ${S.name} (${S.role.toUpperCase()})`; p.className = 'pill good';
+  } else { p.textContent = 'Board: not connected'; p.className = 'pill'; }
+}
+
+/* ---- Board output ---- */
+function handleLine(line) {
+  if (!/^Heartbeat/.test(line) || $('chkHeartbeat').checked) addLog(line);
+  let m;
+  if ((m = line.match(CFG_RE))) {
+    S.cfg = { sf: +m[1], bw: +m[2], pwr: m[3] != null ? +m[3] : S.cfg.pwr };
+    if (m[3] != null) S.role = 'tx';
+    renderCfg(); setBlePill(); return;
+  }
+  if ((m = line.match(RX_PACKET_RE))) {
+    const cm = m[1].match(COUNT_RE);
+    onReceived(cm ? +cm[1] : null, +m[2], m[3] != null ? +m[3] : null, m[1]);
+    return;
+  }
+  if (RX_CRC_FAIL_RE.test(line)) { onCrcFail(); return; }
+  if ((m = line.match(TX_SEND_RE))) { onSent(+m[1]); return; }
+}
+function addLog(text) {
+  const log = $('log');
+  const t = new Date().toLocaleTimeString();
+  log.textContent += `${t}  ${text}\n`;
+  if (log.textContent.length > 20000) log.textContent = log.textContent.slice(-15000);
+  log.scrollTop = log.scrollHeight;
+}
+
+/* ---- GPS ---- */
+function startGps() {
+  if (!navigator.geolocation) { setGpsPill('GPS unavailable', 'bad'); return; }
+  navigator.geolocation.watchPosition(onFix, (err) => {
+    const msg = err.code === 1 ? 'GPS permission denied' : 'GPS error';
+    setGpsPill(msg, 'bad');
+    if (err.code === 1) toast('Allow location (with Precise Location on) for this browser in iOS Settings.', 7000);
+  }, { enableHighAccuracy: true, maximumAge: 0, timeout: 30000 });
+}
+function onFix(pos) {
+  const c = pos.coords;
+  S.fix = {
+    t: pos.timestamp || Date.now(), lat: c.latitude, lon: c.longitude, acc: c.accuracy,
+    alt: c.altitude, altAcc: c.altitudeAccuracy, speed: c.speed,
+  };
+  S.track.push(S.fix);
+  const cutoff = Date.now() - TRACK_KEEP_MS;
+  while (S.track.length && S.track[0].t < cutoff) S.track.shift();
+  if (S.measuring) S.measuring.samples.push(S.fix);
+  setGpsPill(`GPS ±${S.fix.acc.toFixed(1)} m`, S.fix.acc <= 5 ? 'good' : S.fix.acc <= 15 ? 'warn' : 'bad');
+  renderMe(); renderDistance(); updateMeMarker();
+}
+function setGpsPill(text, cls) { const p = $('pillGps'); p.textContent = text; p.className = 'pill ' + (cls || ''); }
+// Fix closest in time to `t` (for back-filled missed packets).
+function fixAt(t) {
+  if (!S.track.length) return S.fix;
+  let best = S.track[0];
+  for (const f of S.track) if (Math.abs(f.t - t) < Math.abs(best.t - t)) best = f;
+  return best;
+}
+
+/* ---- Logging rows ---- */
+function makeRow(event, t, extra = {}) {
+  const fix = t === undefined ? S.fix : fixAt(t);
+  const time = t === undefined ? Date.now() : t;
+  const dist = fix && S.anchor ? haversine(S.anchor.lat, S.anchor.lon, fix.lat, fix.lon) : null;
+  return {
+    session: S.session, epoch_ms: Math.round(time), board: S.role, event,
+    count: extra.count ?? null, rssi_dbm: extra.rssi ?? null, snr_db: extra.snr ?? null,
+    sf: S.cfg.sf, bw_hz: S.cfg.bw, pwr_dbm: S.role === 'tx' ? S.cfg.pwr : null,
+    lat: fix ? fix.lat : null, lon: fix ? fix.lon : null, gps_accuracy_m: fix ? fix.acc : null,
+    altitude_m: fix ? fix.alt : null, altitude_accuracy_m: fix ? fix.altAcc : null,
+    speed_mps: fix ? fix.speed : null, gps_fix_age_ms: fix ? Math.round(time - fix.t) : null,
+    anchor_board: S.anchorBoard,
+    anchor_lat: S.anchor ? S.anchor.lat : null, anchor_lon: S.anchor ? S.anchor.lon : null,
+    anchor_accuracy_m: S.anchor ? S.anchor.acc : null,
+    distance_m: dist, note: S.note, payload: extra.payload ?? '',
+  };
+}
+function addRow(row) { S.rows.push(row); addMarker(row); dataChanged(); return row; }
+function removeRow(row) {
+  const i = S.rows.lastIndexOf(row);
+  if (i !== -1) S.rows.splice(i, 1);
+  removeMarker(row); dataChanged();
+}
+let chartsDirty = true;
+function dataChanged() { chartsDirty = true; save(); renderStats(); }
+
+function expectedInterval() { return median(S.rx.intervals) || DEFAULT_INTERVAL_MS; }
+
+function onReceived(count, rssi, snr, payload) {
+  const now = Date.now();
+  S.live.lastRssi = rssi; S.live.lastSnr = snr; S.live.lastPacketAt = now;
+  const rx = S.rx;
+
+  if (count != null && rx.lastCount != null && count > rx.lastCount) {
+    rx.intervals.push((now - rx.lastAt) / (count - rx.lastCount));
+    if (rx.intervals.length > 10) rx.intervals.shift();
+  }
+
+  if (S.logging && count != null) {
+    // TX rebooted (counter went backwards): start gap tracking over.
+    if (rx.lastCount != null && count <= rx.lastCount) resetGapTracking();
+    // Packets we already marked missed by timeout but that actually arrived
+    // (or that we predicted too far ahead) come back out.
+    for (const [c, row] of rx.provisional) {
+      if (c >= count) { removeRow(row); rx.provisional.delete(c); }
+    }
+    // Counter gaps = packets the TX sent that never arrived.
+    const from = (rx.highestLogged ?? rx.lastCount ?? count - 1) + 1;
+    if (rx.lastCount != null && count - from < 500) {
+      for (let c = Math.max(from, rx.lastCount + 1); c < count; c++) {
+        if (rx.provisional.has(c)) continue;
+        const t = rx.lastAt + (c - rx.lastCount) * (now - rx.lastAt) / (count - rx.lastCount);
+        addRow(makeRow('missed', t, { count: c }));
+      }
+    }
+    rx.provisional.clear();
+    addRow(makeRow('received', undefined, { count, rssi, snr, payload }));
+    rx.highestLogged = count;
+  } else if (S.logging) {
+    addRow(makeRow('received', undefined, { rssi, snr, payload }));
+  }
+  if (count != null) { rx.lastCount = count; rx.lastAt = now; }
+  renderLive();
+}
+function onCrcFail() {
+  S.live.lastPacketAt = Date.now();
+  if (S.logging) addRow(makeRow('crc_fail'));
+  renderLive();
+}
+function onSent(count) {
+  S.live.lastPacketAt = Date.now();
+  if (S.logging) addRow(makeRow('sent', undefined, { count }));
+  renderLive();
+}
+function resetGapTracking() {
+  S.rx.lastCount = null; S.rx.lastAt = null; S.rx.highestLogged = null; S.rx.provisional.clear();
+}
+// While nothing is arriving, log a "missed" row at the current position each
+// time a packet was due, so the map shows where reception stopped.
+function checkSilence() {
+  const rx = S.rx;
+  if (!S.logging || S.role !== 'rx' || rx.lastCount == null || !S.txChar) return;
+  const interval = expectedInterval();
+  let next = (rx.highestLogged ?? rx.lastCount) + 1;
+  while (Date.now() > rx.lastAt + (next - rx.lastCount + 0.6) * interval) {
+    const row = addRow(makeRow('missed', undefined, { count: next }));
+    rx.provisional.set(next, row);
+    rx.highestLogged = next; next++;
+  }
+}
+
+async function toggleLogging() {
+  S.logging = !S.logging;
+  if (S.logging) {
+    resetGapTracking();
+    if (!S.anchor) toast('No anchor set yet — distance will be blank until you set one (Location tab).', 6000);
+    if (!S.dev || !S.dev.gatt.connected) toast('Logging started, but no board is connected yet.');
+    requestWakeLock();
+  } else { releaseWakeLock(); }
+  renderLogState();
+}
+function newSession() {
+  const max = S.rows.reduce((m, r) => Math.max(m, r.session), 0);
+  S.session = Math.max(S.session, max) + 1;
+  resetGapTracking(); save(); renderLogState(); renderSessions(); rebuildMap(); chartsDirty = true;
+  toast(`Session ${S.session} started`);
+}
+
+/* ---- Screen wake lock (GPS and BLE pause when the screen locks) ---- */
+async function requestWakeLock() {
+  try { if ('wakeLock' in navigator) S.wakeLock = await navigator.wakeLock.request('screen'); }
+  catch (e) { /* not supported: user keeps the screen on manually */ }
+}
+function releaseWakeLock() { if (S.wakeLock) { S.wakeLock.release().catch(() => {}); S.wakeLock = null; } }
+document.addEventListener('visibilitychange', () => {
+  // Same idea while the page is backgrounded: JS (and BLE delivery) pauses,
+  // so a counter gap afterwards says nothing about the radio link.
+  if (document.visibilityState === 'hidden') resetGapTracking();
+  if (document.visibilityState === 'visible' && S.logging) requestWakeLock();
+});
+
+/* ---- Precise location measurement ---- */
+function startMeasure() {
+  if (S.measuring) return;
+  S.measuring = { samples: [], start: Date.now() };
+  $('btnMeasure').disabled = true;
+  $('measureProgress').style.display = 'block';
+  $('measureResult').style.display = 'none';
+  const bar = $('measureProgress').firstElementChild;
+  const tick = setInterval(() => {
+    const frac = (Date.now() - S.measuring.start) / (MEASURE_SECONDS * 1000);
+    bar.style.width = `${Math.min(100, frac * 100)}%`;
+    $('btnMeasure').textContent = `Measuring… ${S.measuring.samples.length} fixes`;
+    if (frac >= 1) { clearInterval(tick); finishMeasure(); }
+  }, 250);
+}
+function finishMeasure() {
+  const samples = S.measuring.samples; S.measuring = null;
+  $('btnMeasure').disabled = false; $('btnMeasure').textContent = 'Measure (30 s average)';
+  $('measureProgress').style.display = 'none';
+  if (!samples.length) { toast('No GPS fixes came in. Check location permission and try outside.'); return; }
+  // Keep the better half of fixes, then weight by 1/accuracy².
+  const best = Math.min(...samples.map(s => s.acc));
+  const kept = samples.filter(s => s.acc <= Math.max(best * 2, 5));
+  let w = 0, lat = 0, lon = 0;
+  for (const s of kept) { const k = 1 / (s.acc * s.acc); w += k; lat += s.lat * k; lon += s.lon * k; }
+  lat /= w; lon /= w;
+  // Spread of the kept fixes around the average, to sanity-check the reported accuracy.
+  const spread = Math.sqrt(kept.reduce((a, s) => a + haversine(lat, lon, s.lat, s.lon) ** 2, 0) / kept.length);
+  S.measured = { lat, lon, acc: Math.max(best, spread), n: kept.length, total: samples.length };
+  $('vMeasured').textContent = fmtCoord(lat, lon);
+  $('vMeasuredSub').textContent =
+    `±${S.measured.acc.toFixed(1)} m · ${kept.length} of ${samples.length} fixes averaged (best ±${best.toFixed(1)} m, spread ${spread.toFixed(1)} m)`;
+  $('measureResult').style.display = 'block';
+}
+function coordText(p, label) {
+  return `${label}: ${fmtCoord(p.lat, p.lon)} (±${p.acc.toFixed(1)} m)\nhttps://maps.google.com/?q=${p.lat.toFixed(7)},${p.lon.toFixed(7)}`;
+}
+async function shareText(text) {
+  if (navigator.share) {
+    try { await navigator.share({ text }); return; } catch (e) { if (e.name === 'AbortError') return; }
+  }
+  copyText(text);
+}
+async function copyText(text) {
+  try { await navigator.clipboard.writeText(text); toast('Copied'); }
+  catch (e) { window.prompt('Copy this:', text); }
+}
+function setAnchor(p, source) {
+  S.anchor = { lat: p.lat, lon: p.lon, acc: p.acc ?? null, source, setAt: Date.now() };
+  save(); renderAnchor(); renderDistance(); rebuildMap(); chartsDirty = true;
+  toast('Anchor set');
+}
+
+/* ---- Rendering ---- */
+function renderLive() {
+  const r = S.live.lastRssi;
+  $('vRssi').textContent = r == null ? '—' : `${r} dBm`;
+  $('vRssi').className = 'value ' + (r == null ? 'muted' : r >= -90 ? 'good' : r >= -110 ? 'warn' : 'bad');
+  $('vSnr').textContent = S.live.lastSnr == null ? '' : `SNR ${S.live.lastSnr} dB`;
+  renderAge();
+}
+function renderAge() {
+  const age = S.live.lastPacketAt == null ? null : Date.now() - S.live.lastPacketAt;
+  const due = expectedInterval();
+  $('vAge').textContent = fmtAge(age);
+  $('vAge').className = 'value ' + (age == null ? 'muted' : age < due * 1.6 ? 'good' : age < due * 4 ? 'warn' : 'bad');
+  $('vAgeSub').textContent = S.role === 'tx' ? 'since last send' : `expected every ${(due / 1000).toFixed(1)} s`;
+}
+function renderDistance() {
+  if (!S.anchor) { $('vDist').textContent = '—'; $('vDist').className = 'value muted'; $('vDistSub').textContent = 'set an anchor first'; return; }
+  if (!S.fix) { $('vDist').textContent = '—'; $('vDistSub').textContent = 'waiting for GPS'; return; }
+  const d = haversine(S.anchor.lat, S.anchor.lon, S.fix.lat, S.fix.lon);
+  const unc = Math.hypot(S.fix.acc, S.anchor.acc || 0);
+  $('vDist').textContent = fmtDist(d); $('vDist').className = 'value';
+  $('vDistSub').textContent = `±${unc.toFixed(1)} m`;
+}
+function sessionRows(session) {
+  return session === 'all' ? S.rows : S.rows.filter(r => r.session === +session);
+}
+function deliveryCounts(rows) {
+  const received = rows.filter(r => r.event === 'received').length;
+  const missed = rows.filter(r => r.event === 'missed').length;
+  const crc = rows.filter(r => r.event === 'crc_fail').length;
+  return { received, missed, crc, total: received + missed + crc };
+}
+function renderStats() {
+  const rows = sessionRows(S.session);
+  if (S.role === 'tx') {
+    const sent = rows.filter(r => r.event === 'sent').length;
+    $('vLoss').textContent = String(sent); $('vLoss').className = 'value';
+    $('vLossSub').textContent = 'packets sent (logged)';
+  } else {
+    const c = deliveryCounts(rows);
+    $('vLoss').textContent = c.total ? `${(100 * c.received / c.total).toFixed(0)}%` : '—';
+    $('vLoss').className = 'value ' + (!c.total ? 'muted' : c.received / c.total >= .9 ? 'good' : c.received / c.total >= .5 ? 'warn' : 'bad');
+    $('vLossSub').textContent = `${c.received} ok · ${c.missed} missed · ${c.crc} CRC`;
+  }
+  $('vDataSummary').textContent = S.rows.length
+    ? `${S.rows.length} rows across ${new Set(S.rows.map(r => r.session)).size} session(s).`
+    : 'No data yet.';
+  renderSessions();
+}
+function renderSessions() {
+  const ids = [...new Set(S.rows.map(r => r.session))];
+  if (!ids.includes(S.session)) ids.push(S.session);
+  ids.sort((a, b) => a - b);
+  for (const selId of ['selSessionMap', 'selSessionCharts']) {
+    const sel = $(selId), prev = sel.value;
+    sel.innerHTML = '';
+    for (const id of ids) sel.add(new Option(`Session ${id}${id === S.session ? ' (current)' : ''}`, String(id)));
+    sel.add(new Option('All sessions', 'all'));
+    sel.value = prev && [...sel.options].some(o => o.value === prev) ? prev : String(S.session);
+  }
+  $('vSessions').innerHTML = ids.map(id => {
+    const rows = S.rows.filter(r => r.session === id);
+    const c = deliveryCounts(rows);
+    const dists = rows.map(r => r.distance_m).filter(d => d != null);
+    const maxRx = Math.max(0, ...rows.filter(r => r.event === 'received' && r.distance_m != null).map(r => r.distance_m));
+    const note = rows.find(r => r.note)?.note || '';
+    return `<div style="margin-bottom:6px"><b>Session ${id}</b>${id === S.session ? ' (current)' : ''}: ${rows.length} rows` +
+      (c.total ? `, ${c.received}/${c.total} delivered` : '') +
+      (dists.length ? `, farthest packet received ${fmtDist(maxRx)}` : '') +
+      (note ? ` — ${note.replace(/</g, '&lt;')}` : '') + '</div>';
+  }).join('');
+}
+function renderLogState() {
+  $('btnLog').textContent = S.logging ? 'Stop logging' : 'Start logging';
+  $('btnLog').className = S.logging ? 'danger' : '';
+  $('pillLog').textContent = S.logging ? `Logging · session ${S.session}` : 'Not logging';
+  $('pillLog').className = 'pill ' + (S.logging ? 'good' : '');
+  $('logHint').textContent = S.logging
+    ? 'Keep this screen on — iOS pauses GPS and Bluetooth when the phone locks.'
+    : `Session ${S.session}. Rows are only recorded while logging.`;
+}
+function renderCfg() {
+  const { sf, bw, pwr } = S.cfg;
+  $('vCfg').textContent = sf == null ? 'unknown' :
+    `SF${sf}, ${bw / 1000} kHz` + (S.role === 'tx' && pwr != null ? `, ${pwr} dBm` : '');
+  if (sf != null) $('selSf').value = String(sf);
+  if (bw != null) $('selBw').value = String(bw);
+  if (pwr != null) $('inPwr').value = String(pwr);
+  $('fieldPwr').style.display = S.role === 'tx' ? '' : 'none';
+}
+function renderAnchor() {
+  $('selAnchorBoard').value = S.anchorBoard;
+  if (!S.anchor) { $('vAnchor').textContent = 'not set'; $('vAnchorSub').textContent = ''; return; }
+  $('vAnchor').textContent = fmtCoord(S.anchor.lat, S.anchor.lon);
+  $('vAnchorSub').textContent = (S.anchor.acc != null ? `±${S.anchor.acc.toFixed(1)} m · ` : '') +
+    `set ${new Date(S.anchor.setAt).toLocaleString()} (${S.anchor.source})`;
+}
+function renderMe() {
+  if (!S.fix) return;
+  $('vMe').textContent = fmtCoord(S.fix.lat, S.fix.lon);
+  $('vMeSub').textContent = `±${S.fix.acc.toFixed(1)} m` +
+    (S.fix.alt != null ? ` · altitude ${S.fix.alt.toFixed(1)} m` : '') +
+    (S.fix.acc > 10 ? ' · move away from buildings/trees for a better fix' : '');
+}
+
+/* ---- Map ---- */
+let map = null, pointLayer = null, anchorLayer = null, meMarker = null, meCircle = null;
+const markers = new WeakMap();
+function initMap() {
+  if (map) return;
+  map = L.map('map', { zoomControl: true });
+  const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19, attribution: '&copy; OpenStreetMap contributors',
+  });
+  const sat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+    maxZoom: 19, attribution: 'Imagery &copy; Esri',
+  });
+  osm.addTo(map);
+  L.control.layers({ Map: osm, Satellite: sat }).addTo(map);
+  anchorLayer = L.layerGroup().addTo(map);
+  pointLayer = L.layerGroup().addTo(map);
+  if (S.anchor) map.setView([S.anchor.lat, S.anchor.lon], 16);
+  else if (S.fix) map.setView([S.fix.lat, S.fix.lon], 16);
+  else map.setView([39.5, -98.35], 4);
+  rebuildMap(); updateMeMarker();
+}
+function mapSessionMatches(row) {
+  const v = $('selSessionMap').value;
+  return v === 'all' || row.session === +v;
+}
+function addMarker(row) {
+  if (!map || row.lat == null || !mapSessionMatches(row)) return;
+  let m;
+  const ll = [row.lat, row.lon];
+  if (row.event === 'received') {
+    m = L.circleMarker(ll, { radius: 7, weight: 1, color: '#000', opacity: .35, fillColor: rssiColor(row.rssi_dbm), fillOpacity: .9 });
+  } else if (row.event === 'missed') {
+    m = L.circleMarker(ll, { radius: 6, weight: 2, color: cssVar('--miss'), fillColor: '#fff', fillOpacity: .7 });
+  } else if (row.event === 'crc_fail') {
+    m = L.circleMarker(ll, { radius: 7, weight: 1, color: '#000', opacity: .35, fillColor: '#8a2be2', fillOpacity: .9 });
+  } else {
+    m = L.circleMarker(ll, { radius: 5, weight: 1, color: cssVar('--accent'), fillColor: cssVar('--accent'), fillOpacity: .7 });
+  }
+  m.bindPopup(
+    `<b>${row.event}</b>${row.count != null ? ` #${row.count}` : ''}<br>` +
+    (row.rssi_dbm != null ? `RSSI ${row.rssi_dbm} dBm · SNR ${row.snr_db ?? '—'} dB<br>` : '') +
+    (row.distance_m != null ? `${fmtDist(row.distance_m)} from anchor<br>` : '') +
+    `GPS ±${row.gps_accuracy_m != null ? row.gps_accuracy_m.toFixed(1) : '—'} m<br>` +
+    new Date(row.epoch_ms).toLocaleTimeString());
+  m.addTo(pointLayer);
+  markers.set(row, m);
+}
+function removeMarker(row) { const m = markers.get(row); if (m && pointLayer) pointLayer.removeLayer(m); markers.delete(row); }
+function niceStep(x) {
+  const p = 10 ** Math.floor(Math.log10(x)), f = x / p;
+  return (f < 1.5 ? 1 : f < 3.5 ? 2.5 : f < 7.5 ? 5 : 10) * p;
+}
+function rebuildMap() {
+  if (!map) return;
+  pointLayer.clearLayers(); anchorLayer.clearLayers();
+  for (const r of S.rows) addMarker(r);
+  if (S.anchor) {
+    const a = [S.anchor.lat, S.anchor.lon];
+    L.marker(a, { icon: L.divIcon({ className: '', html: '<div style="font-size:26px;line-height:26px;color:#d97706;text-shadow:0 0 3px #000">★</div>', iconSize: [26, 26], iconAnchor: [13, 13] }) })
+      .bindPopup(`Anchor (${S.anchorBoard.toUpperCase()})<br>${fmtCoord(S.anchor.lat, S.anchor.lon)}`).addTo(anchorLayer);
+    const maxD = Math.max(100, ...S.rows.filter(mapSessionMatches).map(r => r.distance_m || 0));
+    const step = niceStep(maxD / 4);
+    $('vRing').textContent = fmtDist(step).replace('.0 m', ' m');
+    for (let d = step; d <= maxD + step; d += step) {
+      L.circle(a, { radius: d, color: cssVar('--ink3'), weight: 1, fill: false, dashArray: '4 6', interactive: false }).addTo(anchorLayer);
+    }
+  }
+}
+function updateMeMarker() {
+  if (!map || !S.fix) return;
+  const ll = [S.fix.lat, S.fix.lon];
+  if (!meMarker) {
+    meCircle = L.circle(ll, { radius: S.fix.acc, color: '#2a78d6', weight: 1, fillOpacity: .12, interactive: false }).addTo(map);
+    meMarker = L.circleMarker(ll, { radius: 7, color: '#fff', weight: 2, fillColor: '#2a78d6', fillOpacity: 1 }).addTo(map);
+  } else { meMarker.setLatLng(ll); meCircle.setLatLng(ll).setRadius(S.fix.acc); }
+}
+function fitAll() {
+  if (!map) return;
+  const pts = S.rows.filter(r => r.lat != null && mapSessionMatches(r)).map(r => [r.lat, r.lon]);
+  if (S.anchor) pts.push([S.anchor.lat, S.anchor.lon]);
+  if (S.fix) pts.push([S.fix.lat, S.fix.lon]);
+  if (pts.length) map.fitBounds(L.latLngBounds(pts).pad(0.15), { maxZoom: 18 });
+}
+
+/* ---- Charts ---- */
+const charts = {};
+function chartDefaults() {
+  Chart.defaults.color = cssVar('--ink2');
+  Chart.defaults.borderColor = cssVar('--rule');
+  Chart.defaults.font.family = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+  Chart.defaults.animation = false;
+  Chart.defaults.maintainAspectRatio = false;
+}
+function axis(title, extra = {}) { return { title: { display: true, text: title }, ...extra }; }
+function updateCharts() {
+  if (typeof Chart === 'undefined') return;
+  if (!charts.rssi) {
+    chartDefaults();
+    const scatter = (id, y) => new Chart($(id), {
+      type: 'scatter', data: { datasets: [{ data: [], pointRadius: 3, pointBackgroundColor: [] }] },
+      options: { plugins: { legend: { display: false } }, scales: { x: axis('Distance (m)', { min: 0 }), y: axis(y) } },
+    });
+    charts.rssi = scatter('chRssi', 'RSSI (dBm)');
+    charts.snr = scatter('chSnr', 'SNR (dB)');
+    charts.delivery = new Chart($('chDelivery'), {
+      type: 'bar', data: { labels: [], datasets: [{ data: [], backgroundColor: [] }] },
+      options: {
+        plugins: { legend: { display: false }, tooltip: { callbacks: { label: (c) => `${c.raw.toFixed(0)}% (${charts.delivery.$n[c.dataIndex]} packets)` } } },
+        scales: { x: axis('Distance band (m)'), y: axis('Delivered (%)', { min: 0, max: 100 }) },
+      },
+    });
+    charts.time = new Chart($('chTime'), {
+      type: 'scatter', data: { datasets: [{ data: [], pointRadius: 2, showLine: true, borderWidth: 1, borderColor: cssVar('--accent'), pointBackgroundColor: cssVar('--accent') }] },
+      options: { plugins: { legend: { display: false } }, scales: { x: axis('Minutes since session start'), y: axis('RSSI (dBm)') } },
+    });
+  }
+  const rows = sessionRows($('selSessionCharts').value);
+  const rec = rows.filter(r => r.event === 'received');
+  const withD = rec.filter(r => r.distance_m != null);
+
+  charts.rssi.data.datasets[0].data = withD.map(r => ({ x: r.distance_m, y: r.rssi_dbm }));
+  charts.rssi.data.datasets[0].pointBackgroundColor = withD.map(r => rssiColor(r.rssi_dbm));
+  charts.rssi.update();
+  const snrRows = withD.filter(r => r.snr_db != null);
+  charts.snr.data.datasets[0].data = snrRows.map(r => ({ x: r.distance_m, y: r.snr_db }));
+  charts.snr.data.datasets[0].pointBackgroundColor = snrRows.map(r => rssiColor(r.rssi_dbm));
+  charts.snr.update();
+
+  const counted = rows.filter(r => r.distance_m != null && ['received', 'missed', 'crc_fail'].includes(r.event));
+  const maxD = Math.max(0, ...counted.map(r => r.distance_m));
+  const step = niceStep(Math.max(maxD, 50) / 8);
+  const bins = [];
+  for (const r of counted) {
+    const b = Math.floor(r.distance_m / step);
+    bins[b] = bins[b] || { ok: 0, n: 0 };
+    bins[b].n++; if (r.event === 'received') bins[b].ok++;
+  }
+  const labels = [], vals = [], colors = [], ns = [];
+  for (let i = 0; i < bins.length; i++) {
+    if (!bins[i]) continue;
+    labels.push(`${Math.round(i * step)}–${Math.round((i + 1) * step)}`);
+    const pct = 100 * bins[i].ok / bins[i].n;
+    vals.push(pct); ns.push(bins[i].n);
+    colors.push(pct >= 90 ? cssVar('--good') : pct >= 50 ? cssVar('--warn') : cssVar('--bad'));
+  }
+  charts.delivery.data.labels = labels;
+  charts.delivery.data.datasets[0].data = vals;
+  charts.delivery.data.datasets[0].backgroundColor = colors;
+  charts.delivery.$n = ns;
+  charts.delivery.update();
+
+  const t0 = rows.length ? rows[0].epoch_ms : 0;
+  charts.time.data.datasets[0].data = rec.map(r => ({ x: (r.epoch_ms - t0) / 60000, y: r.rssi_dbm }));
+  charts.time.update();
+  chartsDirty = false;
+}
+
+/* ---- CSV ---- */
+function toCsv(rows) {
+  const esc = (v) => {
+    if (v == null) return '';
+    if (typeof v === 'number') return Number.isInteger(v) ? String(v) : String(+v.toFixed(8));
+    const s = String(v);
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  const lines = [CSV_COLUMNS.join(',')];
+  for (const r of rows) {
+    const full = { ...r, time_iso: new Date(r.epoch_ms).toISOString() };
+    lines.push(CSV_COLUMNS.map(c => esc(full[c])).join(','));
+  }
+  return lines.join('\n') + '\n';
+}
+function csvName() {
+  const d = new Date(), p = (n) => String(n).padStart(2, '0');
+  return `lora-range-${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}.csv`;
+}
+async function exportCsv() {
+  if (!S.rows.length) { toast('Nothing logged yet.'); return; }
+  const csv = toCsv(S.rows), name = csvName();
+  const file = new File([csv], name, { type: 'text/csv' });
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    try { await navigator.share({ files: [file], title: name }); return; }
+    catch (e) { if (e.name === 'AbortError') return; }
+  }
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(file); a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+  toast('If nothing downloaded, use Copy CSV instead.', 5000);
+}
+
+/* ---- Tabs ---- */
+let activeTab = 'live';
+function showTab(name) {
+  activeTab = name;
+  document.querySelectorAll('nav.tabs button').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
+  document.querySelectorAll('section.tab').forEach(s => s.classList.toggle('active', s.id === `tab-${name}`));
+  if (name === 'map') { initMap(); setTimeout(() => map.invalidateSize(), 50); }
+  if (name === 'charts') updateCharts();
+  window.scrollTo(0, 0);
+}
+
+/* ---- Wiring ---- */
+function init() {
+  load();
+  for (let sf = 7; sf <= 12; sf++) $('selSf').add(new Option(`SF${sf}`, String(sf)));
+  for (const bw of BANDWIDTHS) $('selBw').add(new Option(`${bw / 1000} kHz`, String(bw)));
+  $('selSf').value = '9'; $('selBw').value = '125000';
+  $('inNote').value = S.note;
+
+  $('btnConnect').onclick = connectBle;
+  $('btnLog').onclick = toggleLogging;
+  $('btnNewSession').onclick = newSession;
+  $('inNote').oninput = (e) => { S.note = e.target.value; save(); };
+  $('btnApply').onclick = () => {
+    let cmd = `SET sf=${$('selSf').value},bw=${$('selBw').value}`;
+    if (S.role === 'tx') cmd += `,pwr=${Math.round(+$('inPwr').value)}`;
+    sendCommand(cmd); addLog(`> ${cmd}`);
+  };
+  $('selAnchorBoard').onchange = (e) => { S.anchorBoard = e.target.value; save(); rebuildMap(); };
+  $('btnAnchorPaste').onclick = () => {
+    const p = parseCoords($('inAnchorPaste').value);
+    if (!p) { toast('Could not find a latitude, longitude pair in that text.'); return; }
+    const accMatch = $('inAnchorPaste').value.match(/±\s*(\d+(?:\.\d+)?)\s*m/);
+    setAnchor({ ...p, acc: accMatch ? +accMatch[1] : null }, 'pasted');
+    $('inAnchorPaste').value = '';
+  };
+  $('btnAnchorClear').onclick = () => { if (confirm('Clear the anchor location?')) { S.anchor = null; save(); renderAnchor(); renderDistance(); rebuildMap(); } };
+  $('btnMeasure').onclick = startMeasure;
+  $('btnShareMeasured').onclick = () => shareText(coordText(S.measured, 'LoRa anchor'));
+  $('btnCopyMeasured').onclick = () => copyText(coordText(S.measured, 'LoRa anchor'));
+  $('btnAnchorMeasured').onclick = () => setAnchor(S.measured, 'measured here');
+  $('btnExport').onclick = exportCsv;
+  $('btnCopyCsv').onclick = () => S.rows.length ? copyText(toCsv(S.rows)) : toast('Nothing logged yet.');
+  $('btnClear').onclick = () => {
+    if (!confirm(`Delete all ${S.rows.length} logged rows? Export first if you need them.`)) return;
+    S.rows = []; S.session = 1; resetGapTracking(); save(); rebuildMap(); dataChanged(); renderLogState();
+  };
+  $('btnFit').onclick = fitAll;
+  $('btnMe').onclick = () => { if (map && S.fix) map.setView([S.fix.lat, S.fix.lon], Math.max(map.getZoom(), 17)); };
+  $('selSessionMap').onchange = rebuildMap;
+  $('selSessionCharts').onchange = updateCharts;
+  document.querySelectorAll('nav.tabs button').forEach(b => { b.onclick = () => showTab(b.dataset.tab); });
+
+  renderLogState(); renderAnchor(); renderStats(); renderLive(); renderDistance(); renderCfg();
+  startGps();
+
+  setInterval(() => {
+    checkSilence(); renderAge();
+    if (activeTab === 'charts' && chartsDirty) updateCharts();
+  }, 500);
+  window.addEventListener('beforeunload', (e) => { if (S.logging) { e.preventDefault(); e.returnValue = ''; } });
+}
+init();
+</script>
+</body>
+</html>

@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include <RadioLib.h>
+#include <BleLink.h>
 
 // Wio-SX1262 for XIAO (header board) on a XIAO ESP32C6. SPI uses the
 // board's default hardware SPI pins (D8 SCK / D9 MISO / D10 MOSI).
@@ -16,9 +17,10 @@ SX1262 radio = new Module(LORA_NSS, LORA_DIO1, LORA_RST, LORA_BUSY);
 
 int counter = 0;
 
-// Live-tunable radio settings, changed at runtime via serial commands
-// from the host-side config UI (../lora-testing/config-ui). Same protocol
-// as the ESP32C3/SX127x boards. See handleSerialCommands().
+// Live-tunable radio settings, changed at runtime via commands from the
+// USB config UI (../lora-testing/config-ui) or the BLE range-test app
+// (../range-app). Same protocol as the ESP32C3/SX127x boards. See
+// handleCommand().
 int currentSF = 9;
 long currentBW = 125000;  // Hz on the wire; RadioLib takes kHz
 int currentPower = 17;
@@ -40,12 +42,8 @@ bool isValidBandwidth(long bw) {
 }
 
 void printConfig() {
-  Serial.print("CFG sf=");
-  Serial.print(currentSF);
-  Serial.print(" bw=");
-  Serial.print(currentBW);
-  Serial.print(" pwr=");
-  Serial.println(currentPower);
+  BleLink::logLine("CFG sf=" + String(currentSF) + " bw=" + String(currentBW) +
+                   " pwr=" + String(currentPower));
 }
 
 // The SX1262 only accepts modulation changes in standby, so abort any
@@ -55,20 +53,14 @@ void enterStandbyForConfig() {
     radio.finishTransmit();
     txInProgress = false;
     txDoneFlag = false;
-    Serial.println("In-flight packet aborted for config change.");
+    BleLink::logLine("In-flight packet aborted for config change.");
   }
   radio.standby();
 }
 
-// Parses lines like "SET sf=9,bw=125000,pwr=17" or "GET" from Serial and
-// applies them to the radio immediately, without needing a reflash.
-void handleSerialCommands() {
-  if (!Serial.available()) return;
-
-  String line = Serial.readStringUntil('\n');
-  line.trim();
-  if (line.length() == 0) return;
-
+// Applies lines like "SET sf=9,bw=125000,pwr=17" or "GET" to the radio
+// immediately, without needing a reflash.
+void handleCommand(const String &line) {
   if (line == "GET") {
     printConfig();
     return;
@@ -116,6 +108,18 @@ void handleSerialCommands() {
   }
 }
 
+// Commands can arrive over USB serial or BLE; both feed handleCommand().
+void pollCommands() {
+  if (Serial.available()) {
+    String line = Serial.readStringUntil('\n');
+    line.trim();
+    if (line.length() > 0) handleCommand(line);
+  }
+
+  String bleLine;
+  if (BleLink::pollCommand(bleLine)) handleCommand(bleLine);
+}
+
 void setup() {
   Serial.begin(115200);
   // Native USB serial blocks on every print while the host isn't reading
@@ -124,14 +128,17 @@ void setup() {
   Serial.setTxTimeoutMs(0);
   delay(2000); // give the serial monitor a moment to connect
 
+  BleLink::begin("LoRa-TX");
+
   int state = radio.begin(LORA_FREQ_MHZ, currentBW / 1000.0, currentSF, 5,
                           RADIOLIB_SX126X_SYNC_WORD_PRIVATE, currentPower,
                           8, LORA_TCXO_VOLTAGE);
   if (state != RADIOLIB_ERR_NONE) {
-    Serial.print("LoRa init failed, code ");
-    Serial.print(state);
-    Serial.println(". Check your connections.");
-    while (1);
+    // Keep repeating so a phone that connects later still sees why.
+    while (1) {
+      BleLink::logLine("LoRa init failed, code " + String(state) + ". Check your connections.");
+      delay(2000);
+    }
   }
 
   // DIO2 drives the module's TX path; RF_SW is toggled by RadioLib (HIGH in RX).
@@ -142,14 +149,14 @@ void setup() {
 
   radio.setPacketSentAction(onTxDone);
 
-  Serial.println("LoRa init succeeded. Starting transmitter.");
+  BleLink::logLine("LoRa init succeeded. Starting transmitter.");
   printConfig();
 }
 
 unsigned long lastSend = 0;
 
 void loop() {
-  handleSerialCommands();
+  pollCommands();
 
   if (txDoneFlag) {
     txDoneFlag = false;
@@ -157,7 +164,7 @@ void loop() {
     radio.finishTransmit();
   }
 
-  // Async transmit: don't block loop() (and handleSerialCommands()) for the
+  // Async transmit: don't block loop() (and command handling) for the
   // packet's full time-on-air, which can be many seconds at low
   // bandwidth / high spreading factor. Only one packet on air at a time;
   // lastSend/counter only advance on an actual send.
@@ -169,13 +176,11 @@ void loop() {
       lastSend = millis();
       txInProgress = true;
 
-      Serial.print("Sending packet: ");
-      Serial.println(counter);
+      BleLink::logLine("Sending packet: " + String(counter));
 
       counter++;
     } else {
-      Serial.print("startTransmit failed, code ");
-      Serial.println(state);
+      BleLink::logLine("startTransmit failed, code " + String(state));
       lastSend = millis(); // back off before retrying
     }
   }
