@@ -64,8 +64,10 @@ field range tests, made for **Bluefy** on iOS (Safari has no Web
 Bluetooth). It connects to a board over BLE, tags every packet with a
 high-accuracy GPS fix, and computes distance from a fixed anchor.
 
+- **Logging bar** — floats above the tab bar on every tab: current
+  session, row count, **New** session and **Start/Stop** logging.
 - **Home** — dashboard of everything at once: live RSSI/SNR, distance,
-  time since last packet, delivery %, start/stop logging, a mini map, RSSI
+  time since last packet, delivery %, a mini map, RSSI
   and delivery vs distance, anchor + your position, export, and recent
   board output. Each card links to its full tab.
 - **Board** — radio settings (SF / bandwidth / TX power) and the full
@@ -94,12 +96,13 @@ are not counted as radio misses.
    board, then **Share** the coordinates to the other person (or tap
    **Set as anchor** if the same phone will walk).
 4. With the RX: paste the shared text into **Location → Use pasted
-   coordinates**, **Connect board** → `LoRa-RX`, then **Start logging**.
+   coordinates**, **Connect board** → `LoRa-RX`, then **Start** in the
+   logging bar at the bottom.
    Keep the screen on while walking — iOS pauses GPS and Bluetooth when
    the phone locks.
-5. **Data → Export CSV** afterwards. Use **New session** between
+5. **Data → Export CSV** afterwards. Tap **New** (new session) between
    configurations (different SF/power) and put the settings in the session
-   note so they end up in every CSV row.
+   note on the Data tab so they end up in every CSV row.
 
 Phone GPS is good to about ±3–5 m in the open. Every row records the fix
 accuracy and the anchor accuracy, so you can filter out bad fixes.
