@@ -118,6 +118,10 @@ void handleSerialCommands() {
 
 void setup() {
   Serial.begin(115200);
+  // Native USB serial blocks on every print while the host isn't reading
+  // (port closed, or the link wedged), which stalls loop() and the radio.
+  // Drop output instead of waiting.
+  Serial.setTxTimeoutMs(0);
   delay(2000); // give the serial monitor a moment to connect
 
   int state = radio.begin(LORA_FREQ_MHZ, currentBW / 1000.0, currentSF, 5,
