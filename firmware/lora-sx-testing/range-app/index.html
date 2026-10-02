@@ -162,7 +162,7 @@ main {
   font-size: var(--fs-xs); font-weight: var(--fw-strong); letter-spacing: .08em; text-transform: uppercase;
   color: var(--text-3);
 }
-.card-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-2); }
+.card-head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); min-height: 32px; }
 
 /* Buttons: default is primary; add .secondary / .danger / .link / .compact */
 button {
@@ -178,6 +178,25 @@ button.secondary { background: var(--surface-2); color: var(--text); box-shadow:
 button.danger { background: transparent; color: var(--bad); box-shadow: inset 0 0 0 1.5px var(--bad); }
 button.link { background: none; color: var(--accent); padding: 0; font-size: var(--fs-sm); font-weight: var(--fw-label); }
 button.compact { padding: 6px var(--sp-3); font-size: var(--fs-sm); }
+
+/* Icons (Lucide sprite, inlined after the opening body tag). Color follows the text color. */
+.icon {
+  width: 18px; height: 18px; flex: none; vertical-align: middle;
+  fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+}
+.icon.fill { fill: currentColor; }
+.icon.sm { width: 13px; height: 13px; }
+button.icon-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--sp-1);
+  flex: 0 0 auto; padding: 7px; font-size: var(--fs-sm);
+}
+button.icon-btn span { padding-right: 2px; }
+button.ghost { background: none; color: var(--text-2); box-shadow: none; }
+button.rec .icon { color: var(--bad); }
+.card-actions { display: flex; align-items: center; gap: var(--sp-1); }
+.row.tight > * { flex: 0 0 auto; }
+.settings { display: flex; align-items: flex-end; gap: var(--sp-2); }
+.settings .field { flex: 1 1 0; min-width: 0; }
 .toolbar { display: flex; align-items: center; gap: var(--sp-2); }
 /* 16px text stops iOS zooming on focus; padding keeps the control short */
 select.compact { width: auto; padding: 3px 26px 3px var(--sp-2); border-radius: var(--r-pill); }
@@ -198,6 +217,7 @@ textarea { min-height: 48px; resize: vertical; }
 /* Status pills (header) */
 .pills { flex: 1 1 auto; min-width: 0; display: flex; gap: var(--sp-1); overflow: hidden; }
 .pill {
+  display: inline-flex; align-items: center; gap: var(--sp-1);
   padding: 3px 8px; border-radius: var(--r-pill);
   background: var(--surface-2); color: var(--text-2);
   font-size: var(--fs-xs); font-weight: var(--fw-label); white-space: nowrap;
@@ -207,7 +227,7 @@ textarea { min-height: 48px; resize: vertical; }
 .pill.bad  { background: color-mix(in srgb, var(--bad) 16%, transparent); color: var(--bad); }
 
 /* Stats */
-.stat .label { font-size: var(--fs-xs); font-weight: var(--fw-label); color: var(--text-3); }
+.stat .label { display: flex; align-items: center; gap: var(--sp-1); font-size: var(--fs-xs); font-weight: var(--fw-label); color: var(--text-3); }
 .stat .value { font-size: var(--fs-xl); font-weight: var(--fw-value); letter-spacing: -.02em; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .stat .sub { font-size: var(--fs-xs); color: var(--text-2); font-variant-numeric: tabular-nums; }
 .good { color: var(--good); }
@@ -260,16 +280,16 @@ textarea { min-height: 48px; resize: vertical; }
 .dock.on { border-top-color: var(--good); }
 .tabbar { flex: 1 1 auto; display: flex; min-width: 0; }
 .tabbar button {
-  flex: 1; padding: var(--sp-2) 2px; border-radius: var(--r-sm);
+  flex: 1; display: flex; justify-content: center; padding: var(--sp-2) 2px; border-radius: var(--r-sm);
   background: none; color: var(--text-3); font-size: var(--fs-sm); font-weight: var(--fw-label);
 }
 .tabbar button.active { color: var(--accent); font-weight: var(--fw-strong); background: var(--surface-2); }
+.tabbar .icon { width: 20px; height: 20px; }
 .logctl { flex: 0 0 auto; display: flex; align-items: center; gap: var(--sp-2); }
 .logctl-info { display: flex; flex-direction: column; line-height: 1.2; text-align: right; }
 .logctl-info b { font-size: var(--fs-sm); font-weight: var(--fw-title); white-space: nowrap; }
 .logctl-info span { font-size: var(--fs-xs); color: var(--text-2); white-space: nowrap; }
 .dock.on .logctl-info span { color: var(--good); }
-.logctl #btnLog { min-width: 60px; }
 
 /* Toast */
 .toast {
@@ -286,19 +306,52 @@ textarea { min-height: 48px; resize: vertical; }
 .leaflet-popup-content { font-size: var(--fs-sm); }
 .leaflet-bar a, .leaflet-control-layers { background: var(--surface); color: var(--text); border-color: var(--border) !important; }
 .leaflet-bar a:hover, .leaflet-bar a:focus { background: var(--surface-2); color: var(--text); }
-.leaflet-bar a.map-tool { font-size: 15px; line-height: 30px; }
+.leaflet-bar a.map-tool { display: flex; align-items: center; justify-content: center; }
 .leaflet-control-attribution { background: color-mix(in srgb, var(--surface) 80%, transparent) !important; color: var(--text-3); font-size: 9px; line-height: 1.3; }
 .leaflet-control-attribution a { color: var(--accent); }
 </style>
 </head>
 <body>
+<!-- Icons: Lucide (https://lucide.dev), ISC license. Use as <svg class="icon"><use href="#i-NAME"/></svg>. -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+<symbol id="i-anchor" viewBox="0 0 24 24"><path d="M12 6v16" /> <path d="m19 13 2-1a9 9 0 0 1-18 0l2 1" /> <path d="M9 11h6" /> <circle cx="12" cy="4" r="2" /></symbol>
+<symbol id="i-bluetooth-connected" viewBox="0 0 24 24"><path d="m7 7 10 10-5 5V2l5 5L7 17" /> <line x1="18" x2="21" y1="12" y2="12" /> <line x1="3" x2="6" y1="12" y2="12" /></symbol>
+<symbol id="i-bluetooth" viewBox="0 0 24 24"><path d="m7 7 10 10-5 5V2l5 5L7 17" /></symbol>
+<symbol id="i-chart-scatter" viewBox="0 0 24 24"><circle cx="7.5" cy="7.5" r=".5" fill="currentColor" /> <circle cx="18.5" cy="5.5" r=".5" fill="currentColor" /> <circle cx="11.5" cy="11.5" r=".5" fill="currentColor" /> <circle cx="7.5" cy="16.5" r=".5" fill="currentColor" /> <circle cx="17.5" cy="14.5" r=".5" fill="currentColor" /> <path d="M3 3v16a2 2 0 0 0 2 2h16" /></symbol>
+<symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5" /></symbol>
+<symbol id="i-chevron-right" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6" /></symbol>
+<symbol id="i-circle" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /></symbol>
+<symbol id="i-clipboard-paste" viewBox="0 0 24 24"><path d="M11 14h10" /> <path d="M16 4h2a2 2 0 0 1 2 2v1.344" /> <path d="m17 18 4-4-4-4" /> <path d="M8 4H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 1.793-1.113" /> <rect x="8" y="2" width="8" height="4" rx="1" /></symbol>
+<symbol id="i-copy" viewBox="0 0 24 24"><rect width="14" height="14" x="8" y="8" rx="2" ry="2" /> <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" /></symbol>
+<symbol id="i-crosshair" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /> <line x1="22" x2="18" y1="12" y2="12" /> <line x1="6" x2="2" y1="12" y2="12" /> <line x1="12" x2="12" y1="6" y2="2" /> <line x1="12" x2="12" y1="22" y2="18" /></symbol>
+<symbol id="i-download" viewBox="0 0 24 24"><path d="M12 15V3" /> <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /> <path d="m7 10 5 5 5-5" /></symbol>
+<symbol id="i-heart-pulse" viewBox="0 0 24 24"><path d="M2 9.5a5.5 5.5 0 0 1 9.591-3.676.56.56 0 0 0 .818 0A5.49 5.49 0 0 1 22 9.5c0 2.29-1.5 4-3 5.5l-5.492 5.313a2 2 0 0 1-3 .019L5 15c-1.5-1.5-3-3.2-3-5.5" /> <path d="M3.22 13H9.5l.5-1 2 4.5 2-7 1.5 3.5h5.27" /></symbol>
+<symbol id="i-house" viewBox="0 0 24 24"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8" /> <path d="M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /></symbol>
+<symbol id="i-locate-fixed" viewBox="0 0 24 24"><line x1="2" x2="5" y1="12" y2="12" /> <line x1="19" x2="22" y1="12" y2="12" /> <line x1="12" x2="12" y1="2" y2="5" /> <line x1="12" x2="12" y1="19" y2="22" /> <circle cx="12" cy="12" r="7" /> <circle cx="12" cy="12" r="3" /></symbol>
+<symbol id="i-map" viewBox="0 0 24 24"><path d="M14.106 5.553a2 2 0 0 0 1.788 0l3.659-1.83A1 1 0 0 1 21 4.619v12.764a1 1 0 0 1-.553.894l-4.553 2.277a2 2 0 0 1-1.788 0l-4.212-2.106a2 2 0 0 0-1.788 0l-3.659 1.83A1 1 0 0 1 3 19.381V6.618a1 1 0 0 1 .553-.894l4.553-2.277a2 2 0 0 1 1.788 0z" /> <path d="M15 5.764v15" /> <path d="M9 3.236v15" /></symbol>
+<symbol id="i-maximize" viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3" /> <path d="M21 8V5a2 2 0 0 0-2-2h-3" /> <path d="M3 16v3a2 2 0 0 0 2 2h3" /> <path d="M16 21h3a2 2 0 0 0 2-2v-3" /></symbol>
+<symbol id="i-moon" viewBox="0 0 24 24"><path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401" /></symbol>
+<symbol id="i-package-check" viewBox="0 0 24 24"><path d="M12 22V12" /> <path d="m16 17 2 2 4-4" /> <path d="M21 11.127V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.729l7 4a2 2 0 0 0 2 .001l1.32-.753" /> <path d="M3.29 7 12 12l8.71-5" /> <path d="m7.5 4.27 8.997 5.148" /></symbol>
+<symbol id="i-plus" viewBox="0 0 24 24"><path d="M5 12h14" /> <path d="M12 5v14" /></symbol>
+<symbol id="i-radio" viewBox="0 0 24 24"><path d="M16.247 7.761a6 6 0 0 1 0 8.478" /> <path d="M19.075 4.933a10 10 0 0 1 0 14.134" /> <path d="M4.925 19.067a10 10 0 0 1 0-14.134" /> <path d="M7.753 16.239a6 6 0 0 1 0-8.478" /> <circle cx="12" cy="12" r="2" /></symbol>
+<symbol id="i-ruler" viewBox="0 0 24 24"><path d="M21.3 15.3a2.4 2.4 0 0 1 0 3.4l-2.6 2.6a2.4 2.4 0 0 1-3.4 0L2.7 8.7a2.41 2.41 0 0 1 0-3.4l2.6-2.6a2.41 2.41 0 0 1 3.4 0Z" /> <path d="m14.5 12.5 2-2" /> <path d="m11.5 9.5 2-2" /> <path d="m8.5 6.5 2-2" /> <path d="m17.5 15.5 2-2" /></symbol>
+<symbol id="i-send" viewBox="0 0 24 24"><path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z" /> <path d="m21.854 2.147-10.94 10.939" /></symbol>
+<symbol id="i-share-2" viewBox="0 0 24 24"><circle cx="18" cy="5" r="3" /> <circle cx="6" cy="12" r="3" /> <circle cx="18" cy="19" r="3" /> <line x1="8.59" x2="15.42" y1="13.51" y2="17.49" /> <line x1="15.41" x2="8.59" y1="6.51" y2="10.49" /></symbol>
+<symbol id="i-signal" viewBox="0 0 24 24"><path d="M2 20h.01" /> <path d="M7 20v-4" /> <path d="M12 20v-8" /> <path d="M17 20V8" /> <path d="M22 4v16" /></symbol>
+<symbol id="i-square" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="2" /></symbol>
+<symbol id="i-sun-moon" viewBox="0 0 24 24"><path d="M12 2v2" /> <path d="M14.837 16.385a6 6 0 1 1-7.223-7.222c.624-.147.97.66.715 1.248a4 4 0 0 0 5.26 5.259c.589-.255 1.396.09 1.248.715" /> <path d="M16 12a4 4 0 0 0-4-4" /> <path d="m19 5-1.256 1.256" /> <path d="M20 12h2" /></symbol>
+<symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4" /> <path d="M12 2v2" /> <path d="M12 20v2" /> <path d="m4.93 4.93 1.41 1.41" /> <path d="m17.66 17.66 1.41 1.41" /> <path d="M2 12h2" /> <path d="M20 12h2" /> <path d="m6.34 17.66-1.41 1.41" /> <path d="m19.07 4.93-1.41 1.41" /></symbol>
+<symbol id="i-timer" viewBox="0 0 24 24"><line x1="10" x2="14" y1="2" y2="2" /> <line x1="12" x2="15" y1="14" y2="11" /> <circle cx="12" cy="14" r="8" /></symbol>
+<symbol id="i-trash-2" viewBox="0 0 24 24"><path d="M10 11v6" /> <path d="M14 11v6" /> <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" /> <path d="M3 6h18" /> <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></symbol>
+<symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18" /> <path d="m6 6 12 12" /></symbol>
+</svg>
 <header class="app-header">
   <div class="pills">
-    <span class="pill" id="pillBle">No board</span>
-    <span class="pill" id="pillGps">GPS…</span>
+    <span class="pill" id="pillBle" title="Board"><svg class="icon sm" aria-hidden="true"><use href="#i-radio"/></svg><span>No board</span></span>
+    <span class="pill" id="pillGps" title="GPS accuracy"><svg class="icon sm" aria-hidden="true"><use href="#i-locate-fixed"/></svg><span>…</span></span>
   </div>
-  <button class="secondary compact" id="btnTheme" title="Theme: auto" aria-label="Theme">◐</button>
-  <button class="compact" id="btnConnect">Connect</button>
+  <button class="icon-btn secondary" id="btnTheme" title="Theme: auto" aria-label="Theme: auto"><svg class="icon" aria-hidden="true"><use href="#i-sun-moon"/></svg></button>
+  <button class="icon-btn " id="btnConnect" title="Connect board" aria-label="Connect board"><svg class="icon" aria-hidden="true"><use href="#i-bluetooth"/></svg></button>
 </header>
 
 <main>
@@ -306,62 +359,62 @@ textarea { min-height: 48px; resize: vertical; }
   <section class="tab active" id="tab-home">
     <div class="card">
       <div class="stats">
-        <div class="stat"><div class="label">Signal (RSSI)</div><div class="value muted" id="vRssi">—</div><div class="sub" id="vSnr"></div></div>
-        <div class="stat"><div class="label">Distance to anchor</div><div class="value muted" id="vDist">—</div><div class="sub" id="vDistSub"></div></div>
-        <div class="stat"><div class="label">Since last packet</div><div class="value muted" id="vAge">—</div><div class="sub" id="vAgeSub"></div></div>
-        <div class="stat"><div class="label">Delivery (session)</div><div class="value muted" id="vLoss">—</div><div class="sub" id="vLossSub"></div></div>
+        <div class="stat"><div class="label"><svg class="icon sm" aria-hidden="true"><use href="#i-signal"/></svg>RSSI</div><div class="value muted" id="vRssi">—</div><div class="sub" id="vSnr"></div></div>
+        <div class="stat"><div class="label"><svg class="icon sm" aria-hidden="true"><use href="#i-ruler"/></svg>Distance</div><div class="value muted" id="vDist">—</div><div class="sub" id="vDistSub"></div></div>
+        <div class="stat"><div class="label"><svg class="icon sm" aria-hidden="true"><use href="#i-timer"/></svg>Last packet</div><div class="value muted" id="vAge">—</div><div class="sub" id="vAgeSub"></div></div>
+        <div class="stat"><div class="label"><svg class="icon sm" aria-hidden="true"><use href="#i-package-check"/></svg>Delivery</div><div class="value muted" id="vLoss">—</div><div class="sub" id="vLossSub"></div></div>
       </div>
     </div>
 
     <div class="home-grid">
       <div class="card">
-        <div class="card-head"><h2 class="card-title">Map</h2><button class="link" data-goto="map">Open map ›</button></div>
+        <div class="card-head"><h2 class="card-title">Map</h2><button class="icon-btn ghost" data-goto="map" title="Open map" aria-label="Open map"><svg class="icon" aria-hidden="true"><use href="#i-chevron-right"/></svg></button></div>
         <div class="map mini" id="homeMap"></div>
       </div>
       <div class="card">
-        <div class="card-head"><h2 class="card-title">Signal vs distance</h2><button class="link" data-goto="charts">All charts ›</button></div>
+        <div class="card-head"><h2 class="card-title">Signal vs distance</h2><button class="icon-btn ghost" data-goto="charts" title="All charts" aria-label="All charts"><svg class="icon" aria-hidden="true"><use href="#i-chevron-right"/></svg></button></div>
         <div class="chart-box small"><canvas id="chHomeRssi"></canvas></div>
         <div class="chart-box small"><canvas id="chHomeDelivery"></canvas></div>
       </div>
       <div class="card">
-        <div class="card-head"><h2 class="card-title">Location</h2><button class="link" data-goto="map">Anchor &amp; measure ›</button></div>
-        <div class="stat"><div class="label">Anchor</div><div class="coords" id="vHomeAnchor">not set</div><div class="sub" id="vHomeAnchorSub"></div></div>
-        <div class="stat"><div class="label">Me</div><div class="coords" id="vHomeMe">waiting for GPS…</div><div class="sub" id="vHomeMeSub"></div></div>
-        <div class="row"><button class="secondary" id="btnHomeShareMe">Share my location</button></div>
+        <div class="card-head"><h2 class="card-title">Location</h2>
+          <div class="card-actions"><button class="icon-btn ghost" id="btnHomeShareMe" title="Share my location" aria-label="Share my location"><svg class="icon" aria-hidden="true"><use href="#i-share-2"/></svg></button><button class="icon-btn ghost" data-goto="map" title="Anchor and measure" aria-label="Anchor and measure"><svg class="icon" aria-hidden="true"><use href="#i-chevron-right"/></svg></button></div>
+        </div>
+        <div class="stat"><div class="label"><svg class="icon sm" aria-hidden="true"><use href="#i-anchor"/></svg>Anchor</div><div class="coords" id="vHomeAnchor">not set</div><div class="sub" id="vHomeAnchorSub"></div></div>
+        <div class="stat"><div class="label"><svg class="icon sm" aria-hidden="true"><use href="#i-locate-fixed"/></svg>Me</div><div class="coords" id="vHomeMe">waiting for GPS…</div><div class="sub" id="vHomeMeSub"></div></div>
       </div>
 
       <div class="card">
-        <h2 class="card-title">Data</h2>
-        <p id="vDataSummary">No data yet.</p>
-        <div class="row">
-          <button id="btnExport">Export CSV</button>
-          <button class="secondary" id="btnCopyCsv">Copy CSV</button>
+        <div class="card-head"><h2 class="card-title">Data</h2>
+          <div class="card-actions">
+            <button class="icon-btn ghost" id="btnExport" title="Export CSV" aria-label="Export CSV"><svg class="icon" aria-hidden="true"><use href="#i-download"/></svg></button>
+            <button class="icon-btn ghost" id="btnCopyCsv" title="Copy CSV" aria-label="Copy CSV"><svg class="icon" aria-hidden="true"><use href="#i-copy"/></svg></button>
+            <button class="icon-btn ghost" id="btnClear" title="Delete all logged data" aria-label="Delete all logged data"><svg class="icon" aria-hidden="true"><use href="#i-trash-2"/></svg></button>
+          </div>
         </div>
-        <label class="field">Session note (goes in every CSV row, e.g. "TX 17 dBm, walking north")
-          <input id="inNote" placeholder="optional">
+        <p id="vDataSummary">No data yet.</p>
+        <label class="field">Session note (added to every CSV row)
+          <input id="inNote" placeholder="e.g. TX 17 dBm, walking north">
         </label>
         <div class="hint" id="vSessions"></div>
-        <p class="hint">Export uses the iOS share sheet (Save to Files, AirDrop, Mail…). Data stays on this phone until you delete it.</p>
-        <div><button class="danger compact" id="btnClear">Delete all logged data</button></div>
       </div>
 
       <div class="card span-all">
-        <h2 class="card-title">Setup</h2>
-        <p id="vHomeBoard">No board connected — tap Connect.</p>
-        <div class="stats">
-          <label class="field">Spreading factor
+        <div class="card-head"><h2 class="card-title">Setup</h2><span class="hint" id="vHomeBoard">No board connected</span></div>
+        <div class="settings">
+          <label class="field">SF
             <select id="selSf"></select>
           </label>
           <label class="field">Bandwidth
             <select id="selBw"></select>
           </label>
-          <label class="field" id="fieldPwr">TX power (dBm)
+          <label class="field" id="fieldPwr">TX dBm
             <input id="inPwr" type="number" min="-9" max="22" step="1" value="17">
           </label>
+          <button class="icon-btn " id="btnApply" title="Apply to board" aria-label="Apply to board" disabled><svg class="icon" aria-hidden="true"><use href="#i-send"/></svg></button>
         </div>
-        <div class="row"><button id="btnApply" disabled>Apply to board</button></div>
-        <p class="hint">SF and bandwidth must match on both boards or nothing gets through. Current: <span id="vCfg">unknown</span></p>
-        <label class="check"><input type="checkbox" id="chkHeartbeat"> show heartbeats in board output</label>
+        <p class="hint">SF and bandwidth must match on both boards. Current: <span id="vCfg">unknown</span></p>
+        <label class="check"><input type="checkbox" id="chkHeartbeat"><svg class="icon sm" aria-hidden="true"><use href="#i-heart-pulse"/></svg> heartbeats</label>
         <div class="log" id="log"></div>
       </div>
     </div>
@@ -381,44 +434,41 @@ textarea { min-height: 48px; resize: vertical; }
     </div>
 
     <div class="card" id="anchorCard">
-      <h2 class="card-title">Anchor (fixed board)</h2>
-      <label class="field">Which board stays put?
-        <select id="selAnchorBoard">
-          <option value="tx">TX fixed, RX moves (recommended)</option>
-          <option value="rx">RX fixed, TX moves</option>
+      <div class="card-head"><h2 class="card-title"><svg class="icon sm" aria-hidden="true"><use href="#i-anchor"/></svg> Anchor</h2>
+        <select class="compact" id="selAnchorBoard" aria-label="Which board stays put">
+          <option value="tx">TX fixed</option>
+          <option value="rx">RX fixed</option>
         </select>
-      </label>
+      </div>
       <div>
         <p class="coords" id="vAnchor">not set</p>
         <p class="hint" id="vAnchorSub"></p>
       </div>
-      <label class="field">Set anchor by pasting coordinates or a map link
-        <textarea id="inAnchorPaste" placeholder="40.0149856, -105.2705456"></textarea>
-      </label>
-      <div class="row">
-        <button id="btnAnchorPaste">Use pasted coordinates</button>
-        <button class="secondary" id="btnAnchorClear">Clear</button>
+      <textarea id="inAnchorPaste" aria-label="Paste coordinates or a map link" placeholder="Paste coordinates or a map link"></textarea>
+      <div class="row tight">
+        <button class="icon-btn " id="btnAnchorPaste" title="Use pasted coordinates" aria-label="Use pasted coordinates"><svg class="icon" aria-hidden="true"><use href="#i-clipboard-paste"/></svg><span>Set</span></button>
+        <button class="icon-btn secondary" id="btnAnchorClear" title="Clear anchor" aria-label="Clear anchor"><svg class="icon" aria-hidden="true"><use href="#i-x"/></svg></button>
       </div>
     </div>
 
     <div class="card">
-      <h2 class="card-title">My precise location</h2>
+      <div class="card-head"><h2 class="card-title"><svg class="icon sm" aria-hidden="true"><use href="#i-locate-fixed"/></svg> My location</h2>
+        <button class="icon-btn " id="btnMeasure" title="Measure: 30 s average, stand still at the board" aria-label="Measure: 30 s average, stand still at the board"><svg class="icon" aria-hidden="true"><use href="#i-crosshair"/></svg><span>30 s</span></button>
+      </div>
       <div>
         <p class="coords" id="vMe">waiting for GPS…</p>
         <p class="hint" id="vMeSub"></p>
       </div>
-      <p class="hint">At the anchor: measure for 30 s standing still with the phone held at the board, then share the result with the other person (or set it as the anchor here directly).</p>
-      <div class="row"><button id="btnMeasure">Measure (30 s average)</button></div>
       <div class="progress" id="measureProgress" hidden><div></div></div>
       <div class="stack" id="measureResult" hidden>
         <div>
           <p class="coords" id="vMeasured"></p>
           <p class="hint" id="vMeasuredSub"></p>
         </div>
-        <div class="row">
-          <button id="btnShareMeasured">Share</button>
-          <button class="secondary" id="btnCopyMeasured">Copy</button>
-          <button class="secondary" id="btnAnchorMeasured">Set as anchor</button>
+        <div class="row tight">
+          <button class="icon-btn " id="btnShareMeasured" title="Share measured location" aria-label="Share measured location"><svg class="icon" aria-hidden="true"><use href="#i-share-2"/></svg></button>
+          <button class="icon-btn secondary" id="btnCopyMeasured" title="Copy measured location" aria-label="Copy measured location"><svg class="icon" aria-hidden="true"><use href="#i-copy"/></svg></button>
+          <button class="icon-btn secondary" id="btnAnchorMeasured" title="Set as anchor" aria-label="Set as anchor"><svg class="icon" aria-hidden="true"><use href="#i-anchor"/></svg><span>Set anchor</span></button>
         </div>
       </div>
     </div>
@@ -432,7 +482,7 @@ textarea { min-height: 48px; resize: vertical; }
     <div class="card">
       <h2 class="card-title">Packets delivered by distance</h2>
       <div class="chart-box"><canvas id="chDelivery"></canvas></div>
-      <p class="hint">Share of expected packets that arrived, per distance band. Missed packets are detected from gaps in the transmitter's packet counter.</p>
+      <p class="hint">Missed packets are detected from gaps in the transmitter's packet counter.</p>
     </div>
     <div class="card"><h2 class="card-title">RSSI over time</h2><div class="chart-box"><canvas id="chTime"></canvas></div></div>
   </section>
@@ -440,17 +490,17 @@ textarea { min-height: 48px; resize: vertical; }
 
 <footer class="dock">
   <nav class="tabbar">
-    <button data-tab="home" class="active">Home</button>
-    <button data-tab="map">Map</button>
-    <button data-tab="charts">Charts</button>
+    <button data-tab="home" class="active" title="Home" aria-label="Home"><svg class="icon" aria-hidden="true"><use href="#i-house"/></svg></button>
+    <button data-tab="map" title="Map" aria-label="Map"><svg class="icon" aria-hidden="true"><use href="#i-map"/></svg></button>
+    <button data-tab="charts" title="Charts" aria-label="Charts"><svg class="icon" aria-hidden="true"><use href="#i-chart-scatter"/></svg></button>
   </nav>
   <div class="logctl">
     <div class="logctl-info">
       <b id="vLogState">Session 1</b>
       <span id="logHint"></span>
     </div>
-    <button class="secondary compact" id="btnNewSession">New</button>
-    <button class="compact" id="btnLog">Start</button>
+    <button class="icon-btn secondary" id="btnNewSession" title="New session" aria-label="New session"><svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg></button>
+    <button class="icon-btn secondary rec" id="btnLog" title="Start logging" aria-label="Start logging"><svg class="icon fill" aria-hidden="true"><use href="#i-circle"/></svg></button>
   </div>
 </footer>
 <div class="toast" id="toast" hidden></div>
@@ -499,6 +549,18 @@ const S = {
 
 /* ---- Utilities ---- */
 const $ = (id) => document.getElementById(id);
+// Put a sprite icon (and optional text) in a button, keeping its accessible name in sync.
+function setIcon(el, name, title, { fill = false, text = '' } = {}) {
+  el.innerHTML = `<svg class="icon${fill ? ' fill' : ''}" aria-hidden="true"><use href="#i-${name}"/></svg>` +
+    (text ? '<span></span>' : '');
+  if (text) el.querySelector('span').textContent = text;
+  el.title = title; el.setAttribute('aria-label', title);
+}
+function setPill(id, text, cls) {
+  const p = $(id);
+  p.querySelector('span').textContent = text;
+  p.className = 'pill ' + (cls || '');
+}
 function toast(msg, ms = 3500) {
   const t = $('toast'); t.textContent = msg; t.hidden = false;
   clearTimeout(toast.timer); toast.timer = setTimeout(() => { t.hidden = true; }, ms);
@@ -604,7 +666,7 @@ async function openGatt() {
   S.role = /TX/i.test(S.name) ? 'tx' : 'rx';
   S.lineBuf = '';
   setBlePill();
-  $('btnConnect').textContent = 'Disconnect';
+  setIcon($('btnConnect'), 'bluetooth-connected', 'Disconnect board');
   $('btnApply').disabled = false;
   $('fieldPwr').style.display = S.role === 'tx' ? '' : 'none';
   addLog(`connected to ${S.name}`);
@@ -618,7 +680,7 @@ async function onBleDisconnected() {
   $('btnApply').disabled = true;
   addLog('disconnected');
   if (!S.wantConnected) {
-    setBlePill(); $('btnConnect').textContent = 'Connect'; return;
+    setBlePill(); setIcon($('btnConnect'), 'bluetooth', 'Connect board'); return;
   }
   // Unexpected drop: keep trying to reconnect to the same board.
   for (let attempt = 1; S.wantConnected && attempt <= 20; attempt++) {
@@ -626,7 +688,7 @@ async function onBleDisconnected() {
     try { await openGatt(); return; } catch (e) { await new Promise(r => setTimeout(r, 1500)); }
   }
   setBlePill('Lost connection', 'bad');
-  $('btnConnect').textContent = 'Connect';
+  setIcon($('btnConnect'), 'bluetooth', 'Connect board');
 }
 async function sendCommand(cmd) {
   if (!S.rxChar) return;
@@ -645,17 +707,14 @@ function onNotify(e) {
   if (S.lineBuf.length > 2000) S.lineBuf = '';
 }
 function setBlePill(text, cls) {
-  const p = $('pillBle');
-  if (text) { p.textContent = text; p.className = 'pill ' + (cls || ''); }
-  else if (S.dev && S.dev.gatt && S.dev.gatt.connected) {
-    p.textContent = `${S.name}`; p.className = 'pill good';
-  } else { p.textContent = 'No board'; p.className = 'pill'; }
+  if (text) setPill('pillBle', text, cls);
+  else if (S.dev && S.dev.gatt && S.dev.gatt.connected) setPill('pillBle', S.name, 'good');
+  else setPill('pillBle', 'No board');
   renderHomeBoard();
 }
 function renderHomeBoard() {
   const connected = S.dev && S.dev.gatt && S.dev.gatt.connected;
-  $('vHomeBoard').textContent = !connected ? 'No board connected — tap Connect.' :
-    `Connected to ${S.name} (${S.role.toUpperCase()})`;
+  $('vHomeBoard').textContent = !connected ? 'No board connected' : `${S.name} (${S.role.toUpperCase()})`;
 }
 
 /* ---- Board output ---- */
@@ -705,7 +764,7 @@ function onFix(pos) {
   setGpsPill(`GPS ±${S.fix.acc.toFixed(1)} m`, S.fix.acc <= 5 ? 'good' : S.fix.acc <= 15 ? 'warn' : 'bad');
   renderMe(); renderDistance(); updateMeMarker();
 }
-function setGpsPill(text, cls) { const p = $('pillGps'); p.textContent = text; p.className = 'pill ' + (cls || ''); }
+function setGpsPill(text, cls) { setPill('pillGps', text, cls); }
 // Fix closest in time to `t` (for back-filled missed packets).
 function fixAt(t) {
   if (!S.track.length) return S.fix;
@@ -852,13 +911,13 @@ function startMeasure() {
   const tick = setInterval(() => {
     const frac = (Date.now() - S.measuring.start) / (MEASURE_SECONDS * 1000);
     bar.style.width = `${Math.min(100, frac * 100)}%`;
-    $('btnMeasure').textContent = `Measuring… ${S.measuring.samples.length} fixes`;
+    $('btnMeasure').querySelector('span').textContent = `${Math.max(0, Math.ceil(MEASURE_SECONDS * (1 - frac)))} s`;
     if (frac >= 1) { clearInterval(tick); finishMeasure(); }
   }, 250);
 }
 function finishMeasure() {
   const samples = S.measuring.samples; S.measuring = null;
-  $('btnMeasure').disabled = false; $('btnMeasure').textContent = 'Measure (30 s average)';
+  $('btnMeasure').disabled = false; $('btnMeasure').querySelector('span').textContent = `${MEASURE_SECONDS} s`;
   $('measureProgress').hidden = true;
   if (!samples.length) { toast('No GPS fixes came in. Check location permission and try outside.'); return; }
   // Keep the better half of fixes, then weight by 1/accuracy².
@@ -969,8 +1028,8 @@ function renderSessions() {
 }
 function renderLogState() {
   const n = S.rows.filter(r => r.session === S.session).length;
-  $('btnLog').textContent = S.logging ? 'Stop' : 'Start';
-  $('btnLog').className = S.logging ? 'danger' : '';
+  setIcon($('btnLog'), S.logging ? 'square' : 'circle', S.logging ? 'Stop logging' : 'Start logging', { fill: true });
+  $('btnLog').className = 'icon-btn ' + (S.logging ? 'danger' : 'secondary rec');
   $('vLogState').textContent = `Session ${S.session}`;
   $('logHint').textContent = (S.logging ? '● ' : '') + `${n} rows`;
   document.querySelector('.dock').classList.toggle('on', S.logging);
@@ -1066,14 +1125,15 @@ function addMapTools(v) {
   const Tools = L.Control.extend({
     onAdd() {
       const bar = L.DomUtil.create('div', 'leaflet-bar');
-      const tool = (glyph, title, fn) => {
+      const tool = (icon, title, fn) => {
         const a = L.DomUtil.create('a', 'map-tool', bar);
-        a.href = '#'; a.textContent = glyph; a.title = title; a.setAttribute('aria-label', title);
+        a.href = '#'; a.title = title; a.setAttribute('aria-label', title);
+        a.innerHTML = `<svg class="icon sm" aria-hidden="true"><use href="#i-${icon}"/></svg>`;
         L.DomEvent.on(a, 'click', (e) => { L.DomEvent.preventDefault(e); fn(); });
         L.DomEvent.disableClickPropagation(a);
       };
-      tool('⤢', 'Fit all', () => fitView(v));
-      tool('◎', 'Center on me', () => { if (S.fix) v.map.setView([S.fix.lat, S.fix.lon], Math.max(v.map.getZoom(), 17)); });
+      tool('maximize', 'Fit all', () => fitView(v));
+      tool('locate-fixed', 'Center on me', () => { if (S.fix) v.map.setView([S.fix.lat, S.fix.lon], Math.max(v.map.getZoom(), 17)); });
       return bar;
     },
   });
@@ -1291,7 +1351,7 @@ async function exportCsv() {
 
 /* ---- Theme ---- */
 const THEME_KEY = 'loraRange.theme';
-const THEME_LABELS = { auto: ['◐', 'auto'], dark: ['☾', 'dark'], light: ['☀', 'light'] };
+const THEME_ICONS = { auto: 'sun-moon', dark: 'moon', light: 'sun' };
 const darkQuery = matchMedia('(prefers-color-scheme: dark)');
 function themePref() {
   try { return localStorage.getItem(THEME_KEY) || 'auto'; } catch (e) { return 'auto'; }
@@ -1300,8 +1360,7 @@ function currentTheme() { return document.documentElement.dataset.theme; }
 function applyTheme() {
   const pref = themePref();
   const theme = pref === 'dark' || (pref === 'auto' && darkQuery.matches) ? 'dark' : 'light';
-  $('btnTheme').textContent = THEME_LABELS[pref][0];
-  $('btnTheme').title = `Theme: ${THEME_LABELS[pref][1]}`;
+  setIcon($('btnTheme'), THEME_ICONS[pref], `Theme: ${pref}`);
   if (theme === currentTheme() && applyTheme.done) return;
   applyTheme.done = true;
   document.documentElement.dataset.theme = theme;
