@@ -5,13 +5,16 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>LoRa Range Test</title>
 <script>
-  // Resolve the theme before first paint so there's no light/dark flash.
-  // Stored choice is "auto" (follow the phone), "dark" or "light".
+  // Resolve the theme and design language before first paint so there's no flash.
+  // Theme is "auto" (follow the phone), "dark" or "light"; style is a key from STYLES.
   (function () {
     var pref = 'auto';
     try { pref = localStorage.getItem('loraRange.theme') || 'auto'; } catch (e) {}
     var dark = pref === 'dark' || (pref === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
     document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+    var style = 'original';
+    try { style = localStorage.getItem('loraRange.style') || 'original'; } catch (e) {}
+    document.documentElement.dataset.style = style;
   })();
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -103,6 +106,41 @@
   --marker-outline: #000000;
 }
 
+
+/* 2b. Design languages (Style menu in the header). Each only overrides
+   radii plus the neutral and accent color tokens; status and data colors
+   come from the base theme. "original" has no overrides. */
+[data-style="graphite"] { --r-sm: 4px; --r-md: 6px; --r-lg: 8px; }
+[data-theme="dark"][data-style="graphite"] { --bg: #0a0a0a; --surface: #141414; --surface-2: #1e1e1e; --border: #2a2a2a; --text: #f5f5f5; --text-2: #b8b8b8; --text-3: #7a7a7a; --accent: #ededed; --on-accent: #0a0a0a; --miss-fill: #141414; }
+[data-theme="light"][data-style="graphite"] { --bg: #f4f4f4; --surface: #ffffff; --surface-2: #ececec; --border: #dcdcdc; --text: #0a0a0a; --text-2: #4a4a4a; --text-3: #808080; --accent: #111111; --on-accent: #ffffff; --miss-fill: #ffffff; }
+[data-style="midnight"] { --r-sm: 10px; --r-md: 14px; --r-lg: 20px; }
+[data-theme="dark"][data-style="midnight"] { --bg: #070b16; --surface: #0e1526; --surface-2: #162036; --border: #1f2b45; --text: #e6ecf8; --text-2: #9aa8c4; --text-3: #647394; --accent: #6ea8fe; --on-accent: #06101f; --miss-fill: #0e1526; }
+[data-theme="light"][data-style="midnight"] { --bg: #eef2fb; --surface: #ffffff; --surface-2: #e6ecf8; --border: #d3dbec; --text: #0b1530; --text-2: #46557a; --text-3: #7b88a6; --accent: #2f6fed; --on-accent: #ffffff; --miss-fill: #ffffff; }
+[data-style="terminal"] { --r-sm: 0px; --r-md: 2px; --r-lg: 4px; }
+[data-theme="dark"][data-style="terminal"] { --bg: #000000; --surface: #060806; --surface-2: #0d120d; --border: #1a241a; --text: #d7f5dc; --text-2: #8fb596; --text-3: #5a7560; --accent: #39d353; --on-accent: #001a05; --miss-fill: #060806; }
+[data-theme="light"][data-style="terminal"] { --bg: #f3f7f3; --surface: #ffffff; --surface-2: #e9f1ea; --border: #cfdfd2; --text: #0b1f0f; --text-2: #3d5a43; --text-3: #6f8a75; --accent: #15803d; --on-accent: #ffffff; --miss-fill: #ffffff; }
+[data-style="lagoon"] { --r-sm: 8px; --r-md: 12px; --r-lg: 18px; }
+[data-theme="dark"][data-style="lagoon"] { --bg: #041012; --surface: #0a1a1d; --surface-2: #11262a; --border: #1a3439; --text: #e3f6f4; --text-2: #97bfbb; --text-3: #5f8783; --accent: #2dd4bf; --on-accent: #03211d; --miss-fill: #0a1a1d; }
+[data-theme="light"][data-style="lagoon"] { --bg: #ecf7f6; --surface: #ffffff; --surface-2: #e1f1ef; --border: #c9e3e0; --text: #062521; --text-2: #3e625e; --text-3: #6f918d; --accent: #0f9488; --on-accent: #ffffff; --miss-fill: #ffffff; }
+[data-style="amber"] { --r-sm: 6px; --r-md: 10px; --r-lg: 14px; }
+[data-theme="dark"][data-style="amber"] { --bg: #0f0b06; --surface: #18120b; --surface-2: #221a10; --border: #33271a; --text: #f6ecdf; --text-2: #c4b19a; --text-3: #8a7865; --accent: #f5a524; --on-accent: #1a1004; --miss-fill: #18120b; }
+[data-theme="light"][data-style="amber"] { --bg: #faf5ee; --surface: #fffdf9; --surface-2: #f3eadf; --border: #e6d8c6; --text: #2a1d0f; --text-2: #6b5640; --text-3: #9a8670; --accent: #c2770a; --on-accent: #ffffff; --miss-fill: #fffdf9; }
+[data-style="violet"] { --r-sm: 12px; --r-md: 16px; --r-lg: 24px; }
+[data-theme="dark"][data-style="violet"] { --bg: #0b0812; --surface: #13101d; --surface-2: #1c1729; --border: #2a2240; --text: #eeeaf8; --text-2: #aba3c4; --text-3: #726a8e; --accent: #a78bfa; --on-accent: #150b33; --miss-fill: #13101d; }
+[data-theme="light"][data-style="violet"] { --bg: #f5f3fc; --surface: #ffffff; --surface-2: #ede9f9; --border: #ddd6f3; --text: #1b1235; --text-2: #584d7a; --text-3: #8a80a8; --accent: #7c3aed; --on-accent: #ffffff; --miss-fill: #ffffff; }
+[data-style="nord"] { --r-sm: 6px; --r-md: 8px; --r-lg: 10px; }
+[data-theme="dark"][data-style="nord"] { --bg: #2e3440; --surface: #3b4252; --surface-2: #434c5e; --border: #4c566a; --text: #eceff4; --text-2: #d8dee9; --text-3: #a3acbd; --accent: #88c0d0; --on-accent: #2e3440; --miss-fill: #3b4252; }
+[data-theme="light"][data-style="nord"] { --bg: #eceff4; --surface: #ffffff; --surface-2: #e5e9f0; --border: #d8dee9; --text: #2e3440; --text-2: #4c566a; --text-3: #7b869a; --accent: #5e81ac; --on-accent: #ffffff; --miss-fill: #ffffff; }
+[data-style="contrast"] { --r-sm: 4px; --r-md: 6px; --r-lg: 8px; }
+[data-theme="dark"][data-style="contrast"] { --bg: #000000; --surface: #000000; --surface-2: #111111; --border: #8a8a8a; --text: #ffffff; --text-2: #ebebeb; --text-3: #c4c4c4; --accent: #ffd60a; --on-accent: #000000; --miss-fill: #000000; }
+[data-theme="light"][data-style="contrast"] { --bg: #ffffff; --surface: #ffffff; --surface-2: #f2f2f2; --border: #5c5c5c; --text: #000000; --text-2: #1a1a1a; --text-3: #3d3d3d; --accent: #0040c1; --on-accent: #ffffff; --miss-fill: #ffffff; }
+[data-style="rose"] { --r-sm: 14px; --r-md: 20px; --r-lg: 28px; }
+[data-theme="dark"][data-style="rose"] { --bg: #120a0e; --surface: #1b1116; --surface-2: #25171e; --border: #36222c; --text: #f8e9ef; --text-2: #c7a3b2; --text-3: #8d6b7a; --accent: #fb7185; --on-accent: #2a0710; --miss-fill: #1b1116; }
+[data-theme="light"][data-style="rose"] { --bg: #fcf3f6; --surface: #ffffff; --surface-2: #f8e8ee; --border: #efd3de; --text: #33121f; --text-2: #76485b; --text-3: #a1798a; --accent: #e11d48; --on-accent: #ffffff; --miss-fill: #ffffff; }
+[data-style="forest"] { --r-sm: 8px; --r-md: 12px; --r-lg: 16px; }
+[data-theme="dark"][data-style="forest"] { --bg: #080e09; --surface: #0f1810; --surface-2: #162218; --border: #213224; --text: #e6f1e3; --text-2: #a2b89e; --text-3: #6a8066; --accent: #a3e635; --on-accent: #0f1a03; --miss-fill: #0f1810; }
+[data-theme="light"][data-style="forest"] { --bg: #f2f6f0; --surface: #ffffff; --surface-2: #e8efe5; --border: #d3dfce; --text: #13210f; --text-2: #4a5e45; --text-3: #7a8e75; --accent: #4d7c0f; --on-accent: #ffffff; --miss-fill: #ffffff; }
+
 /* 3. Base */
 *, *::before, *::after { box-sizing: border-box; }
 html, body { margin: 0; }
@@ -171,6 +209,7 @@ button.secondary { background: var(--surface-2); color: var(--text); box-shadow:
 button.danger { background: transparent; color: var(--bad); box-shadow: inset 0 0 0 1.5px var(--bad); }
 button.link { background: none; color: var(--accent); padding: 0; font-size: var(--fs-sm); font-weight: 500; }
 button.compact { padding: 7px var(--sp-3); font-size: var(--fs-sm); }
+select.compact { width: auto; padding: 6px var(--sp-2); font-size: 16px; /* 16px: no iOS zoom */ }
 
 /* Form fields */
 .field { display: flex; flex-direction: column; gap: var(--sp-1); font-size: var(--fs-xs); font-weight: 500; color: var(--text-3); }
@@ -291,6 +330,7 @@ textarea { min-height: 64px; resize: vertical; }
 <body>
 <header class="app-header">
   <h1 class="app-title">LoRa Range Test</h1>
+  <select class="compact" id="selStyle" title="Design language" aria-label="Design language"></select>
   <button class="secondary compact" id="btnTheme" title="Theme">◐ Auto</button>
   <button class="compact" id="btnConnect">Connect board</button>
   <div class="pills">
@@ -1324,7 +1364,10 @@ function applyTheme() {
   if (theme === currentTheme() && applyTheme.done) return;
   applyTheme.done = true;
   document.documentElement.dataset.theme = theme;
-  // Map markers and charts take their colors from the tokens; redraw them.
+  redrawThemedVisuals();
+}
+// Map markers and charts take their colors from the tokens; redraw them.
+function redrawThemedVisuals() {
   for (const v of Object.values(mapViews)) {
     if (!v.map) continue;
     setBaseLayers(v);
@@ -1335,6 +1378,25 @@ function applyTheme() {
   resetCharts();
   if (activeTab === 'charts') updateCharts('full');
   if (activeTab === 'home') updateCharts('home');
+}
+const STYLES = [
+  ['original', 'Original'],
+  ['graphite', 'Graphite'],
+  ['midnight', 'Midnight'],
+  ['terminal', 'Terminal'],
+  ['lagoon', 'Lagoon'],
+  ['amber', 'Amber'],
+  ['violet', 'Violet'],
+  ['nord', 'Nord'],
+  ['contrast', 'High contrast'],
+  ['rose', 'Rose'],
+  ['forest', 'Forest'],
+];
+const STYLE_KEY = 'loraRange.style';
+function setStyle(key) {
+  try { localStorage.setItem(STYLE_KEY, key); } catch (e) { /* stays for this visit only */ }
+  document.documentElement.dataset.style = key;
+  redrawThemedVisuals();
 }
 function cycleTheme() {
   const order = ['auto', 'dark', 'light'];
@@ -1370,6 +1432,10 @@ function init() {
 
   $('btnConnect').onclick = connectBle;
   $('btnTheme').onclick = cycleTheme;
+  for (const [key, label] of STYLES) $('selStyle').add(new Option(label, key));
+  $('selStyle').value = STYLES.some(([k]) => k === document.documentElement.dataset.style)
+    ? document.documentElement.dataset.style : 'original';
+  $('selStyle').onchange = (e) => setStyle(e.target.value);
   applyTheme();
   $('btnLog').onclick = toggleLogging;
   $('btnNewSession').onclick = newSession;
