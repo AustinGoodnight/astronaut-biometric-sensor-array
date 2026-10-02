@@ -5,17 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>LoRa Range Test</title>
 <script>
-  // Resolve the theme and design language before first paint so there's no flash.
-  // Theme is "auto" (follow the phone), "dark" or "light"; style is a key from STYLES.
+  // Resolve the theme before first paint so there's no light/dark flash.
+  // Stored choice is "auto" (follow the phone), "dark" or "light".
   (function () {
     var pref = 'auto';
     try { pref = localStorage.getItem('loraRange.theme') || 'auto'; } catch (e) {}
     var dark = pref === 'dark' || (pref === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
     document.documentElement.dataset.theme = dark ? 'dark' : 'light';
-    var style = 'graphite';
-    try { style = localStorage.getItem('loraRange.style') || 'graphite'; } catch (e) {}
-    if (style.indexOf('graphite') !== 0) style = 'graphite'; // older saved styles were removed
-    document.documentElement.dataset.style = style;
   })();
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -34,11 +30,11 @@
   --font-ui: "Scoutie Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 
-  --fs-xs: 12px;
-  --fs-sm: 13px;
-  --fs-md: 15px;
-  --fs-lg: 17px;
-  --fs-xl: 26px; /* stat values */
+  --fs-xs: 11px;
+  --fs-sm: 12px;
+  --fs-md: 14px;
+  --fs-lg: 15px;
+  --fs-xl: 22px; /* stat values */
 
   --fw-body: 400;
   --fw-label: 500;  /* field labels, pills, tab labels, stat labels */
@@ -52,9 +48,9 @@
   --sp-4: 16px;
   --sp-5: 24px;
 
-  --r-sm: 8px;
-  --r-md: 12px;
-  --r-lg: 16px;
+  --r-sm: 4px;
+  --r-md: 6px;
+  --r-lg: 8px;
   --r-pill: 999px;
 
   --dock-h: 136px; /* logging bar + tab bar, kept clear at the bottom of the page */
@@ -63,15 +59,15 @@
 /* 2. Themes. <html data-theme> is set before paint by the script in <head>. */
 [data-theme="dark"] {
   color-scheme: dark;
-  --bg: #050506;
-  --surface: #0d0d0e;
-  --surface-2: #17171a;
-  --border: #242428;
-  --text: #ececee;
-  --text-2: #a6a6ad;
-  --text-3: #6f6f78;
-  --accent: #e5484d;
-  --on-accent: #ffffff;
+  --bg: #0a0a0a;
+  --surface: #141414;
+  --surface-2: #1e1e1e;
+  --border: #2a2a2a;
+  --text: #f5f5f5;
+  --text-2: #b8b8b8;
+  --text-3: #7a7a7a;
+  --accent: #ededed;
+  --on-accent: #0a0a0a;
   --good: #3ddc84;
   --warn: #f5b83d;
   --bad: #ff5c5c;
@@ -80,8 +76,8 @@
   --rssi-strong: #22c55e;
   --rssi-medium: #facc15;
   --rssi-weak: #ef4444;
-  --miss: #6f6f78;
-  --miss-fill: #0d0d0e;
+  --miss: #7a7a7a;
+  --miss-fill: #141414;
   --crc: #b47cff;
   --anchor: #f59e0b;
   --me: #5b9bff;
@@ -89,14 +85,14 @@
 }
 [data-theme="light"] {
   color-scheme: light;
-  --bg: #f3f4f6;
+  --bg: #f4f4f4;
   --surface: #ffffff;
-  --surface-2: #f0f2f5;
-  --border: #e2e5ea;
-  --text: #0f1115;
-  --text-2: #4b5260;
-  --text-3: #7b8391;
-  --accent: #dc2626;
+  --surface-2: #ececec;
+  --border: #dcdcdc;
+  --text: #0a0a0a;
+  --text-2: #4a4a4a;
+  --text-3: #808080;
+  --accent: #111111;
   --on-accent: #ffffff;
   --good: #15803d;
   --warn: #b45309;
@@ -105,7 +101,7 @@
   --rssi-strong: #16a34a;
   --rssi-medium: #eab308;
   --rssi-weak: #dc2626;
-  --miss: #8b93a1;
+  --miss: #808080;
   --miss-fill: #ffffff;
   --crc: #9333ea;
   --anchor: #d97706;
@@ -113,37 +109,6 @@
   --marker-outline: #000000;
 }
 
-
-/* 2b. Design languages (Style menu in the header): the Graphite family.
-   [data-style^="graphite"] sets the shared Graphite colors and radii; each
-   variant then overrides only type tokens (sizes / weights) or text and
-   accent colors. Status and data colors come from the base theme. */
-[data-style^="graphite"] { --r-sm: 4px; --r-md: 6px; --r-lg: 8px; }
-[data-theme="dark"][data-style^="graphite"] { --bg: #0a0a0a; --surface: #141414; --surface-2: #1e1e1e; --border: #2a2a2a; --text: #f5f5f5; --text-2: #b8b8b8; --text-3: #7a7a7a; --accent: #ededed; --on-accent: #0a0a0a; --miss-fill: #141414; }
-[data-theme="light"][data-style^="graphite"] { --bg: #f4f4f4; --surface: #ffffff; --surface-2: #ececec; --border: #dcdcdc; --text: #0a0a0a; --text-2: #4a4a4a; --text-3: #808080; --accent: #111111; --on-accent: #ffffff; --miss-fill: #ffffff; }
-
-/* Type: sizes */
-[data-style="graphite-compact"] { --fs-xs: 11px; --fs-sm: 12px; --fs-md: 14px; --fs-lg: 15px; --fs-xl: 22px; }
-[data-style="graphite-large"] { --fs-xs: 13px; --fs-sm: 15px; --fs-md: 17px; --fs-lg: 20px; --fs-xl: 34px; }
-
-/* Type: weights */
-[data-style="graphite-bold"] { --fw-body: 500; --fw-label: 600; --fw-strong: 700; --fw-title: 800; --fw-value: 800; }
-[data-style="graphite-light"] { --fw-body: 300; --fw-label: 400; --fw-strong: 500; --fw-title: 600; --fw-value: 300; }
-
-/* Type: big thin numbers, small quiet labels */
-[data-style="graphite-display"] { --fs-xs: 11px; --fs-xl: 36px; --fw-label: 400; --fw-value: 200; }
-
-/* Color: text brightness */
-[data-theme="dark"][data-style="graphite-dim"] { --text: #c9c9c9; --text-2: #8a8a8a; --text-3: #5e5e5e; --accent: #cfcfcf; }
-[data-theme="light"][data-style="graphite-dim"] { --text: #2b2b2b; --text-2: #666666; --text-3: #9a9a9a; --accent: #333333; }
-[data-theme="dark"][data-style="graphite-crisp"] { --text: #ffffff; --text-2: #d6d6d6; --text-3: #a0a0a0; --border: #3a3a3a; --fw-label: 600; }
-[data-theme="light"][data-style="graphite-crisp"] { --text: #000000; --text-2: #262626; --text-3: #555555; --border: #c4c4c4; --fw-label: 600; }
-
-/* Color: tinted neutrals / accent */
-[data-theme="dark"][data-style="graphite-warm"] { --bg: #0c0b09; --surface: #161411; --surface-2: #201d19; --border: #2e2a24; --text: #f4efe7; --text-2: #bdb4a6; --text-3: #80786c; --accent: #efe6d8; --on-accent: #0c0b09; --miss-fill: #161411; }
-[data-theme="light"][data-style="graphite-warm"] { --bg: #f5f3ef; --surface: #fffdfa; --surface-2: #efebe4; --border: #dfd8cc; --text: #14110c; --text-2: #544b3f; --text-3: #857b6d; --accent: #1a1610; --on-accent: #ffffff; --miss-fill: #fffdfa; }
-[data-theme="dark"][data-style="graphite-red"] { --accent: #e5484d; --on-accent: #ffffff; }
-[data-theme="light"][data-style="graphite-red"] { --accent: #dc2626; --on-accent: #ffffff; }
 
 /* 3. Base */
 *, *::before, *::after { box-sizing: border-box; }
@@ -177,6 +142,7 @@ main {
 .tab > * + * { margin-top: var(--sp-3); }
 .stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-3); }
 .home-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-3); }
+.span-all { grid-column: 1 / -1; }
 @media (min-width: 640px) { .stats { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 @media (min-width: 760px) { .home-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
@@ -213,7 +179,6 @@ button.secondary { background: var(--surface-2); color: var(--text); box-shadow:
 button.danger { background: transparent; color: var(--bad); box-shadow: inset 0 0 0 1.5px var(--bad); }
 button.link { background: none; color: var(--accent); padding: 0; font-size: var(--fs-sm); font-weight: var(--fw-label); }
 button.compact { padding: 7px var(--sp-3); font-size: var(--fs-sm); }
-select.compact { width: auto; padding: 6px var(--sp-2); font-size: 16px; /* 16px: no iOS zoom */ }
 
 /* Form fields */
 .field { display: flex; flex-direction: column; gap: var(--sp-1); font-size: var(--fs-xs); font-weight: var(--fw-label); color: var(--text-3); }
@@ -257,7 +222,6 @@ textarea { min-height: 64px; resize: vertical; }
   max-height: 240px; overflow-y: auto; white-space: pre-wrap; word-break: break-all;
 }
 .log:empty { display: none; }
-.log.compact { max-height: 110px; }
 .session-line + .session-line { margin-top: var(--sp-1); }
 
 /* Map + legend */
@@ -334,7 +298,6 @@ textarea { min-height: 64px; resize: vertical; }
 <body>
 <header class="app-header">
   <h1 class="app-title">LoRa Range Test</h1>
-  <select class="compact" id="selStyle" title="Design language" aria-label="Design language"></select>
   <button class="secondary compact" id="btnTheme" title="Theme">◐ Auto</button>
   <button class="compact" id="btnConnect">Connect board</button>
   <div class="pills">
@@ -345,7 +308,7 @@ textarea { min-height: 64px; resize: vertical; }
 </header>
 
 <main>
-  <!-- HOME: a summary of every tab -->
+  <!-- HOME -->
   <section class="tab active" id="tab-home">
     <div class="card">
       <div class="stats">
@@ -367,51 +330,50 @@ textarea { min-height: 64px; resize: vertical; }
         <div class="chart-box small"><canvas id="chHomeDelivery"></canvas></div>
       </div>
       <div class="card">
-        <div class="card-head"><h2 class="card-title">Location</h2><button class="link" data-goto="anchor">Open ›</button></div>
+        <div class="card-head"><h2 class="card-title">Location</h2><button class="link" data-goto="map">Anchor &amp; measure ›</button></div>
         <div class="stat"><div class="label">Anchor</div><div class="coords" id="vHomeAnchor">not set</div><div class="sub" id="vHomeAnchorSub"></div></div>
         <div class="stat"><div class="label">Me</div><div class="coords" id="vHomeMe">waiting for GPS…</div><div class="sub" id="vHomeMeSub"></div></div>
         <div class="row"><button class="secondary" id="btnHomeShareMe">Share my location</button></div>
       </div>
+
       <div class="card">
-        <div class="card-head"><h2 class="card-title">Data</h2><button class="link" data-goto="data">Open ›</button></div>
-        <p id="vHomeData">No data yet.</p>
-        <div class="row"><button id="btnHomeExport">Export CSV</button></div>
+        <h2 class="card-title">Data</h2>
+        <p id="vDataSummary">No data yet.</p>
+        <div class="row">
+          <button id="btnExport">Export CSV</button>
+          <button class="secondary" id="btnCopyCsv">Copy CSV</button>
+        </div>
+        <label class="field">Session note (goes in every CSV row, e.g. "TX 17 dBm, walking north")
+          <input id="inNote" placeholder="optional">
+        </label>
+        <div class="hint" id="vSessions"></div>
+        <p class="hint">Export uses the iOS share sheet (Save to Files, AirDrop, Mail…). Data stays on this phone until you delete it.</p>
+        <div><button class="danger compact" id="btnClear">Delete all logged data</button></div>
       </div>
-      <div class="card">
-        <div class="card-head"><h2 class="card-title">Board</h2><button class="link" data-goto="board">Settings &amp; output ›</button></div>
-        <p id="vHomeBoard">Not connected.</p>
-        <div class="log compact" id="homeLog"></div>
+
+      <div class="card span-all">
+        <h2 class="card-title">Setup</h2>
+        <p id="vHomeBoard">No board connected — tap Connect board.</p>
+        <div class="stats">
+          <label class="field">Spreading factor
+            <select id="selSf"></select>
+          </label>
+          <label class="field">Bandwidth
+            <select id="selBw"></select>
+          </label>
+          <label class="field" id="fieldPwr">TX power (dBm)
+            <input id="inPwr" type="number" min="-9" max="22" step="1" value="17">
+          </label>
+        </div>
+        <div class="row"><button id="btnApply" disabled>Apply to board</button></div>
+        <p class="hint">SF and bandwidth must match on both boards or nothing gets through. Current: <span id="vCfg">unknown</span></p>
+        <label class="check"><input type="checkbox" id="chkHeartbeat"> show heartbeats in board output</label>
+        <div class="log" id="log"></div>
       </div>
     </div>
   </section>
 
-  <!-- BOARD -->
-  <section class="tab" id="tab-board">
-    <div class="card">
-      <h2 class="card-title">Radio settings (this board)</h2>
-      <div class="stats">
-        <label class="field">Spreading factor
-          <select id="selSf"></select>
-        </label>
-        <label class="field">Bandwidth
-          <select id="selBw"></select>
-        </label>
-        <label class="field" id="fieldPwr">TX power (dBm)
-          <input id="inPwr" type="number" min="-9" max="22" step="1" value="17">
-        </label>
-      </div>
-      <div class="row"><button id="btnApply" disabled>Apply to board</button></div>
-      <p class="hint">SF and bandwidth must match on both boards or nothing gets through. Current: <span id="vCfg">unknown</span></p>
-    </div>
-
-    <div class="card">
-      <h2 class="card-title">Board output</h2>
-      <label class="check"><input type="checkbox" id="chkHeartbeat"> show heartbeats</label>
-      <div class="log" id="log"></div>
-    </div>
-  </section>
-
-  <!-- MAP -->
+  <!-- MAP + LOCATION -->
   <section class="tab" id="tab-map">
     <div class="row">
       <select id="selSessionMap"></select>
@@ -427,24 +389,8 @@ textarea { min-height: 64px; resize: vertical; }
       <span><span class="swatch crc"></span>CRC fail</span>
       <span>★ anchor · rings every <span id="vRing">—</span></span>
     </div>
-  </section>
 
-  <!-- CHARTS -->
-  <section class="tab" id="tab-charts">
-    <div class="row"><select id="selSessionCharts"></select></div>
-    <div class="card"><h2 class="card-title">RSSI vs distance</h2><div class="chart-box"><canvas id="chRssi"></canvas></div></div>
-    <div class="card"><h2 class="card-title">SNR vs distance</h2><div class="chart-box"><canvas id="chSnr"></canvas></div></div>
-    <div class="card">
-      <h2 class="card-title">Packets delivered by distance</h2>
-      <div class="chart-box"><canvas id="chDelivery"></canvas></div>
-      <p class="hint">Share of expected packets that arrived, per distance band. Missed packets are detected from gaps in the transmitter's packet counter.</p>
-    </div>
-    <div class="card"><h2 class="card-title">RSSI over time</h2><div class="chart-box"><canvas id="chTime"></canvas></div></div>
-  </section>
-
-  <!-- LOCATION -->
-  <section class="tab" id="tab-anchor">
-    <div class="card">
+    <div class="card" id="anchorCard">
       <h2 class="card-title">Anchor (fixed board)</h2>
       <label class="field">Which board stays put?
         <select id="selAnchorBoard">
@@ -488,28 +434,17 @@ textarea { min-height: 64px; resize: vertical; }
     </div>
   </section>
 
-  <!-- DATA -->
-  <section class="tab" id="tab-data">
+  <!-- CHARTS -->
+  <section class="tab" id="tab-charts">
+    <div class="row"><select id="selSessionCharts"></select></div>
+    <div class="card"><h2 class="card-title">RSSI vs distance</h2><div class="chart-box"><canvas id="chRssi"></canvas></div></div>
+    <div class="card"><h2 class="card-title">SNR vs distance</h2><div class="chart-box"><canvas id="chSnr"></canvas></div></div>
     <div class="card">
-      <h2 class="card-title">Logged data</h2>
-      <p id="vDataSummary">No data yet.</p>
-      <div class="row">
-        <button id="btnExport">Export CSV</button>
-        <button class="secondary" id="btnCopyCsv">Copy CSV</button>
-      </div>
-      <p class="hint">Export uses the iOS share sheet (Save to Files, AirDrop, Mail…). Data is kept on this phone until you clear it, including across reloads.</p>
+      <h2 class="card-title">Packets delivered by distance</h2>
+      <div class="chart-box"><canvas id="chDelivery"></canvas></div>
+      <p class="hint">Share of expected packets that arrived, per distance band. Missed packets are detected from gaps in the transmitter's packet counter.</p>
     </div>
-    <div class="card">
-      <h2 class="card-title">Sessions</h2>
-      <label class="field">Note for the current session (goes in every CSV row, e.g. "TX 17 dBm, walking north")
-        <input id="inNote" placeholder="optional">
-      </label>
-      <div class="hint" id="vSessions"></div>
-    </div>
-    <div class="card">
-      <h2 class="card-title">Danger zone</h2>
-      <div><button class="danger" id="btnClear">Delete all logged data</button></div>
-    </div>
+    <div class="card"><h2 class="card-title">RSSI over time</h2><div class="chart-box"><canvas id="chTime"></canvas></div></div>
   </section>
 </main>
 
@@ -526,9 +461,6 @@ textarea { min-height: 64px; resize: vertical; }
     <button data-tab="home" class="active">Home</button>
     <button data-tab="map">Map</button>
     <button data-tab="charts">Charts</button>
-    <button data-tab="anchor">Location</button>
-    <button data-tab="data">Data</button>
-    <button data-tab="board">Board</button>
   </nav>
 </footer>
 <div class="toast" id="toast" hidden></div>
@@ -732,8 +664,8 @@ function setBlePill(text, cls) {
 }
 function renderHomeBoard() {
   const connected = S.dev && S.dev.gatt && S.dev.gatt.connected;
-  $('vHomeBoard').textContent = !connected ? 'Not connected.' :
-    `${S.name} (${S.role.toUpperCase()})` + (S.cfg.sf != null ? ` · ${$('vCfg').textContent}` : '');
+  $('vHomeBoard').textContent = !connected ? 'No board connected — tap Connect board.' :
+    `Connected to ${S.name} (${S.role.toUpperCase()})`;
 }
 
 /* ---- Board output ---- */
@@ -759,9 +691,6 @@ function addLog(text) {
   log.textContent += `${t}  ${text}\n`;
   if (log.textContent.length > 20000) log.textContent = log.textContent.slice(-15000);
   log.scrollTop = log.scrollHeight;
-  const homeLog = $('homeLog');
-  homeLog.textContent = log.textContent.split('\n').slice(-6).join('\n');
-  homeLog.scrollTop = homeLog.scrollHeight;
 }
 
 /* ---- GPS ---- */
@@ -1019,7 +948,7 @@ function renderStats() {
     $('vLoss').className = 'value ' + (!c.total ? 'muted' : c.received / c.total >= .9 ? 'good' : c.received / c.total >= .5 ? 'warn' : 'bad');
     $('vLossSub').textContent = `${c.received} ok · ${c.missed} missed · ${c.crc} CRC`;
   }
-  $('vDataSummary').textContent = $('vHomeData').textContent = S.rows.length
+  $('vDataSummary').textContent = S.rows.length
     ? `${S.rows.length} rows across ${new Set(S.rows.map(r => r.session)).size} session(s).`
     : 'No data yet.';
   renderSessions();
@@ -1383,24 +1312,6 @@ function redrawThemedVisuals() {
   if (activeTab === 'charts') updateCharts('full');
   if (activeTab === 'home') updateCharts('home');
 }
-const STYLES = [
-  ['graphite', 'Graphite'],
-  ['graphite-compact', 'Graphite · Compact'],
-  ['graphite-large', 'Graphite · Large'],
-  ['graphite-bold', 'Graphite · Bold'],
-  ['graphite-light', 'Graphite · Light'],
-  ['graphite-display', 'Graphite · Display'],
-  ['graphite-dim', 'Graphite · Dim'],
-  ['graphite-crisp', 'Graphite · Crisp'],
-  ['graphite-warm', 'Graphite · Warm'],
-  ['graphite-red', 'Graphite · Red'],
-];
-const STYLE_KEY = 'loraRange.style';
-function setStyle(key) {
-  try { localStorage.setItem(STYLE_KEY, key); } catch (e) { /* stays for this visit only */ }
-  document.documentElement.dataset.style = key;
-  redrawThemedVisuals();
-}
 function cycleTheme() {
   const order = ['auto', 'dark', 'light'];
   const next = order[(order.indexOf(themePref()) + 1) % order.length];
@@ -1435,10 +1346,6 @@ function init() {
 
   $('btnConnect').onclick = connectBle;
   $('btnTheme').onclick = cycleTheme;
-  for (const [key, label] of STYLES) $('selStyle').add(new Option(label, key));
-  $('selStyle').value = STYLES.some(([k]) => k === document.documentElement.dataset.style)
-    ? document.documentElement.dataset.style : 'graphite';
-  $('selStyle').onchange = (e) => setStyle(e.target.value);
   applyTheme();
   $('btnLog').onclick = toggleLogging;
   $('btnNewSession').onclick = newSession;
@@ -1472,7 +1379,6 @@ function init() {
     const m = mapViews.full.map;
     if (m && S.fix) m.setView([S.fix.lat, S.fix.lon], Math.max(m.getZoom(), 17));
   };
-  $('btnHomeExport').onclick = exportCsv;
   $('btnHomeShareMe').onclick = () => {
     if (!S.fix) { toast('No GPS fix yet.'); return; }
     shareText(coordText(S.fix, 'My location'));

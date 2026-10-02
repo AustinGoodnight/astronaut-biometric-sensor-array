@@ -66,20 +66,20 @@ high-accuracy GPS fix, and computes distance from a fixed anchor.
 
 - **Logging bar** — floats above the tab bar on every tab: current
   session, row count, **New** session and **Start/Stop** logging.
-- **Home** — dashboard of everything at once: live RSSI/SNR, distance,
-  time since last packet, delivery %, a mini map, RSSI
-  and delivery vs distance, anchor + your position, export, and recent
-  board output. Each card links to its full tab.
-- **Board** — radio settings (SF / bandwidth / TX power) and the full
-  board output.
+- **Home** — live RSSI/SNR, distance, time since last packet and
+  delivery %, a mini map, RSSI and delivery vs distance, anchor + your
+  position (with a share button), plus:
+  - **Data** — CSV export (iOS share sheet) or copy, the session note,
+    a per-session summary and delete-all.
+  - **Setup** — which board is connected, radio settings (SF / bandwidth /
+    TX power) and the board's output.
 - **Map** — every packet as a dot colored by RSSI, missed packets as
-  hollow dots, the anchor as a star with distance rings.
+  hollow dots, the anchor as a star with distance rings. Below the map:
+  set the anchor by pasting coordinates (or a Google/Apple Maps link), or
+  measure your position as a 30 s weighted average and share it with the
+  other person.
 - **Charts** — RSSI and SNR vs distance, delivery % per distance band,
   RSSI over time.
-- **Location** — set the anchor by pasting coordinates (or a Google/Apple
-  Maps link), or measure your position as a 30 s weighted average and
-  share it with the other person.
-- **Data** — export everything as CSV via the iOS share sheet, or copy it.
 
 Missed packets are detected from gaps in the TX's `count:` field, plus a
 timeout while nothing arrives (so the map shows where reception stopped).
@@ -92,17 +92,17 @@ are not counted as radio misses.
    there (the default "TX fixed, RX moves" mode).
 2. Both people open the app in Bluefy and allow precise location
    (iOS Settings → Bluefy → Location → *While Using* + *Precise Location*).
-3. At the TX: **Location → Measure (30 s average)**, standing still at the
+3. At the TX: **Map → Measure (30 s average)**, standing still at the
    board, then **Share** the coordinates to the other person (or tap
    **Set as anchor** if the same phone will walk).
-4. With the RX: paste the shared text into **Location → Use pasted
+4. With the RX: paste the shared text into **Map → Use pasted
    coordinates**, **Connect board** → `LoRa-RX`, then **Start** in the
    logging bar at the bottom.
    Keep the screen on while walking — iOS pauses GPS and Bluetooth when
    the phone locks.
-5. **Data → Export CSV** afterwards. Tap **New** (new session) between
+5. **Home → Data → Export CSV** afterwards. Tap **New** (new session) between
    configurations (different SF/power) and put the settings in the session
-   note on the Data tab so they end up in every CSV row.
+   note (Home → Data) so they end up in every CSV row.
 
 Phone GPS is good to about ±3–5 m in the open. Every row records the fix
 accuracy and the anchor accuracy, so you can filter out bad fixes.
