@@ -139,6 +139,9 @@ main {
 .tab { display: none; }
 .tab.active { display: block; }
 .tab > * + * { margin-top: var(--sp-3); }
+/* The main content of each tab sits straight on the page background, not in a card. */
+.hero { padding: var(--sp-2) 2px; }
+.hero > .card-title + * { margin-top: var(--sp-2); }
 .stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-3); }
 .home-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-3); }
 .span-all { grid-column: 1 / -1; }
@@ -371,13 +374,11 @@ textarea { min-height: 48px; resize: vertical; }
 <main>
   <!-- HOME -->
   <section class="tab active" id="tab-home">
-    <div class="card">
-      <div class="stats">
-        <div class="stat"><div class="label"><svg class="icon sm" aria-hidden="true"><use href="#i-signal"/></svg>RSSI</div><div class="value muted" id="vRssi">—</div><div class="sub" id="vSnr"></div></div>
-        <div class="stat"><div class="label"><svg class="icon sm" aria-hidden="true"><use href="#i-ruler"/></svg>Distance</div><div class="value muted" id="vDist">—</div><div class="sub" id="vDistSub"></div></div>
-        <div class="stat"><div class="label"><svg class="icon sm" aria-hidden="true"><use href="#i-timer"/></svg>Last packet</div><div class="value muted" id="vAge">—</div><div class="sub" id="vAgeSub"></div></div>
-        <div class="stat"><div class="label"><svg class="icon sm" aria-hidden="true"><use href="#i-package-check"/></svg>Delivery</div><div class="value muted" id="vLoss">—</div><div class="sub" id="vLossSub"></div></div>
-      </div>
+    <div class="stats hero">
+      <div class="stat"><div class="label"><svg class="icon sm" aria-hidden="true"><use href="#i-signal"/></svg>RSSI</div><div class="value muted" id="vRssi">—</div><div class="sub" id="vSnr"></div></div>
+      <div class="stat"><div class="label"><svg class="icon sm" aria-hidden="true"><use href="#i-ruler"/></svg>Distance</div><div class="value muted" id="vDist">—</div><div class="sub" id="vDistSub"></div></div>
+      <div class="stat"><div class="label"><svg class="icon sm" aria-hidden="true"><use href="#i-timer"/></svg>Last packet</div><div class="value muted" id="vAge">—</div><div class="sub" id="vAgeSub"></div></div>
+      <div class="stat"><div class="label"><svg class="icon sm" aria-hidden="true"><use href="#i-package-check"/></svg>Delivery</div><div class="value muted" id="vLoss">—</div><div class="sub" id="vLossSub"></div></div>
     </div>
 
     <div class="home-grid">
@@ -490,7 +491,10 @@ textarea { min-height: 48px; resize: vertical; }
   <!-- CHARTS -->
   <section class="tab" id="tab-charts">
     <div class="toolbar"><select class="compact" id="selSessionCharts" aria-label="Session"></select></div>
-    <div class="card"><h2 class="card-title">RSSI vs distance</h2><div class="chart-box"><canvas id="chRssi"></canvas></div></div>
+    <div class="hero">
+      <h2 class="card-title">RSSI vs distance</h2>
+      <div class="chart-box"><canvas id="chRssi"></canvas></div>
+    </div>
     <div class="card"><h2 class="card-title">SNR vs distance</h2><div class="chart-box"><canvas id="chSnr"></canvas></div></div>
     <div class="card">
       <h2 class="card-title">Packets delivered by distance</h2>
