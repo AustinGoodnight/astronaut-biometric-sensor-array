@@ -12,8 +12,9 @@
     try { pref = localStorage.getItem('loraRange.theme') || 'auto'; } catch (e) {}
     var dark = pref === 'dark' || (pref === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
     document.documentElement.dataset.theme = dark ? 'dark' : 'light';
-    var style = 'original';
-    try { style = localStorage.getItem('loraRange.style') || 'original'; } catch (e) {}
+    var style = 'graphite';
+    try { style = localStorage.getItem('loraRange.style') || 'graphite'; } catch (e) {}
+    if (style.indexOf('graphite') !== 0) style = 'graphite'; // older saved styles were removed
     document.documentElement.dataset.style = style;
   })();
 </script>
@@ -37,7 +38,13 @@
   --fs-sm: 13px;
   --fs-md: 15px;
   --fs-lg: 17px;
-  --fs-xl: 26px;
+  --fs-xl: 26px; /* stat values */
+
+  --fw-body: 400;
+  --fw-label: 500;  /* field labels, pills, tab labels, stat labels */
+  --fw-strong: 600; /* buttons, card titles, active tab */
+  --fw-title: 700;  /* app title, logging bar session */
+  --fw-value: 700;  /* big stat numbers */
 
   --sp-1: 4px;
   --sp-2: 8px;
@@ -107,39 +114,36 @@
 }
 
 
-/* 2b. Design languages (Style menu in the header). Each only overrides
-   radii plus the neutral and accent color tokens; status and data colors
-   come from the base theme. "original" has no overrides. */
-[data-style="graphite"] { --r-sm: 4px; --r-md: 6px; --r-lg: 8px; }
-[data-theme="dark"][data-style="graphite"] { --bg: #0a0a0a; --surface: #141414; --surface-2: #1e1e1e; --border: #2a2a2a; --text: #f5f5f5; --text-2: #b8b8b8; --text-3: #7a7a7a; --accent: #ededed; --on-accent: #0a0a0a; --miss-fill: #141414; }
-[data-theme="light"][data-style="graphite"] { --bg: #f4f4f4; --surface: #ffffff; --surface-2: #ececec; --border: #dcdcdc; --text: #0a0a0a; --text-2: #4a4a4a; --text-3: #808080; --accent: #111111; --on-accent: #ffffff; --miss-fill: #ffffff; }
-[data-style="midnight"] { --r-sm: 10px; --r-md: 14px; --r-lg: 20px; }
-[data-theme="dark"][data-style="midnight"] { --bg: #070b16; --surface: #0e1526; --surface-2: #162036; --border: #1f2b45; --text: #e6ecf8; --text-2: #9aa8c4; --text-3: #647394; --accent: #6ea8fe; --on-accent: #06101f; --miss-fill: #0e1526; }
-[data-theme="light"][data-style="midnight"] { --bg: #eef2fb; --surface: #ffffff; --surface-2: #e6ecf8; --border: #d3dbec; --text: #0b1530; --text-2: #46557a; --text-3: #7b88a6; --accent: #2f6fed; --on-accent: #ffffff; --miss-fill: #ffffff; }
-[data-style="terminal"] { --r-sm: 0px; --r-md: 2px; --r-lg: 4px; }
-[data-theme="dark"][data-style="terminal"] { --bg: #000000; --surface: #060806; --surface-2: #0d120d; --border: #1a241a; --text: #d7f5dc; --text-2: #8fb596; --text-3: #5a7560; --accent: #39d353; --on-accent: #001a05; --miss-fill: #060806; }
-[data-theme="light"][data-style="terminal"] { --bg: #f3f7f3; --surface: #ffffff; --surface-2: #e9f1ea; --border: #cfdfd2; --text: #0b1f0f; --text-2: #3d5a43; --text-3: #6f8a75; --accent: #15803d; --on-accent: #ffffff; --miss-fill: #ffffff; }
-[data-style="lagoon"] { --r-sm: 8px; --r-md: 12px; --r-lg: 18px; }
-[data-theme="dark"][data-style="lagoon"] { --bg: #041012; --surface: #0a1a1d; --surface-2: #11262a; --border: #1a3439; --text: #e3f6f4; --text-2: #97bfbb; --text-3: #5f8783; --accent: #2dd4bf; --on-accent: #03211d; --miss-fill: #0a1a1d; }
-[data-theme="light"][data-style="lagoon"] { --bg: #ecf7f6; --surface: #ffffff; --surface-2: #e1f1ef; --border: #c9e3e0; --text: #062521; --text-2: #3e625e; --text-3: #6f918d; --accent: #0f9488; --on-accent: #ffffff; --miss-fill: #ffffff; }
-[data-style="amber"] { --r-sm: 6px; --r-md: 10px; --r-lg: 14px; }
-[data-theme="dark"][data-style="amber"] { --bg: #0f0b06; --surface: #18120b; --surface-2: #221a10; --border: #33271a; --text: #f6ecdf; --text-2: #c4b19a; --text-3: #8a7865; --accent: #f5a524; --on-accent: #1a1004; --miss-fill: #18120b; }
-[data-theme="light"][data-style="amber"] { --bg: #faf5ee; --surface: #fffdf9; --surface-2: #f3eadf; --border: #e6d8c6; --text: #2a1d0f; --text-2: #6b5640; --text-3: #9a8670; --accent: #c2770a; --on-accent: #ffffff; --miss-fill: #fffdf9; }
-[data-style="violet"] { --r-sm: 12px; --r-md: 16px; --r-lg: 24px; }
-[data-theme="dark"][data-style="violet"] { --bg: #0b0812; --surface: #13101d; --surface-2: #1c1729; --border: #2a2240; --text: #eeeaf8; --text-2: #aba3c4; --text-3: #726a8e; --accent: #a78bfa; --on-accent: #150b33; --miss-fill: #13101d; }
-[data-theme="light"][data-style="violet"] { --bg: #f5f3fc; --surface: #ffffff; --surface-2: #ede9f9; --border: #ddd6f3; --text: #1b1235; --text-2: #584d7a; --text-3: #8a80a8; --accent: #7c3aed; --on-accent: #ffffff; --miss-fill: #ffffff; }
-[data-style="nord"] { --r-sm: 6px; --r-md: 8px; --r-lg: 10px; }
-[data-theme="dark"][data-style="nord"] { --bg: #2e3440; --surface: #3b4252; --surface-2: #434c5e; --border: #4c566a; --text: #eceff4; --text-2: #d8dee9; --text-3: #a3acbd; --accent: #88c0d0; --on-accent: #2e3440; --miss-fill: #3b4252; }
-[data-theme="light"][data-style="nord"] { --bg: #eceff4; --surface: #ffffff; --surface-2: #e5e9f0; --border: #d8dee9; --text: #2e3440; --text-2: #4c566a; --text-3: #7b869a; --accent: #5e81ac; --on-accent: #ffffff; --miss-fill: #ffffff; }
-[data-style="contrast"] { --r-sm: 4px; --r-md: 6px; --r-lg: 8px; }
-[data-theme="dark"][data-style="contrast"] { --bg: #000000; --surface: #000000; --surface-2: #111111; --border: #8a8a8a; --text: #ffffff; --text-2: #ebebeb; --text-3: #c4c4c4; --accent: #ffd60a; --on-accent: #000000; --miss-fill: #000000; }
-[data-theme="light"][data-style="contrast"] { --bg: #ffffff; --surface: #ffffff; --surface-2: #f2f2f2; --border: #5c5c5c; --text: #000000; --text-2: #1a1a1a; --text-3: #3d3d3d; --accent: #0040c1; --on-accent: #ffffff; --miss-fill: #ffffff; }
-[data-style="rose"] { --r-sm: 14px; --r-md: 20px; --r-lg: 28px; }
-[data-theme="dark"][data-style="rose"] { --bg: #120a0e; --surface: #1b1116; --surface-2: #25171e; --border: #36222c; --text: #f8e9ef; --text-2: #c7a3b2; --text-3: #8d6b7a; --accent: #fb7185; --on-accent: #2a0710; --miss-fill: #1b1116; }
-[data-theme="light"][data-style="rose"] { --bg: #fcf3f6; --surface: #ffffff; --surface-2: #f8e8ee; --border: #efd3de; --text: #33121f; --text-2: #76485b; --text-3: #a1798a; --accent: #e11d48; --on-accent: #ffffff; --miss-fill: #ffffff; }
-[data-style="forest"] { --r-sm: 8px; --r-md: 12px; --r-lg: 16px; }
-[data-theme="dark"][data-style="forest"] { --bg: #080e09; --surface: #0f1810; --surface-2: #162218; --border: #213224; --text: #e6f1e3; --text-2: #a2b89e; --text-3: #6a8066; --accent: #a3e635; --on-accent: #0f1a03; --miss-fill: #0f1810; }
-[data-theme="light"][data-style="forest"] { --bg: #f2f6f0; --surface: #ffffff; --surface-2: #e8efe5; --border: #d3dfce; --text: #13210f; --text-2: #4a5e45; --text-3: #7a8e75; --accent: #4d7c0f; --on-accent: #ffffff; --miss-fill: #ffffff; }
+/* 2b. Design languages (Style menu in the header): the Graphite family.
+   [data-style^="graphite"] sets the shared Graphite colors and radii; each
+   variant then overrides only type tokens (sizes / weights) or text and
+   accent colors. Status and data colors come from the base theme. */
+[data-style^="graphite"] { --r-sm: 4px; --r-md: 6px; --r-lg: 8px; }
+[data-theme="dark"][data-style^="graphite"] { --bg: #0a0a0a; --surface: #141414; --surface-2: #1e1e1e; --border: #2a2a2a; --text: #f5f5f5; --text-2: #b8b8b8; --text-3: #7a7a7a; --accent: #ededed; --on-accent: #0a0a0a; --miss-fill: #141414; }
+[data-theme="light"][data-style^="graphite"] { --bg: #f4f4f4; --surface: #ffffff; --surface-2: #ececec; --border: #dcdcdc; --text: #0a0a0a; --text-2: #4a4a4a; --text-3: #808080; --accent: #111111; --on-accent: #ffffff; --miss-fill: #ffffff; }
+
+/* Type: sizes */
+[data-style="graphite-compact"] { --fs-xs: 11px; --fs-sm: 12px; --fs-md: 14px; --fs-lg: 15px; --fs-xl: 22px; }
+[data-style="graphite-large"] { --fs-xs: 13px; --fs-sm: 15px; --fs-md: 17px; --fs-lg: 20px; --fs-xl: 34px; }
+
+/* Type: weights */
+[data-style="graphite-bold"] { --fw-body: 500; --fw-label: 600; --fw-strong: 700; --fw-title: 800; --fw-value: 800; }
+[data-style="graphite-light"] { --fw-body: 300; --fw-label: 400; --fw-strong: 500; --fw-title: 600; --fw-value: 300; }
+
+/* Type: big thin numbers, small quiet labels */
+[data-style="graphite-display"] { --fs-xs: 11px; --fs-xl: 36px; --fw-label: 400; --fw-value: 200; }
+
+/* Color: text brightness */
+[data-theme="dark"][data-style="graphite-dim"] { --text: #c9c9c9; --text-2: #8a8a8a; --text-3: #5e5e5e; --accent: #cfcfcf; }
+[data-theme="light"][data-style="graphite-dim"] { --text: #2b2b2b; --text-2: #666666; --text-3: #9a9a9a; --accent: #333333; }
+[data-theme="dark"][data-style="graphite-crisp"] { --text: #ffffff; --text-2: #d6d6d6; --text-3: #a0a0a0; --border: #3a3a3a; --fw-label: 600; }
+[data-theme="light"][data-style="graphite-crisp"] { --text: #000000; --text-2: #262626; --text-3: #555555; --border: #c4c4c4; --fw-label: 600; }
+
+/* Color: tinted neutrals / accent */
+[data-theme="dark"][data-style="graphite-warm"] { --bg: #0c0b09; --surface: #161411; --surface-2: #201d19; --border: #2e2a24; --text: #f4efe7; --text-2: #bdb4a6; --text-3: #80786c; --accent: #efe6d8; --on-accent: #0c0b09; --miss-fill: #161411; }
+[data-theme="light"][data-style="graphite-warm"] { --bg: #f5f3ef; --surface: #fffdfa; --surface-2: #efebe4; --border: #dfd8cc; --text: #14110c; --text-2: #544b3f; --text-3: #857b6d; --accent: #1a1610; --on-accent: #ffffff; --miss-fill: #fffdfa; }
+[data-theme="dark"][data-style="graphite-red"] { --accent: #e5484d; --on-accent: #ffffff; }
+[data-theme="light"][data-style="graphite-red"] { --accent: #dc2626; --on-accent: #ffffff; }
 
 /* 3. Base */
 *, *::before, *::after { box-sizing: border-box; }
@@ -147,7 +151,7 @@ html, body { margin: 0; }
 body {
   background: var(--bg);
   color: var(--text);
-  font: 400 var(--fs-md)/1.45 var(--font-ui);
+  font: var(--fw-body) var(--fs-md)/1.45 var(--font-ui);
   -webkit-font-smoothing: antialiased;
   -webkit-text-size-adjust: 100%;
 }
@@ -163,7 +167,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
   backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--border);
 }
-.app-title { flex: 1 1 auto; font-size: var(--fs-lg); font-weight: 700; letter-spacing: -.01em; }
+.app-title { flex: 1 1 auto; font-size: var(--fs-lg); font-weight: var(--fw-title); letter-spacing: -.01em; }
 main {
   max-width: 1100px; margin: 0 auto;
   padding: var(--sp-3) var(--sp-4) calc(env(safe-area-inset-bottom) + var(--dock-h) + var(--sp-3));
@@ -190,7 +194,7 @@ main {
 }
 .card > * + * { margin-top: var(--sp-3); }
 .card-title {
-  font-size: var(--fs-xs); font-weight: 600; letter-spacing: .08em; text-transform: uppercase;
+  font-size: var(--fs-xs); font-weight: var(--fw-strong); letter-spacing: .08em; text-transform: uppercase;
   color: var(--text-3);
 }
 .card-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-2); }
@@ -200,19 +204,19 @@ button {
   border: 0; border-radius: var(--r-md);
   padding: 11px var(--sp-4);
   background: var(--accent); color: var(--on-accent);
-  font-weight: 600; cursor: pointer; touch-action: manipulation;
+  font-weight: var(--fw-strong); cursor: pointer; touch-action: manipulation;
   transition: filter .15s, background .15s;
 }
 button:active { filter: brightness(.92); }
 button:disabled { opacity: .4; cursor: default; }
 button.secondary { background: var(--surface-2); color: var(--text); box-shadow: inset 0 0 0 1px var(--border); }
 button.danger { background: transparent; color: var(--bad); box-shadow: inset 0 0 0 1.5px var(--bad); }
-button.link { background: none; color: var(--accent); padding: 0; font-size: var(--fs-sm); font-weight: 500; }
+button.link { background: none; color: var(--accent); padding: 0; font-size: var(--fs-sm); font-weight: var(--fw-label); }
 button.compact { padding: 7px var(--sp-3); font-size: var(--fs-sm); }
 select.compact { width: auto; padding: 6px var(--sp-2); font-size: 16px; /* 16px: no iOS zoom */ }
 
 /* Form fields */
-.field { display: flex; flex-direction: column; gap: var(--sp-1); font-size: var(--fs-xs); font-weight: 500; color: var(--text-3); }
+.field { display: flex; flex-direction: column; gap: var(--sp-1); font-size: var(--fs-xs); font-weight: var(--fw-label); color: var(--text-3); }
 input, select, textarea {
   width: 100%; font-size: 16px; /* 16px stops iOS zooming on focus */
   padding: 10px var(--sp-3);
@@ -229,15 +233,15 @@ textarea { min-height: 64px; resize: vertical; }
 .pill {
   padding: 3px 10px; border-radius: var(--r-pill);
   background: var(--surface-2); color: var(--text-2);
-  font-size: var(--fs-xs); font-weight: 500; white-space: nowrap;
+  font-size: var(--fs-xs); font-weight: var(--fw-label); white-space: nowrap;
 }
 .pill.good { background: color-mix(in srgb, var(--good) 16%, transparent); color: var(--good); }
 .pill.warn { background: color-mix(in srgb, var(--warn) 18%, transparent); color: var(--warn); }
 .pill.bad  { background: color-mix(in srgb, var(--bad) 16%, transparent); color: var(--bad); }
 
 /* Stats */
-.stat .label { font-size: var(--fs-xs); font-weight: 500; color: var(--text-3); }
-.stat .value { font-size: var(--fs-xl); font-weight: 700; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.stat .label { font-size: var(--fs-xs); font-weight: var(--fw-label); color: var(--text-3); }
+.stat .value { font-size: var(--fs-xl); font-weight: var(--fw-value); letter-spacing: -.02em; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .stat .sub { font-size: var(--fs-xs); color: var(--text-2); font-variant-numeric: tabular-nums; }
 .good { color: var(--good); }
 .warn { color: var(--warn); }
@@ -290,7 +294,7 @@ textarea { min-height: 64px; resize: vertical; }
 }
 .logbar.on { border-color: var(--good); }
 .logbar-info { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; line-height: 1.25; }
-.logbar-info b { font-size: var(--fs-md); white-space: nowrap; }
+.logbar-info b { font-size: var(--fs-md); font-weight: var(--fw-title); white-space: nowrap; }
 .logbar-info span { font-size: var(--fs-xs); color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .logbar.on .logbar-info span { color: var(--good); }
 .logbar button { flex: 0 0 auto; }
@@ -304,9 +308,9 @@ textarea { min-height: 64px; resize: vertical; }
 }
 .tabbar button {
   flex: 1; padding: var(--sp-3) 2px; border-radius: 0;
-  background: none; color: var(--text-3); font-size: var(--fs-xs); font-weight: 500;
+  background: none; color: var(--text-3); font-size: var(--fs-xs); font-weight: var(--fw-label);
 }
-.tabbar button.active { color: var(--accent); font-weight: 600; }
+.tabbar button.active { color: var(--accent); font-weight: var(--fw-strong); }
 
 /* Toast */
 .toast {
@@ -314,7 +318,7 @@ textarea { min-height: 64px; resize: vertical; }
   bottom: calc(env(safe-area-inset-bottom) + var(--dock-h));
   padding: var(--sp-3) var(--sp-4); border-radius: var(--r-md);
   background: var(--text); color: var(--bg); box-shadow: var(--shadow);
-  font-size: var(--fs-sm); font-weight: 500;
+  font-size: var(--fs-sm); font-weight: var(--fw-label);
 }
 
 /* 6. Leaflet, restyled with the same tokens */
@@ -1380,17 +1384,16 @@ function redrawThemedVisuals() {
   if (activeTab === 'home') updateCharts('home');
 }
 const STYLES = [
-  ['original', 'Original'],
   ['graphite', 'Graphite'],
-  ['midnight', 'Midnight'],
-  ['terminal', 'Terminal'],
-  ['lagoon', 'Lagoon'],
-  ['amber', 'Amber'],
-  ['violet', 'Violet'],
-  ['nord', 'Nord'],
-  ['contrast', 'High contrast'],
-  ['rose', 'Rose'],
-  ['forest', 'Forest'],
+  ['graphite-compact', 'Graphite · Compact'],
+  ['graphite-large', 'Graphite · Large'],
+  ['graphite-bold', 'Graphite · Bold'],
+  ['graphite-light', 'Graphite · Light'],
+  ['graphite-display', 'Graphite · Display'],
+  ['graphite-dim', 'Graphite · Dim'],
+  ['graphite-crisp', 'Graphite · Crisp'],
+  ['graphite-warm', 'Graphite · Warm'],
+  ['graphite-red', 'Graphite · Red'],
 ];
 const STYLE_KEY = 'loraRange.style';
 function setStyle(key) {
@@ -1434,7 +1437,7 @@ function init() {
   $('btnTheme').onclick = cycleTheme;
   for (const [key, label] of STYLES) $('selStyle').add(new Option(label, key));
   $('selStyle').value = STYLES.some(([k]) => k === document.documentElement.dataset.style)
-    ? document.documentElement.dataset.style : 'original';
+    ? document.documentElement.dataset.style : 'graphite';
   $('selStyle').onchange = (e) => setStyle(e.target.value);
   applyTheme();
   $('btnLog').onclick = toggleLogging;
