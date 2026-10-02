@@ -34,7 +34,7 @@
   --fs-sm: 12px;
   --fs-md: 14px;
   --fs-lg: 15px;
-  --fs-xl: 22px; /* stat values */
+  --fs-xl: 20px; /* stat values */
 
   --fw-body: 400;
   --fw-label: 500;  /* field labels, pills, tab labels, stat labels */
@@ -43,9 +43,9 @@
   --fw-value: 700;  /* big stat numbers */
 
   --sp-1: 4px;
-  --sp-2: 8px;
-  --sp-3: 12px;
-  --sp-4: 16px;
+  --sp-2: 6px;
+  --sp-3: 8px;
+  --sp-4: 12px;
   --sp-5: 24px;
 
   --r-sm: 4px;
@@ -53,7 +53,7 @@
   --r-lg: 8px;
   --r-pill: 999px;
 
-  --dock-h: 136px; /* logging bar + tab bar, kept clear at the bottom of the page */
+  --dock-h: 56px; /* bottom dock (tabs + logging controls), kept clear at the bottom of the page */
 }
 
 /* 2. Themes. <html data-theme> is set before paint by the script in <head>. */
@@ -126,13 +126,12 @@ button, input, select, textarea { font: inherit; color: inherit; }
 /* 4. Layout */
 .app-header {
   position: sticky; top: 0; z-index: 1000;
-  display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2);
-  padding: calc(env(safe-area-inset-top) + var(--sp-3)) var(--sp-4) var(--sp-3);
+  display: flex; align-items: center; gap: var(--sp-2);
+  padding: calc(env(safe-area-inset-top) + var(--sp-2)) var(--sp-4) var(--sp-2);
   background: color-mix(in srgb, var(--surface) 88%, transparent);
   backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--border);
 }
-.app-title { flex: 1 1 auto; font-size: var(--fs-lg); font-weight: var(--fw-title); letter-spacing: -.01em; }
 main {
   max-width: 1100px; margin: 0 auto;
   padding: var(--sp-3) var(--sp-4) calc(env(safe-area-inset-bottom) + var(--dock-h) + var(--sp-3));
@@ -168,7 +167,7 @@ main {
 /* Buttons: default is primary; add .secondary / .danger / .link / .compact */
 button {
   border: 0; border-radius: var(--r-md);
-  padding: 11px var(--sp-4);
+  padding: 8px var(--sp-4);
   background: var(--accent); color: var(--on-accent);
   font-weight: var(--fw-strong); cursor: pointer; touch-action: manipulation;
   transition: filter .15s, background .15s;
@@ -178,25 +177,25 @@ button:disabled { opacity: .4; cursor: default; }
 button.secondary { background: var(--surface-2); color: var(--text); box-shadow: inset 0 0 0 1px var(--border); }
 button.danger { background: transparent; color: var(--bad); box-shadow: inset 0 0 0 1.5px var(--bad); }
 button.link { background: none; color: var(--accent); padding: 0; font-size: var(--fs-sm); font-weight: var(--fw-label); }
-button.compact { padding: 7px var(--sp-3); font-size: var(--fs-sm); }
+button.compact { padding: 6px var(--sp-3); font-size: var(--fs-sm); }
 
 /* Form fields */
 .field { display: flex; flex-direction: column; gap: var(--sp-1); font-size: var(--fs-xs); font-weight: var(--fw-label); color: var(--text-3); }
 input, select, textarea {
   width: 100%; font-size: 16px; /* 16px stops iOS zooming on focus */
-  padding: 10px var(--sp-3);
+  padding: 7px var(--sp-3);
   background: var(--surface-2); color: var(--text);
   border: 1px solid var(--border); border-radius: var(--r-md);
 }
 input:focus, select:focus, textarea:focus { outline: 2px solid color-mix(in srgb, var(--accent) 60%, transparent); outline-offset: 1px; }
-textarea { min-height: 64px; resize: vertical; }
+textarea { min-height: 48px; resize: vertical; }
 .check { display: inline-flex; align-items: center; gap: var(--sp-2); font-size: var(--fs-sm); color: var(--text-2); }
 .check input { width: auto; accent-color: var(--accent); }
 
 /* Status pills (header) */
-.pills { display: flex; flex-wrap: wrap; gap: var(--sp-1) var(--sp-2); width: 100%; }
+.pills { flex: 1 1 auto; min-width: 0; display: flex; gap: var(--sp-1); overflow: hidden; }
 .pill {
-  padding: 3px 10px; border-radius: var(--r-pill);
+  padding: 3px 8px; border-radius: var(--r-pill);
   background: var(--surface-2); color: var(--text-2);
   font-size: var(--fs-xs); font-weight: var(--fw-label); white-space: nowrap;
 }
@@ -219,16 +218,16 @@ textarea { min-height: 64px; resize: vertical; }
 .log {
   font: 500 var(--fs-xs)/1.5 var(--font-mono); color: var(--text-2);
   background: var(--surface-2); border-radius: var(--r-md); padding: var(--sp-2) var(--sp-3);
-  max-height: 240px; overflow-y: auto; white-space: pre-wrap; word-break: break-all;
+  max-height: 160px; overflow-y: auto; white-space: pre-wrap; word-break: break-all;
 }
 .log:empty { display: none; }
 .session-line + .session-line { margin-top: var(--sp-1); }
 
 /* Map + legend */
 .map { border-radius: var(--r-md); border: 1px solid var(--border); }
-.map.full { height: calc(100vh - 270px - var(--dock-h)); min-height: 300px; }
-.map.mini { height: 240px; }
-@media (min-width: 760px) { .map.mini { height: 380px; } }
+.map.full { height: calc(100vh - 200px - var(--dock-h)); min-height: 260px; }
+.map.mini { height: 170px; }
+@media (min-width: 760px) { .map.mini { height: 300px; } }
 .legend { display: flex; flex-wrap: wrap; gap: var(--sp-1) var(--sp-3); font-size: var(--fs-xs); color: var(--text-2); }
 .swatch { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: var(--sp-1); vertical-align: -1px; }
 .swatch.strong { background: var(--rssi-strong); }
@@ -239,42 +238,35 @@ textarea { min-height: 64px; resize: vertical; }
 .anchor-star { font-size: 26px; line-height: 26px; color: var(--anchor); text-shadow: 0 0 3px #000; }
 
 /* Charts */
-.chart-box { position: relative; height: 240px; }
-.chart-box.small { height: 180px; }
+.chart-box { position: relative; height: 200px; }
+.chart-box.small { height: 130px; }
 
 /* Progress bar (location averaging) */
 .progress { height: 6px; background: var(--surface-2); border-radius: var(--r-pill); overflow: hidden; }
 .progress > div { height: 100%; width: 0; background: var(--accent); transition: width .3s; }
 
-/* Bottom dock: floating logging bar + tab bar */
-.dock { position: fixed; bottom: 0; left: 0; right: 0; z-index: 1000; pointer-events: none; }
-.dock > * { pointer-events: auto; }
-.logbar {
+/* Bottom dock: one row, tabs on the left, logging controls on the right */
+.dock {
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 1000;
   display: flex; align-items: center; gap: var(--sp-2);
-  width: calc(100% - 2 * var(--sp-4)); max-width: 560px;
-  margin: 0 auto var(--sp-2); padding: var(--sp-2) var(--sp-2) var(--sp-2) var(--sp-4);
-  background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg);
-  box-shadow: var(--shadow);
-}
-.logbar.on { border-color: var(--good); }
-.logbar-info { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; line-height: 1.25; }
-.logbar-info b { font-size: var(--fs-md); font-weight: var(--fw-title); white-space: nowrap; }
-.logbar-info span { font-size: var(--fs-xs); color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.logbar.on .logbar-info span { color: var(--good); }
-.logbar button { flex: 0 0 auto; }
-.logbar #btnLog { min-width: 80px; }
-.tabbar {
-  display: flex;
-  padding-bottom: env(safe-area-inset-bottom);
+  padding: var(--sp-2) var(--sp-4) calc(env(safe-area-inset-bottom) + var(--sp-2));
   background: color-mix(in srgb, var(--surface) 92%, transparent);
   backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
   border-top: 1px solid var(--border);
 }
+.dock.on { border-top-color: var(--good); }
+.tabbar { flex: 1 1 auto; display: flex; min-width: 0; }
 .tabbar button {
-  flex: 1; padding: var(--sp-3) 2px; border-radius: 0;
-  background: none; color: var(--text-3); font-size: var(--fs-xs); font-weight: var(--fw-label);
+  flex: 1; padding: var(--sp-2) 2px; border-radius: var(--r-sm);
+  background: none; color: var(--text-3); font-size: var(--fs-sm); font-weight: var(--fw-label);
 }
-.tabbar button.active { color: var(--accent); font-weight: var(--fw-strong); }
+.tabbar button.active { color: var(--accent); font-weight: var(--fw-strong); background: var(--surface-2); }
+.logctl { flex: 0 0 auto; display: flex; align-items: center; gap: var(--sp-2); }
+.logctl-info { display: flex; flex-direction: column; line-height: 1.2; text-align: right; }
+.logctl-info b { font-size: var(--fs-sm); font-weight: var(--fw-title); white-space: nowrap; }
+.logctl-info span { font-size: var(--fs-xs); color: var(--text-2); white-space: nowrap; }
+.dock.on .logctl-info span { color: var(--good); }
+.logctl #btnLog { min-width: 60px; }
 
 /* Toast */
 .toast {
@@ -291,20 +283,18 @@ textarea { min-height: 64px; resize: vertical; }
 .leaflet-popup-content { font-size: var(--fs-sm); }
 .leaflet-bar a, .leaflet-control-layers { background: var(--surface); color: var(--text); border-color: var(--border) !important; }
 .leaflet-bar a:hover { background: var(--surface-2); }
-.leaflet-control-attribution { background: color-mix(in srgb, var(--surface) 80%, transparent) !important; color: var(--text-3); }
+.leaflet-control-attribution { background: color-mix(in srgb, var(--surface) 80%, transparent) !important; color: var(--text-3); font-size: 9px; line-height: 1.3; }
 .leaflet-control-attribution a { color: var(--accent); }
 </style>
 </head>
 <body>
 <header class="app-header">
-  <h1 class="app-title">LoRa Range Test</h1>
-  <button class="secondary compact" id="btnTheme" title="Theme">◐ Auto</button>
-  <button class="compact" id="btnConnect">Connect board</button>
   <div class="pills">
-    <span class="pill" id="pillBle">Board: not connected</span>
-    <span class="pill" id="pillGps">GPS: starting…</span>
-    <span class="pill" id="pillLog">Not logging</span>
+    <span class="pill" id="pillBle">No board</span>
+    <span class="pill" id="pillGps">GPS…</span>
   </div>
+  <button class="secondary compact" id="btnTheme" title="Theme: auto" aria-label="Theme">◐</button>
+  <button class="compact" id="btnConnect">Connect</button>
 </header>
 
 <main>
@@ -353,7 +343,7 @@ textarea { min-height: 64px; resize: vertical; }
 
       <div class="card span-all">
         <h2 class="card-title">Setup</h2>
-        <p id="vHomeBoard">No board connected — tap Connect board.</p>
+        <p id="vHomeBoard">No board connected — tap Connect.</p>
         <div class="stats">
           <label class="field">Spreading factor
             <select id="selSf"></select>
@@ -449,19 +439,19 @@ textarea { min-height: 64px; resize: vertical; }
 </main>
 
 <footer class="dock">
-  <div class="logbar">
-    <div class="logbar-info">
-      <b id="vLogState">Session 1</b>
-      <span id="logHint"></span>
-    </div>
-    <button class="secondary" id="btnNewSession">New</button>
-    <button id="btnLog">Start</button>
-  </div>
   <nav class="tabbar">
     <button data-tab="home" class="active">Home</button>
     <button data-tab="map">Map</button>
     <button data-tab="charts">Charts</button>
   </nav>
+  <div class="logctl">
+    <div class="logctl-info">
+      <b id="vLogState">Session 1</b>
+      <span id="logHint"></span>
+    </div>
+    <button class="secondary compact" id="btnNewSession">New</button>
+    <button class="compact" id="btnLog">Start</button>
+  </div>
 </footer>
 <div class="toast" id="toast" hidden></div>
 
@@ -628,7 +618,7 @@ async function onBleDisconnected() {
   $('btnApply').disabled = true;
   addLog('disconnected');
   if (!S.wantConnected) {
-    setBlePill(); $('btnConnect').textContent = 'Connect board'; return;
+    setBlePill(); $('btnConnect').textContent = 'Connect'; return;
   }
   // Unexpected drop: keep trying to reconnect to the same board.
   for (let attempt = 1; S.wantConnected && attempt <= 20; attempt++) {
@@ -636,7 +626,7 @@ async function onBleDisconnected() {
     try { await openGatt(); return; } catch (e) { await new Promise(r => setTimeout(r, 1500)); }
   }
   setBlePill('Lost connection', 'bad');
-  $('btnConnect').textContent = 'Connect board';
+  $('btnConnect').textContent = 'Connect';
 }
 async function sendCommand(cmd) {
   if (!S.rxChar) return;
@@ -656,15 +646,15 @@ function onNotify(e) {
 }
 function setBlePill(text, cls) {
   const p = $('pillBle');
-  if (text) { p.textContent = `Board: ${text}`; p.className = 'pill ' + (cls || ''); }
+  if (text) { p.textContent = text; p.className = 'pill ' + (cls || ''); }
   else if (S.dev && S.dev.gatt && S.dev.gatt.connected) {
-    p.textContent = `Board: ${S.name} (${S.role.toUpperCase()})`; p.className = 'pill good';
-  } else { p.textContent = 'Board: not connected'; p.className = 'pill'; }
+    p.textContent = `${S.name}`; p.className = 'pill good';
+  } else { p.textContent = 'No board'; p.className = 'pill'; }
   renderHomeBoard();
 }
 function renderHomeBoard() {
   const connected = S.dev && S.dev.gatt && S.dev.gatt.connected;
-  $('vHomeBoard').textContent = !connected ? 'No board connected — tap Connect board.' :
+  $('vHomeBoard').textContent = !connected ? 'No board connected — tap Connect.' :
     `Connected to ${S.name} (${S.role.toUpperCase()})`;
 }
 
@@ -982,10 +972,8 @@ function renderLogState() {
   $('btnLog').textContent = S.logging ? 'Stop' : 'Start';
   $('btnLog').className = S.logging ? 'danger' : '';
   $('vLogState').textContent = `Session ${S.session}`;
-  $('logHint').textContent = (S.logging ? 'Logging' : 'Not logging') + ` · ${n} rows`;
-  document.querySelector('.logbar').classList.toggle('on', S.logging);
-  $('pillLog').textContent = S.logging ? `Logging · session ${S.session}` : 'Not logging';
-  $('pillLog').className = 'pill ' + (S.logging ? 'good' : '');
+  $('logHint').textContent = (S.logging ? '● ' : '') + `${n} rows`;
+  document.querySelector('.dock').classList.toggle('on', S.logging);
 }
 function renderCfg() {
   const { sf, bw, pwr } = S.cfg;
@@ -1284,7 +1272,7 @@ async function exportCsv() {
 
 /* ---- Theme ---- */
 const THEME_KEY = 'loraRange.theme';
-const THEME_LABELS = { auto: '◐ Auto', dark: '☾ Dark', light: '☀ Light' };
+const THEME_LABELS = { auto: ['◐', 'auto'], dark: ['☾', 'dark'], light: ['☀', 'light'] };
 const darkQuery = matchMedia('(prefers-color-scheme: dark)');
 function themePref() {
   try { return localStorage.getItem(THEME_KEY) || 'auto'; } catch (e) { return 'auto'; }
@@ -1293,7 +1281,8 @@ function currentTheme() { return document.documentElement.dataset.theme; }
 function applyTheme() {
   const pref = themePref();
   const theme = pref === 'dark' || (pref === 'auto' && darkQuery.matches) ? 'dark' : 'light';
-  $('btnTheme').textContent = THEME_LABELS[pref];
+  $('btnTheme').textContent = THEME_LABELS[pref][0];
+  $('btnTheme').title = `Theme: ${THEME_LABELS[pref][1]}`;
   if (theme === currentTheme() && applyTheme.done) return;
   applyTheme.done = true;
   document.documentElement.dataset.theme = theme;
