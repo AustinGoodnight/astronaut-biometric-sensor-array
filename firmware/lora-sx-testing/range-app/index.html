@@ -162,7 +162,10 @@ main {
   font-size: var(--fs-sm); font-weight: var(--fw-strong);
   color: var(--text-2);
 }
-.card-head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); min-height: 32px; }
+.card-head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); }
+/* Buttons in a card head get a tap target without making the row taller. */
+.card-head .icon-btn { padding: 4px; margin: -4px 0; }
+.card-head select.compact { margin: -4px 0; }
 
 /* Buttons: default is primary; add .secondary / .danger / .link / .compact */
 button {
@@ -254,7 +257,9 @@ textarea { min-height: 48px; resize: vertical; }
 /* Map + legend */
 .map { border-radius: var(--r-md); border: 1px solid var(--border); }
 .map.full { height: calc(100vh - 150px - var(--dock-h)); min-height: 260px; }
-.map.mini { height: 170px; }
+.map.mini { height: 200px; }
+.map-card { padding: 0; overflow: hidden; }
+.map-card .map { border: 0; border-radius: 0; }
 @media (min-width: 760px) { .map.mini { height: 300px; } }
 .legend { display: flex; flex-wrap: wrap; gap: var(--sp-1) var(--sp-3); font-size: var(--fs-xs); color: var(--text-2); }
 .swatch { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: var(--sp-1); vertical-align: -1px; }
@@ -334,6 +339,7 @@ textarea { min-height: 48px; resize: vertical; }
 <symbol id="i-heart-pulse" viewBox="0 0 24 24"><path d="M2 9.5a5.5 5.5 0 0 1 9.591-3.676.56.56 0 0 0 .818 0A5.49 5.49 0 0 1 22 9.5c0 2.29-1.5 4-3 5.5l-5.492 5.313a2 2 0 0 1-3 .019L5 15c-1.5-1.5-3-3.2-3-5.5" /> <path d="M3.22 13H9.5l.5-1 2 4.5 2-7 1.5 3.5h5.27" /></symbol>
 <symbol id="i-house" viewBox="0 0 24 24"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8" /> <path d="M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /></symbol>
 <symbol id="i-locate-fixed" viewBox="0 0 24 24"><line x1="2" x2="5" y1="12" y2="12" /> <line x1="19" x2="22" y1="12" y2="12" /> <line x1="12" x2="12" y1="2" y2="5" /> <line x1="12" x2="12" y1="19" y2="22" /> <circle cx="12" cy="12" r="7" /> <circle cx="12" cy="12" r="3" /></symbol>
+<symbol id="i-maximize-2" viewBox="0 0 24 24"><path d="M15 3h6v6" /> <path d="m21 3-7 7" /> <path d="m3 21 7-7" /> <path d="M9 21H3v-6" /></symbol>
 <symbol id="i-map" viewBox="0 0 24 24"><path d="M14.106 5.553a2 2 0 0 0 1.788 0l3.659-1.83A1 1 0 0 1 21 4.619v12.764a1 1 0 0 1-.553.894l-4.553 2.277a2 2 0 0 1-1.788 0l-4.212-2.106a2 2 0 0 0-1.788 0l-3.659 1.83A1 1 0 0 1 3 19.381V6.618a1 1 0 0 1 .553-.894l4.553-2.277a2 2 0 0 1 1.788 0z" /> <path d="M15 5.764v15" /> <path d="M9 3.236v15" /></symbol>
 <symbol id="i-maximize" viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3" /> <path d="M21 8V5a2 2 0 0 0-2-2h-3" /> <path d="M3 16v3a2 2 0 0 0 2 2h3" /> <path d="M16 21h3a2 2 0 0 0 2-2v-3" /></symbol>
 <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401" /></symbol>
@@ -352,6 +358,7 @@ textarea { min-height: 48px; resize: vertical; }
 <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18" /> <path d="m6 6 12 12" /></symbol>
 </svg>
 <header class="app-header">
+  <a class="icon-btn secondary" href="../" title="All apps" aria-label="All apps"><svg class="icon" aria-hidden="true"><use href="#i-house"/></svg></a>
   <h1 class="app-title">RF</h1>
   <div class="pills">
     <span class="pill" id="pillBle" title="Board"><svg class="icon sm" aria-hidden="true"><use href="#i-radio"/></svg><span>No board</span></span>
@@ -359,7 +366,6 @@ textarea { min-height: 48px; resize: vertical; }
   </div>
   <button class="icon-btn secondary" id="btnTheme" title="Theme: auto" aria-label="Theme: auto"><svg class="icon" aria-hidden="true"><use href="#i-sun-moon"/></svg></button>
   <button class="icon-btn" id="btnConnect" title="Connect board" aria-label="Connect board"><svg class="icon" aria-hidden="true"><use href="#i-bluetooth"/></svg><span>Connect</span></button>
-  <a class="icon-btn secondary" href="../" title="All apps" aria-label="All apps"><svg class="icon" aria-hidden="true"><use href="#i-house"/></svg></a>
 </header>
 
 <main>
@@ -375,9 +381,8 @@ textarea { min-height: 48px; resize: vertical; }
     </div>
 
     <div class="home-grid">
-      <div class="card">
-        <div class="card-head"><h2 class="card-title">Map</h2><button class="icon-btn ghost" data-goto="map" title="Open map" aria-label="Open map"><svg class="icon" aria-hidden="true"><use href="#i-chevron-right"/></svg></button></div>
-        <div class="map mini" id="homeMap"></div>
+      <div class="card map-card">
+        <div class="map mini" id="homeMap" role="region" aria-label="Map"></div>
       </div>
       <div class="card">
         <div class="card-head"><h2 class="card-title">Signal vs distance</h2><button class="icon-btn ghost" data-goto="charts" title="All charts" aria-label="All charts"><svg class="icon" aria-hidden="true"><use href="#i-chevron-right"/></svg></button></div>
@@ -1079,7 +1084,7 @@ function renderMe() {
 // Each view keeps its own layers; rows are drawn on every view whose session filter matches.
 const mapViews = {
   full: { elId: 'map', session: () => $('selSessionMap').value, layerControl: true, tools: true, ringEl: 'vRing' },
-  home: { elId: 'homeMap', session: () => String(S.session), layerControl: false, ringEl: null },
+  home: { elId: 'homeMap', session: () => String(S.session), layerControl: false, tools: true, ringEl: null },
 };
 // Street map follows the theme: Esri Dark Gray (base + labels, no API key) in
 // dark mode, OpenStreetMap in light mode.
@@ -1140,12 +1145,16 @@ function addMapTools(v) {
         L.DomEvent.on(a, 'click', (e) => { L.DomEvent.preventDefault(e); fn(); });
         L.DomEvent.disableClickPropagation(a);
       };
-      tool('maximize', 'Fit all', () => fitView(v));
-      tool('locate-fixed', 'Center on me', () => { if (S.fix) v.map.setView([S.fix.lat, S.fix.lon], Math.max(v.map.getZoom(), 17)); });
+      if (v === mapViews.home) {
+        tool('maximize-2', 'Open map', () => showTab('map'));
+      } else {
+        tool('maximize', 'Fit all', () => fitView(v));
+        tool('locate-fixed', 'Center on me', () => { if (S.fix) v.map.setView([S.fix.lat, S.fix.lon], Math.max(v.map.getZoom(), 17)); });
+      }
       return bar;
     },
   });
-  new Tools({ position: 'topleft' }).addTo(v.map);
+  new Tools({ position: v === mapViews.home ? 'topright' : 'topleft' }).addTo(v.map);
 }
 function viewMatches(v, row) {
   const sel = v.session();
