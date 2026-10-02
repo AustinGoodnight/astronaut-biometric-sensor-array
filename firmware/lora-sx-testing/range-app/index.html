@@ -186,11 +186,15 @@ button.compact { padding: 6px var(--sp-3); font-size: var(--fs-sm); }
 }
 .icon.fill { fill: currentColor; }
 .icon.sm { width: 13px; height: 13px; }
-button.icon-btn {
+.icon-btn {
   display: inline-flex; align-items: center; justify-content: center; gap: var(--sp-1);
   flex: 0 0 auto; padding: 7px; font-size: var(--fs-sm);
 }
-button.icon-btn span { padding-right: 2px; }
+a.icon-btn {
+  border-radius: var(--r-md); text-decoration: none;
+  background: var(--surface-2); color: var(--text); box-shadow: inset 0 0 0 1px var(--border);
+}
+.icon-btn span { padding-right: 2px; }
 button.ghost { background: none; color: var(--text-2); box-shadow: none; }
 button.rec .icon { color: var(--bad); }
 .card-actions { display: flex; align-items: center; gap: var(--sp-1); }
@@ -215,6 +219,7 @@ textarea { min-height: 48px; resize: vertical; }
 .check input { width: auto; accent-color: var(--accent); }
 
 /* Status pills (header) */
+.app-title { font-size: var(--fs-lg); font-weight: var(--fw-title); letter-spacing: -.01em; flex: none; }
 .pills { flex: 1 1 auto; min-width: 0; display: flex; gap: var(--sp-1); overflow: hidden; }
 .pill {
   display: inline-flex; align-items: center; gap: var(--sp-1);
@@ -325,6 +330,7 @@ textarea { min-height: 48px; resize: vertical; }
 <symbol id="i-copy" viewBox="0 0 24 24"><rect width="14" height="14" x="8" y="8" rx="2" ry="2" /> <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" /></symbol>
 <symbol id="i-crosshair" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /> <line x1="22" x2="18" y1="12" y2="12" /> <line x1="6" x2="2" y1="12" y2="12" /> <line x1="12" x2="12" y1="6" y2="2" /> <line x1="12" x2="12" y1="22" y2="18" /></symbol>
 <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 15V3" /> <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /> <path d="m7 10 5 5 5-5" /></symbol>
+<symbol id="i-layout-dashboard" viewBox="0 0 24 24"><rect width="7" height="9" x="3" y="3" rx="1" /> <rect width="7" height="5" x="14" y="3" rx="1" /> <rect width="7" height="9" x="14" y="12" rx="1" /> <rect width="7" height="5" x="3" y="16" rx="1" /></symbol>
 <symbol id="i-heart-pulse" viewBox="0 0 24 24"><path d="M2 9.5a5.5 5.5 0 0 1 9.591-3.676.56.56 0 0 0 .818 0A5.49 5.49 0 0 1 22 9.5c0 2.29-1.5 4-3 5.5l-5.492 5.313a2 2 0 0 1-3 .019L5 15c-1.5-1.5-3-3.2-3-5.5" /> <path d="M3.22 13H9.5l.5-1 2 4.5 2-7 1.5 3.5h5.27" /></symbol>
 <symbol id="i-house" viewBox="0 0 24 24"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8" /> <path d="M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /></symbol>
 <symbol id="i-locate-fixed" viewBox="0 0 24 24"><line x1="2" x2="5" y1="12" y2="12" /> <line x1="19" x2="22" y1="12" y2="12" /> <line x1="12" x2="12" y1="2" y2="5" /> <line x1="12" x2="12" y1="19" y2="22" /> <circle cx="12" cy="12" r="7" /> <circle cx="12" cy="12" r="3" /></symbol>
@@ -346,12 +352,14 @@ textarea { min-height: 48px; resize: vertical; }
 <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18" /> <path d="m6 6 12 12" /></symbol>
 </svg>
 <header class="app-header">
+  <h1 class="app-title">RF</h1>
   <div class="pills">
     <span class="pill" id="pillBle" title="Board"><svg class="icon sm" aria-hidden="true"><use href="#i-radio"/></svg><span>No board</span></span>
     <span class="pill" id="pillGps" title="GPS accuracy"><svg class="icon sm" aria-hidden="true"><use href="#i-locate-fixed"/></svg><span>…</span></span>
   </div>
   <button class="icon-btn secondary" id="btnTheme" title="Theme: auto" aria-label="Theme: auto"><svg class="icon" aria-hidden="true"><use href="#i-sun-moon"/></svg></button>
-  <button class="icon-btn " id="btnConnect" title="Connect board" aria-label="Connect board"><svg class="icon" aria-hidden="true"><use href="#i-bluetooth"/></svg></button>
+  <button class="icon-btn" id="btnConnect" title="Connect board" aria-label="Connect board"><svg class="icon" aria-hidden="true"><use href="#i-bluetooth"/></svg><span>Connect</span></button>
+  <a class="icon-btn secondary" href="../" title="All apps" aria-label="All apps"><svg class="icon" aria-hidden="true"><use href="#i-house"/></svg></a>
 </header>
 
 <main>
@@ -490,7 +498,7 @@ textarea { min-height: 48px; resize: vertical; }
 
 <footer class="dock">
   <nav class="tabbar">
-    <button data-tab="home" class="active" title="Home" aria-label="Home"><svg class="icon" aria-hidden="true"><use href="#i-house"/></svg></button>
+    <button data-tab="home" class="active" title="Home" aria-label="Home"><svg class="icon" aria-hidden="true"><use href="#i-layout-dashboard"/></svg></button>
     <button data-tab="map" title="Map" aria-label="Map"><svg class="icon" aria-hidden="true"><use href="#i-map"/></svg></button>
     <button data-tab="charts" title="Charts" aria-label="Charts"><svg class="icon" aria-hidden="true"><use href="#i-chart-scatter"/></svg></button>
   </nav>
@@ -666,7 +674,7 @@ async function openGatt() {
   S.role = /TX/i.test(S.name) ? 'tx' : 'rx';
   S.lineBuf = '';
   setBlePill();
-  setIcon($('btnConnect'), 'bluetooth-connected', 'Disconnect board');
+  setIcon($('btnConnect'), 'bluetooth-connected', 'Disconnect board', { text: 'Disconnect' });
   $('btnApply').disabled = false;
   $('fieldPwr').style.display = S.role === 'tx' ? '' : 'none';
   addLog(`connected to ${S.name}`);
@@ -680,7 +688,7 @@ async function onBleDisconnected() {
   $('btnApply').disabled = true;
   addLog('disconnected');
   if (!S.wantConnected) {
-    setBlePill(); setIcon($('btnConnect'), 'bluetooth', 'Connect board'); return;
+    setBlePill(); setIcon($('btnConnect'), 'bluetooth', 'Connect board', { text: 'Connect' }); return;
   }
   // Unexpected drop: keep trying to reconnect to the same board.
   for (let attempt = 1; S.wantConnected && attempt <= 20; attempt++) {
@@ -688,7 +696,7 @@ async function onBleDisconnected() {
     try { await openGatt(); return; } catch (e) { await new Promise(r => setTimeout(r, 1500)); }
   }
   setBlePill('Lost connection', 'bad');
-  setIcon($('btnConnect'), 'bluetooth', 'Connect board');
+  setIcon($('btnConnect'), 'bluetooth', 'Connect board', { text: 'Connect' });
 }
 async function sendCommand(cmd) {
   if (!S.rxChar) return;
@@ -761,7 +769,7 @@ function onFix(pos) {
   const cutoff = Date.now() - TRACK_KEEP_MS;
   while (S.track.length && S.track[0].t < cutoff) S.track.shift();
   if (S.measuring) S.measuring.samples.push(S.fix);
-  setGpsPill(`GPS ±${S.fix.acc.toFixed(1)} m`, S.fix.acc <= 5 ? 'good' : S.fix.acc <= 15 ? 'warn' : 'bad');
+  setGpsPill(`±${S.fix.acc.toFixed(1)} m`, S.fix.acc <= 5 ? 'good' : S.fix.acc <= 15 ? 'warn' : 'bad');
   renderMe(); renderDistance(); updateMeMarker();
 }
 function setGpsPill(text, cls) { setPill('pillGps', text, cls); }
