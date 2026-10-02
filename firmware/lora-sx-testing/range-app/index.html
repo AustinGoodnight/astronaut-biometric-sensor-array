@@ -178,6 +178,9 @@ button.secondary { background: var(--surface-2); color: var(--text); box-shadow:
 button.danger { background: transparent; color: var(--bad); box-shadow: inset 0 0 0 1.5px var(--bad); }
 button.link { background: none; color: var(--accent); padding: 0; font-size: var(--fs-sm); font-weight: var(--fw-label); }
 button.compact { padding: 6px var(--sp-3); font-size: var(--fs-sm); }
+.toolbar { display: flex; align-items: center; gap: var(--sp-2); }
+/* 16px text stops iOS zooming on focus; padding keeps the control short */
+select.compact { width: auto; padding: 3px 26px 3px var(--sp-2); border-radius: var(--r-pill); }
 
 /* Form fields */
 .field { display: flex; flex-direction: column; gap: var(--sp-1); font-size: var(--fs-xs); font-weight: var(--fw-label); color: var(--text-3); }
@@ -225,7 +228,7 @@ textarea { min-height: 48px; resize: vertical; }
 
 /* Map + legend */
 .map { border-radius: var(--r-md); border: 1px solid var(--border); }
-.map.full { height: calc(100vh - 200px - var(--dock-h)); min-height: 260px; }
+.map.full { height: calc(100vh - 150px - var(--dock-h)); min-height: 260px; }
 .map.mini { height: 170px; }
 @media (min-width: 760px) { .map.mini { height: 300px; } }
 .legend { display: flex; flex-wrap: wrap; gap: var(--sp-1) var(--sp-3); font-size: var(--fs-xs); color: var(--text-2); }
@@ -282,7 +285,8 @@ textarea { min-height: 48px; resize: vertical; }
 .leaflet-popup-content-wrapper, .leaflet-popup-tip { background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
 .leaflet-popup-content { font-size: var(--fs-sm); }
 .leaflet-bar a, .leaflet-control-layers { background: var(--surface); color: var(--text); border-color: var(--border) !important; }
-.leaflet-bar a:hover { background: var(--surface-2); }
+.leaflet-bar a:hover, .leaflet-bar a:focus { background: var(--surface-2); color: var(--text); }
+.leaflet-bar a.map-tool { font-size: 15px; line-height: 30px; }
 .leaflet-control-attribution { background: color-mix(in srgb, var(--surface) 80%, transparent) !important; color: var(--text-3); font-size: 9px; line-height: 1.3; }
 .leaflet-control-attribution a { color: var(--accent); }
 </style>
@@ -365,11 +369,7 @@ textarea { min-height: 48px; resize: vertical; }
 
   <!-- MAP + LOCATION -->
   <section class="tab" id="tab-map">
-    <div class="row">
-      <select id="selSessionMap"></select>
-      <button class="secondary" id="btnFit">Fit all</button>
-      <button class="secondary" id="btnMe">Me</button>
-    </div>
+    <div class="toolbar"><select class="compact" id="selSessionMap" aria-label="Session"></select></div>
     <div class="map full" id="map"></div>
     <div class="legend">
       <span><span class="swatch strong"></span>strong</span>
@@ -426,7 +426,7 @@ textarea { min-height: 48px; resize: vertical; }
 
   <!-- CHARTS -->
   <section class="tab" id="tab-charts">
-    <div class="row"><select id="selSessionCharts"></select></div>
+    <div class="toolbar"><select class="compact" id="selSessionCharts" aria-label="Session"></select></div>
     <div class="card"><h2 class="card-title">RSSI vs distance</h2><div class="chart-box"><canvas id="chRssi"></canvas></div></div>
     <div class="card"><h2 class="card-title">SNR vs distance</h2><div class="chart-box"><canvas id="chSnr"></canvas></div></div>
     <div class="card">
@@ -1011,7 +1011,7 @@ function renderMe() {
 /* ---- Maps: the full Map tab and the mini map on Home ---- */
 // Each view keeps its own layers; rows are drawn on every view whose session filter matches.
 const mapViews = {
-  full: { elId: 'map', session: () => $('selSessionMap').value, layerControl: true, ringEl: 'vRing' },
+  full: { elId: 'map', session: () => $('selSessionMap').value, layerControl: true, tools: true, ringEl: 'vRing' },
   home: { elId: 'homeMap', session: () => String(S.session), layerControl: false, ringEl: null },
 };
 // Street map follows the theme: Esri Dark Gray (base + labels, no API key) in
@@ -1057,8 +1057,27 @@ function initMapView(key) {
   if (S.anchor) v.map.setView([S.anchor.lat, S.anchor.lon], 16);
   else if (S.fix) v.map.setView([S.fix.lat, S.fix.lon], 16);
   else v.map.setView([39.5, -98.35], 4);
+  if (v.tools) addMapTools(v);
   rebuildView(v); updateMeOn(v);
   return v;
+}
+// Small "fit everything" and "center on me" buttons styled like the zoom control.
+function addMapTools(v) {
+  const Tools = L.Control.extend({
+    onAdd() {
+      const bar = L.DomUtil.create('div', 'leaflet-bar');
+      const tool = (glyph, title, fn) => {
+        const a = L.DomUtil.create('a', 'map-tool', bar);
+        a.href = '#'; a.textContent = glyph; a.title = title; a.setAttribute('aria-label', title);
+        L.DomEvent.on(a, 'click', (e) => { L.DomEvent.preventDefault(e); fn(); });
+        L.DomEvent.disableClickPropagation(a);
+      };
+      tool('⤢', 'Fit all', () => fitView(v));
+      tool('◎', 'Center on me', () => { if (S.fix) v.map.setView([S.fix.lat, S.fix.lon], Math.max(v.map.getZoom(), 17)); });
+      return bar;
+    },
+  });
+  new Tools({ position: 'topleft' }).addTo(v.map);
 }
 function viewMatches(v, row) {
   const sel = v.session();
@@ -1362,11 +1381,6 @@ function init() {
   $('btnClear').onclick = () => {
     if (!confirm(`Delete all ${S.rows.length} logged rows? Export first if you need them.`)) return;
     S.rows = []; S.session = 1; resetGapTracking(); save(); rebuildMap(); dataChanged(); renderLogState();
-  };
-  $('btnFit').onclick = () => fitView(mapViews.full);
-  $('btnMe').onclick = () => {
-    const m = mapViews.full.map;
-    if (m && S.fix) m.setView([S.fix.lat, S.fix.lon], Math.max(m.getZoom(), 17));
   };
   $('btnHomeShareMe').onclick = () => {
     if (!S.fix) { toast('No GPS fix yet.'); return; }
