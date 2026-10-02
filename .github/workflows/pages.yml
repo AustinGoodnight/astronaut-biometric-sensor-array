@@ -33,7 +33,7 @@ jobs:
           mkdir -p site/hr-testing site/lora-range
           cp .github/pages/index.html site/index.html
           cp firmware/hr-testing/ppg_dashboard.html site/hr-testing/index.html
-          cp firmware/lora-sx-testing/range-app/index.html site/lora-range/index.html
+          cp firmware/lora-sx-testing/range-app/*.html site/lora-range/
       - uses: actions/upload-pages-artifact@v3
         with:
           path: site
