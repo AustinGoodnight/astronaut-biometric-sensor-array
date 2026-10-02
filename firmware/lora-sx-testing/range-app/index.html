@@ -61,8 +61,8 @@
 [data-theme="dark"] {
   color-scheme: dark;
   --bg: #0b0b0b;
-  --surface: #141414;     /* panels: map, charts, log */
-  --surface-2: #1f1f1f;   /* value badges, inputs, secondary buttons */
+  --surface: #141414;     /* panels (map, log) and form fields */
+  --surface-2: #1f1f1f;   /* value badges, secondary buttons */
   --border: #242424;
   --grid: #1d1d1d;        /* chart grid lines */
   --track: #3a3a3a;       /* meter tracks and ticks */
@@ -220,7 +220,7 @@ select.compact { width: auto; padding: 3px 22px 3px var(--sp-2); border-radius: 
 input, select, textarea {
   width: 100%; font-size: 16px; /* 16px stops iOS zooming on focus */
   padding: 7px var(--sp-3);
-  background: var(--surface-2); color: var(--text);
+  background: var(--surface); color: var(--text);
   border: 1px solid var(--border); border-radius: var(--r-md);
 }
 input:focus, select:focus, textarea:focus { outline: 2px solid color-mix(in srgb, var(--accent) 60%, transparent); outline-offset: 1px; }
