@@ -447,6 +447,7 @@ textarea { min-height: 48px; resize: vertical; }
 
     <div class="home-grid">
       <div class="card map-card">
+        <div class="card-head"><h2 class="card-title">Map</h2><button class="icon-btn ghost" data-goto="map" title="Open map" aria-label="Open map"><svg class="icon" aria-hidden="true"><use href="#i-chevron-right"/></svg></button></div>
         <div class="map mini" id="homeMap" role="region" aria-label="Map"></div>
       </div>
       <div class="card">
@@ -1169,7 +1170,7 @@ function renderMe() {
 // Each view keeps its own layers; rows are drawn on every view whose session filter matches.
 const mapViews = {
   full: { elId: 'map', session: () => $('selSessionMap').value, layerControl: true, tools: true, ringEl: 'vRing' },
-  home: { elId: 'homeMap', session: () => String(S.session), layerControl: false, tools: true, ringEl: null },
+  home: { elId: 'homeMap', session: () => String(S.session), layerControl: false, ringEl: null },
 };
 // Street map follows the theme: Esri Dark Gray (base + labels, no API key) in
 // dark mode, OpenStreetMap in light mode.
@@ -1230,16 +1231,12 @@ function addMapTools(v) {
         L.DomEvent.on(a, 'click', (e) => { L.DomEvent.preventDefault(e); fn(); });
         L.DomEvent.disableClickPropagation(a);
       };
-      if (v === mapViews.home) {
-        tool('maximize-2', 'Open map', () => showTab('map'));
-      } else {
-        tool('maximize', 'Fit all', () => fitView(v));
-        tool('locate-fixed', 'Center on me', () => { if (S.fix) v.map.setView([S.fix.lat, S.fix.lon], Math.max(v.map.getZoom(), 17)); });
-      }
+      tool('maximize', 'Fit all', () => fitView(v));
+      tool('locate-fixed', 'Center on me', () => { if (S.fix) v.map.setView([S.fix.lat, S.fix.lon], Math.max(v.map.getZoom(), 17)); });
       return bar;
     },
   });
-  new Tools({ position: v === mapViews.home ? 'topright' : 'topleft' }).addTo(v.map);
+  new Tools({ position: 'topleft' }).addTo(v.map);
 }
 function viewMatches(v, row) {
   const sel = v.session();
