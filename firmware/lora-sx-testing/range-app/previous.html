@@ -47,7 +47,6 @@
   --sp-3: 8px;
   --sp-4: 12px;
   --sp-5: 24px;
-  --sp-section: 20px; /* space between sections */
 
   --r-sm: 4px;
   --r-md: 6px;
@@ -60,19 +59,15 @@
 /* 2. Themes. <html data-theme> is set before paint by the script in <head>. */
 [data-theme="dark"] {
   color-scheme: dark;
-  --bg: #0b0b0b;
-  --surface: #141414;     /* panels: map, charts, log */
-  --surface-2: #1f1f1f;   /* value badges, inputs, secondary buttons */
-  --border: #242424;
-  --grid: #1d1d1d;        /* chart grid lines */
-  --track: #3a3a3a;       /* meter tracks and ticks */
-  --text: #ededed;
-  --text-2: #9b9b9b;
-  --text-3: #666666;
-  --accent: #ff4230;      /* red-orange: data lines, active state, toggles */
-  --on-accent: #ffffff;
-  --primary: #ededed;     /* primary buttons */
-  --on-primary: #0b0b0b;
+  --bg: #0a0a0a;
+  --surface: #141414;
+  --surface-2: #1e1e1e;
+  --border: #2a2a2a;
+  --text: #f5f5f5;
+  --text-2: #b8b8b8;
+  --text-3: #7a7a7a;
+  --accent: #ededed;
+  --on-accent: #0a0a0a;
   --good: #3ddc84;
   --warn: #f5b83d;
   --bad: #ff5c5c;
@@ -90,19 +85,15 @@
 }
 [data-theme="light"] {
   color-scheme: light;
-  --bg: #f2f2f2;
+  --bg: #f4f4f4;
   --surface: #ffffff;
-  --surface-2: #e9e9e9;
-  --border: #dedede;
-  --grid: #ededed;
-  --track: #c4c4c4;
-  --text: #111111;
-  --text-2: #555555;
-  --text-3: #8a8a8a;
-  --accent: #e6362a;
+  --surface-2: #ececec;
+  --border: #dcdcdc;
+  --text: #0a0a0a;
+  --text-2: #4a4a4a;
+  --text-3: #808080;
+  --accent: #111111;
   --on-accent: #ffffff;
-  --primary: #111111;
-  --on-primary: #ffffff;
   --good: #15803d;
   --warn: #b45309;
   --bad: #dc2626;
@@ -147,12 +138,14 @@ main {
 }
 .tab { display: none; }
 .tab.active { display: block; }
-.tab > * + * { margin-top: var(--sp-section); }
+.tab > * + * { margin-top: var(--sp-3); }
 /* The main content of each tab sits straight on the page background, not in a card. */
 .hero { padding: var(--sp-2) 2px; }
 .hero > .card-title + * { margin-top: var(--sp-2); }
-.home-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-section) var(--sp-4); }
+.stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-3); }
+.home-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-3); }
 .span-all { grid-column: 1 / -1; }
+@media (min-width: 640px) { .stats { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 @media (min-width: 760px) { .home-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
 .row > * { flex: 1 1 auto; }
@@ -161,13 +154,16 @@ main {
 /* 5. Components */
 
 /* Card: children are spaced automatically; no margin utilities needed. */
-/* Sections: a title row on the page background, content below. Only things that
-   need a frame (map, charts, log) get a panel. */
-.card { padding: 0; }
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: var(--sp-4);
+}
 .card > * + * { margin-top: var(--sp-3); }
 .card-title {
-  font-size: var(--fs-md); font-weight: var(--fw-label);
-  color: var(--text);
+  font-size: var(--fs-sm); font-weight: var(--fw-label);
+  color: var(--text-2);
 }
 .card-head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); }
 /* Buttons in a card head get a tap target without making the row taller. */
@@ -178,7 +174,7 @@ main {
 button {
   border: 0; border-radius: var(--r-md);
   padding: 8px var(--sp-4);
-  background: var(--primary); color: var(--on-primary);
+  background: var(--accent); color: var(--on-accent);
   font-weight: var(--fw-strong); cursor: pointer; touch-action: manipulation;
   transition: filter .15s, background .15s;
 }
@@ -213,7 +209,7 @@ button.rec .icon { color: var(--bad); }
 .settings .field { flex: 1 1 0; min-width: 0; }
 .toolbar { display: flex; align-items: center; gap: var(--sp-2); }
 /* 16px text stops iOS zooming on focus; padding keeps the control short */
-select.compact { width: auto; padding: 3px 22px 3px var(--sp-2); border-radius: var(--r-md); }
+select.compact { width: auto; padding: 3px 26px 3px var(--sp-2); border-radius: var(--r-pill); }
 
 /* Form fields */
 .field { display: flex; flex-direction: column; gap: var(--sp-1); font-size: var(--fs-xs); font-weight: var(--fw-label); color: var(--text-3); }
@@ -226,13 +222,7 @@ input, select, textarea {
 input:focus, select:focus, textarea:focus { outline: 2px solid color-mix(in srgb, var(--accent) 60%, transparent); outline-offset: 1px; }
 textarea { min-height: 48px; resize: vertical; }
 .check { display: inline-flex; align-items: center; gap: var(--sp-2); font-size: var(--fs-sm); color: var(--text-2); }
-/* Toggles are dots: grey off, accent on. */
-.check input {
-  -webkit-appearance: none; appearance: none; flex: none;
-  width: 12px; height: 12px; padding: 0; margin: 0; border: 0; border-radius: 50%;
-  background: var(--track);
-}
-.check input:checked { background: var(--accent); }
+.check input { width: auto; accent-color: var(--accent); }
 
 /* Status pills (header) */
 .app-title { font-size: var(--fs-lg); font-weight: var(--fw-title); letter-spacing: -.01em; flex: none; }
@@ -248,43 +238,9 @@ textarea { min-height: 48px; resize: vertical; }
 .pill.bad  { background: color-mix(in srgb, var(--bad) 16%, transparent); color: var(--bad); }
 
 /* Stats */
-/* Value badge: the number sits in a small dark chip at the right of its label. */
-.badge {
-  display: inline-block; padding: 2px 7px; border-radius: 4px;
-  background: var(--surface-2); color: var(--text);
-  font-size: var(--fs-sm); font-weight: var(--fw-strong); font-variant-numeric: tabular-nums; white-space: nowrap;
-}
-.badge.mono { font-family: var(--font-mono); font-weight: 500; }
-.badge.muted { color: var(--text-3); }
-.badge.warn { color: var(--warn); }
-.badge.bad { color: var(--accent); }
-.badge.good { color: var(--text); }
-
-/* Meters: a hairline track with ticks and a diamond marker, like a slider. */
-.meters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-4) var(--sp-5); }
-@media (min-width: 640px) { .meters { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
-.meter-head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); }
-.meter-head .label { display: flex; align-items: center; gap: var(--sp-1); font-size: var(--fs-sm); color: var(--text); }
-.meter {
-  position: relative; height: 14px; margin: var(--sp-2) 5px 2px;
-  background:
-    linear-gradient(var(--track), var(--track)) center / 100% 1px no-repeat,
-    repeating-linear-gradient(90deg, var(--track) 0 1px, transparent 1px 10%) center / 100% 7px no-repeat;
-}
-.meter .thumb {
-  position: absolute; top: 50%; left: var(--pos, 0%); width: 9px; height: 9px;
-  background: var(--text); border-radius: 1px; transform: translate(-50%, -50%) rotate(45deg);
-  transition: left .3s;
-}
-.meter.off .thumb { display: none; }
-.meter.warn .thumb { background: var(--warn); }
-.meter.bad .thumb { background: var(--accent); }
-.meter-foot { display: flex; justify-content: space-between; gap: var(--sp-2); font-size: 10px; color: var(--text-3); }
-.meter-foot .sub { font-size: 10px; color: var(--text-2); }
-.kv { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); }
-.kv .label span { color: var(--text-3); font-size: var(--fs-xs); }
-.kv .label { display: flex; align-items: center; gap: var(--sp-1); font-size: var(--fs-sm); color: var(--text-2); }
-
+.stat .label { display: flex; align-items: center; gap: var(--sp-1); font-size: var(--fs-xs); font-weight: var(--fw-label); color: var(--text-3); }
+.stat .value { font-size: var(--fs-xl); font-weight: var(--fw-value); letter-spacing: -.02em; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.stat .sub { font-size: var(--fs-xs); color: var(--text-2); font-variant-numeric: tabular-nums; }
 .good { color: var(--good); }
 .warn { color: var(--warn); }
 .bad { color: var(--bad); }
@@ -295,17 +251,18 @@ textarea { min-height: 48px; resize: vertical; }
 .coords { font: 600 var(--fs-lg) var(--font-mono); word-break: break-all; }
 .log {
   font: 500 var(--fs-xs)/1.5 var(--font-mono); color: var(--text-2);
-  background: var(--surface); border-radius: var(--r-lg); padding: var(--sp-2) var(--sp-3);
+  background: var(--surface-2); border-radius: var(--r-md); padding: var(--sp-2) var(--sp-3);
   max-height: 160px; overflow-y: auto; white-space: pre-wrap; word-break: break-all;
 }
 .log:empty { display: none; }
 .session-line + .session-line { margin-top: var(--sp-1); }
 
 /* Map + legend */
-.map { border-radius: var(--r-lg); background: var(--surface); }
+.map { border-radius: var(--r-md); border: 1px solid var(--border); }
 .map.full { height: calc(100vh - 150px - var(--dock-h)); min-height: 260px; }
 .map.mini { height: 200px; }
-.map-card .map { overflow: hidden; }
+.map-card { padding: 0; overflow: hidden; }
+.map-card .map { border: 0; border-radius: 0; }
 @media (min-width: 760px) { .map.mini { height: 300px; } }
 .legend { display: flex; flex-wrap: wrap; gap: var(--sp-1) var(--sp-3); font-size: var(--fs-xs); color: var(--text-2); }
 .swatch { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: var(--sp-1); vertical-align: -1px; }
@@ -317,8 +274,8 @@ textarea { min-height: 48px; resize: vertical; }
 .anchor-star { font-size: 26px; line-height: 26px; color: var(--anchor); text-shadow: 0 0 3px #000; }
 
 /* Charts */
-.chart-box { position: relative; height: 210px; padding: var(--sp-2); background: var(--surface); border-radius: var(--r-lg); }
-.chart-box.small { height: 150px; }
+.chart-box { position: relative; height: 200px; }
+.chart-box.small { height: 130px; }
 
 /* Progress bar (location averaging) */
 .progress { height: 6px; background: var(--surface-2); border-radius: var(--r-pill); overflow: hidden; }
@@ -339,12 +296,7 @@ textarea { min-height: 48px; resize: vertical; }
   flex: 1; display: flex; justify-content: center; padding: var(--sp-2) 2px; border-radius: var(--r-sm);
   background: none; color: var(--text-3); font-size: var(--fs-sm); font-weight: var(--fw-label);
 }
-.tabbar button { position: relative; }
-.tabbar button.active { color: var(--text); font-weight: var(--fw-strong); }
-.tabbar button.active::after {
-  content: ""; position: absolute; left: 50%; bottom: 1px; width: 4px; height: 4px;
-  margin-left: -2px; border-radius: 50%; background: var(--accent);
-}
+.tabbar button.active { color: var(--accent); font-weight: var(--fw-strong); background: var(--surface-2); }
 .tabbar .icon { width: 20px; height: 20px; }
 .logctl { flex: 0 0 auto; display: flex; align-items: center; gap: var(--sp-2); }
 .logctl-info { display: flex; flex-direction: column; line-height: 1.2; text-align: right; }
@@ -422,27 +374,11 @@ textarea { min-height: 48px; resize: vertical; }
 <main>
   <!-- HOME -->
   <section class="tab active" id="tab-home">
-    <div class="meters hero">
-      <div class="meter-cell">
-        <div class="meter-head"><span class="label"><svg class="icon sm" aria-hidden="true"><use href="#i-signal"/></svg>RSSI</span><span class="badge muted" id="vRssi">—</span></div>
-        <div class="meter off" id="mRssi"><i class="thumb"></i></div>
-        <div class="meter-foot"><span>−130</span><span class="sub" id="vSnr"></span><span>−30</span></div>
-      </div>
-      <div class="meter-cell">
-        <div class="meter-head"><span class="label"><svg class="icon sm" aria-hidden="true"><use href="#i-ruler"/></svg>Distance</span><span class="badge muted" id="vDist">—</span></div>
-        <div class="meter off" id="mDist"><i class="thumb"></i></div>
-        <div class="meter-foot"><span>0</span><span class="sub" id="vDistSub"></span><span><span id="vDistMax">—</span></span></div>
-      </div>
-      <div class="meter-cell">
-        <div class="meter-head"><span class="label"><svg class="icon sm" aria-hidden="true"><use href="#i-timer"/></svg>Last packet</span><span class="badge muted" id="vAge">—</span></div>
-        <div class="meter off" id="mAge"><i class="thumb"></i></div>
-        <div class="meter-foot"><span>now</span><span class="sub" id="vAgeSub"></span><span>late</span></div>
-      </div>
-      <div class="meter-cell">
-        <div class="meter-head"><span class="label"><svg class="icon sm" aria-hidden="true"><use href="#i-package-check"/></svg>Delivery</span><span class="badge muted" id="vLoss">—</span></div>
-        <div class="meter off" id="mLoss"><i class="thumb"></i></div>
-        <div class="meter-foot"><span>0%</span><span class="sub" id="vLossSub"></span><span>100%</span></div>
-      </div>
+    <div class="stats hero">
+      <div class="stat"><div class="label"><svg class="icon sm" aria-hidden="true"><use href="#i-signal"/></svg>RSSI</div><div class="value muted" id="vRssi">—</div><div class="sub" id="vSnr"></div></div>
+      <div class="stat"><div class="label"><svg class="icon sm" aria-hidden="true"><use href="#i-ruler"/></svg>Distance</div><div class="value muted" id="vDist">—</div><div class="sub" id="vDistSub"></div></div>
+      <div class="stat"><div class="label"><svg class="icon sm" aria-hidden="true"><use href="#i-timer"/></svg>Last packet</div><div class="value muted" id="vAge">—</div><div class="sub" id="vAgeSub"></div></div>
+      <div class="stat"><div class="label"><svg class="icon sm" aria-hidden="true"><use href="#i-package-check"/></svg>Delivery</div><div class="value muted" id="vLoss">—</div><div class="sub" id="vLossSub"></div></div>
     </div>
 
     <div class="home-grid">
@@ -458,8 +394,8 @@ textarea { min-height: 48px; resize: vertical; }
         <div class="card-head"><h2 class="card-title">Location</h2>
           <div class="card-actions"><button class="icon-btn ghost" id="btnHomeShareMe" title="Share my location" aria-label="Share my location"><svg class="icon" aria-hidden="true"><use href="#i-share-2"/></svg></button><button class="icon-btn ghost" data-goto="map" title="Anchor and measure" aria-label="Anchor and measure"><svg class="icon" aria-hidden="true"><use href="#i-chevron-right"/></svg></button></div>
         </div>
-        <div class="kv"><span class="label"><svg class="icon sm" aria-hidden="true"><use href="#i-anchor"/></svg>Anchor <span id="vHomeAnchorSub"></span></span><span class="badge mono" id="vHomeAnchor">not set</span></div>
-        <div class="kv"><span class="label"><svg class="icon sm" aria-hidden="true"><use href="#i-locate-fixed"/></svg>Me <span id="vHomeMeSub"></span></span><span class="badge mono" id="vHomeMe">waiting for GPS…</span></div>
+        <div class="stat"><div class="label"><svg class="icon sm" aria-hidden="true"><use href="#i-anchor"/></svg>Anchor</div><div class="coords" id="vHomeAnchor">not set</div><div class="sub" id="vHomeAnchorSub"></div></div>
+        <div class="stat"><div class="label"><svg class="icon sm" aria-hidden="true"><use href="#i-locate-fixed"/></svg>Me</div><div class="coords" id="vHomeMe">waiting for GPS…</div><div class="sub" id="vHomeMeSub"></div></div>
       </div>
 
       <div class="card">
@@ -1035,18 +971,10 @@ function setAnchor(p, source) {
 }
 
 /* ---- Rendering ---- */
-// Place a meter's diamond at frac (0..1); null hides it. cls: '', 'warn' or 'bad'.
-function setMeter(id, frac, cls = '') {
-  const m = $(id);
-  m.className = 'meter ' + (frac == null ? 'off' : cls);
-  if (frac != null) m.style.setProperty('--pos', `${Math.min(1, Math.max(0, frac)) * 100}%`);
-}
 function renderLive() {
   const r = S.live.lastRssi;
   $('vRssi').textContent = r == null ? '—' : `${r} dBm`;
-  const rCls = r == null ? 'muted' : r >= -90 ? 'good' : r >= -110 ? 'warn' : 'bad';
-  $('vRssi').className = 'badge ' + rCls;
-  setMeter('mRssi', r == null ? null : (r + 130) / 100, rCls);
+  $('vRssi').className = 'value ' + (r == null ? 'muted' : r >= -90 ? 'good' : r >= -110 ? 'warn' : 'bad');
   $('vSnr').textContent = S.live.lastSnr == null ? '' : `SNR ${S.live.lastSnr} dB`;
   renderAge();
 }
@@ -1054,23 +982,16 @@ function renderAge() {
   const age = S.live.lastPacketAt == null ? null : Date.now() - S.live.lastPacketAt;
   const due = expectedInterval();
   $('vAge').textContent = fmtAge(age);
-  const aCls = age == null ? 'muted' : age < due * 1.6 ? 'good' : age < due * 4 ? 'warn' : 'bad';
-  $('vAge').className = 'badge ' + aCls;
-  setMeter('mAge', age == null ? null : age / (due * 4), aCls);
-  $('vAgeSub').textContent = S.role === 'tx' ? 'since send' : `every ${(due / 1000).toFixed(1)} s`;
+  $('vAge').className = 'value ' + (age == null ? 'muted' : age < due * 1.6 ? 'good' : age < due * 4 ? 'warn' : 'bad');
+  $('vAgeSub').textContent = S.role === 'tx' ? 'since last send' : `expected every ${(due / 1000).toFixed(1)} s`;
 }
 function renderDistance() {
-  if (!S.anchor) { $('vDist').textContent = '—'; $('vDist').className = 'badge muted'; $('vDistSub').textContent = 'no anchor'; setMeter('mDist', null); return; }
-  if (!S.fix) { $('vDist').textContent = '—'; $('vDistSub').textContent = 'waiting for GPS'; setMeter('mDist', null); return; }
+  if (!S.anchor) { $('vDist').textContent = '—'; $('vDist').className = 'value muted'; $('vDistSub').textContent = 'set an anchor first'; return; }
+  if (!S.fix) { $('vDist').textContent = '—'; $('vDistSub').textContent = 'waiting for GPS'; return; }
   const d = haversine(S.anchor.lat, S.anchor.lon, S.fix.lat, S.fix.lon);
   const unc = Math.hypot(S.fix.acc, S.anchor.acc || 0);
-  $('vDist').textContent = fmtDist(d); $('vDist').className = 'badge';
+  $('vDist').textContent = fmtDist(d); $('vDist').className = 'value';
   $('vDistSub').textContent = `±${unc.toFixed(1)} m`;
-  // Scale: the farthest point reached so far this session (at least 100 m).
-  const far = Math.max(100, d, ...sessionRows(S.session).map(r => r.distance_m || 0));
-  const scale = niceStep(far) >= far ? niceStep(far) : niceStep(far) * 2;
-  $('vDistMax').textContent = fmtDist(scale).replace('.0 m', ' m').replace('.000 km', ' km');
-  setMeter('mDist', d / scale);
 }
 function sessionRows(session) {
   return session === 'all' ? S.rows : S.rows.filter(r => r.session === +session);
@@ -1085,16 +1006,13 @@ function renderStats() {
   const rows = sessionRows(S.session);
   if (S.role === 'tx') {
     const sent = rows.filter(r => r.event === 'sent').length;
-    $('vLoss').textContent = String(sent); $('vLoss').className = 'badge';
-    $('vLossSub').textContent = 'sent';
-    setMeter('mLoss', null);
+    $('vLoss').textContent = String(sent); $('vLoss').className = 'value';
+    $('vLossSub').textContent = 'packets sent (logged)';
   } else {
     const c = deliveryCounts(rows);
     $('vLoss').textContent = c.total ? `${(100 * c.received / c.total).toFixed(0)}%` : '—';
-    const lCls = !c.total ? 'muted' : c.received / c.total >= .9 ? 'good' : c.received / c.total >= .5 ? 'warn' : 'bad';
-    $('vLoss').className = 'badge ' + lCls;
-    $('vLossSub').textContent = c.total ? `${c.received}/${c.total}` : '';
-    setMeter('mLoss', c.total ? c.received / c.total : null, lCls);
+    $('vLoss').className = 'value ' + (!c.total ? 'muted' : c.received / c.total >= .9 ? 'good' : c.received / c.total >= .5 ? 'warn' : 'bad');
+    $('vLossSub').textContent = `${c.received} ok · ${c.missed} missed · ${c.crc} CRC`;
   }
   $('vDataSummary').textContent = S.rows.length
     ? `${S.rows.length} rows across ${new Set(S.rows.map(r => r.session)).size} session(s).`
@@ -1148,13 +1066,14 @@ function renderAnchor() {
   if (!S.anchor) {
     $('vAnchor').textContent = $('vHomeAnchor').textContent = 'not set';
     $('vAnchorSub').textContent = '';
-    $('vHomeAnchorSub').textContent = '';
+    $('vHomeAnchorSub').textContent = 'set it in the Location tab';
     return;
   }
   $('vAnchor').textContent = $('vHomeAnchor').textContent = fmtCoord(S.anchor.lat, S.anchor.lon);
   $('vAnchorSub').textContent = (S.anchor.acc != null ? `±${S.anchor.acc.toFixed(1)} m · ` : '') +
     `set ${new Date(S.anchor.setAt).toLocaleString()} (${S.anchor.source})`;
-  $('vHomeAnchorSub').textContent = `${S.anchorBoard.toUpperCase()}` + (S.anchor.acc != null ? ` ±${S.anchor.acc.toFixed(0)} m` : '');
+  $('vHomeAnchorSub').textContent = `${S.anchorBoard.toUpperCase()} board` +
+    (S.anchor.acc != null ? ` · ±${S.anchor.acc.toFixed(1)} m` : '');
 }
 function renderMe() {
   if (!S.fix) return;
@@ -1162,7 +1081,7 @@ function renderMe() {
   $('vMeSub').textContent = `±${S.fix.acc.toFixed(1)} m` +
     (S.fix.alt != null ? ` · altitude ${S.fix.alt.toFixed(1)} m` : '') +
     (S.fix.acc > 10 ? ' · move away from buildings/trees for a better fix' : '');
-  $('vHomeMeSub').textContent = `±${S.fix.acc.toFixed(0)} m`;
+  $('vHomeMeSub').textContent = `±${S.fix.acc.toFixed(1)} m`;
 }
 
 /* ---- Maps: the full Map tab and the mini map on Home ---- */
@@ -1321,65 +1240,32 @@ const chartSets = {
 };
 function markChartsDirty() { for (const set of Object.values(chartSets)) set.dirty = true; }
 function chartDefaults() {
-  Chart.defaults.color = cssVar('--text-3');
-  Chart.defaults.borderColor = cssVar('--grid');
+  Chart.defaults.color = cssVar('--text-2');
+  Chart.defaults.borderColor = cssVar('--border');
   Chart.defaults.font.family = cssVar('--font-ui');
-  Chart.defaults.font.size = 10;
   Chart.defaults.animation = false;
   Chart.defaults.maintainAspectRatio = false;
 }
-function axis(title, extra = {}) {
-  return { title: { display: true, text: title }, grid: { color: cssVar('--grid') }, border: { display: false }, ...extra };
-}
-// Grey points with an accent median line through them (like a curve over a histogram).
-function scatterWithTrend() {
-  return {
-    datasets: [
-      { type: 'line', data: [], borderColor: cssVar('--accent'), borderWidth: 2, pointRadius: 0, cubicInterpolationMode: 'monotone', order: 0 },
-      { type: 'scatter', data: [], pointRadius: 2.5, pointBackgroundColor: cssVar('--text-3'), pointBorderWidth: 0, order: 1 },
-    ],
-  };
-}
-// Median of y per distance band, at the band centre.
-function medianTrend(points) {
-  if (points.length < 2) return [];
-  const maxD = Math.max(...points.map(p => p.x));
-  const step = niceStep(Math.max(maxD, 20) / 10);
-  const bins = [];
-  for (const p of points) (bins[Math.floor(p.x / step)] ||= []).push(p.y);
-  return bins.map((ys, i) => ys && { x: (i + .5) * step, y: median(ys) }).filter(Boolean);
-}
+function axis(title, extra = {}) { return { title: { display: true, text: title }, ...extra }; }
 function makeScatter(id, y) {
   return new Chart($(id), {
-    type: 'scatter', data: scatterWithTrend(),
-    options: { plugins: { legend: { display: false } }, scales: { x: axis('Distance (m)', { type: 'linear', min: 0 }), y: axis(y) } },
+    type: 'scatter', data: { datasets: [{ data: [], pointRadius: 3, pointBackgroundColor: [] }] },
+    options: { plugins: { legend: { display: false } }, scales: { x: axis('Distance (m)', { min: 0 }), y: axis(y) } },
   });
 }
 function makeDelivery(id) {
-  // Grey bars: how many packets were expected per band (sample size).
-  // Accent line: % of them delivered.
   const chart = new Chart($(id), {
-    data: {
-      labels: [],
-      datasets: [
-        { type: 'line', data: [], yAxisID: 'y', borderColor: cssVar('--accent'), borderWidth: 2, pointRadius: 2, pointBackgroundColor: cssVar('--accent'), cubicInterpolationMode: 'monotone', order: 0 },
-        { type: 'bar', data: [], yAxisID: 'n', backgroundColor: cssVar('--track'), barPercentage: 1, categoryPercentage: .92, order: 1 },
-      ],
-    },
+    type: 'bar', data: { labels: [], datasets: [{ data: [], backgroundColor: [] }] },
     options: {
-      plugins: { legend: { display: false }, tooltip: { callbacks: { label: (c) => c.datasetIndex === 0 ? `${c.raw.toFixed(0)}% delivered` : `${c.raw} packets` } } },
-      scales: {
-        x: axis('Distance band (m)'),
-        y: axis('Delivered (%)', { min: 0, max: 100 }),
-        n: { display: false, beginAtZero: true },
-      },
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: (c) => `${c.raw.toFixed(0)}% (${chart.$n[c.dataIndex]} packets)` } } },
+      scales: { x: axis('Distance band (m)'), y: axis('Delivered (%)', { min: 0, max: 100 }) },
     },
   });
   return chart;
 }
 function makeTime(id) {
   return new Chart($(id), {
-    type: 'scatter', data: { datasets: [{ data: [], pointRadius: 0, showLine: true, borderWidth: 1.5, borderColor: cssVar('--accent') }] },
+    type: 'scatter', data: { datasets: [{ data: [], pointRadius: 2, showLine: true, borderWidth: 1, borderColor: cssVar('--accent'), pointBackgroundColor: cssVar('--accent') }] },
     options: { plugins: { legend: { display: false } }, scales: { x: axis('Minutes since session start'), y: axis('RSSI (dBm)') } },
   });
 }
@@ -1408,16 +1294,14 @@ function updateCharts(key) {
   const withD = rec.filter(r => r.distance_m != null);
 
   if (charts.rssi) {
-    const pts = withD.map(r => ({ x: r.distance_m, y: r.rssi_dbm }));
-    charts.rssi.data.datasets[1].data = pts;
-    charts.rssi.data.datasets[0].data = medianTrend(pts);
+    charts.rssi.data.datasets[0].data = withD.map(r => ({ x: r.distance_m, y: r.rssi_dbm }));
+    charts.rssi.data.datasets[0].pointBackgroundColor = withD.map(r => rssiColor(r.rssi_dbm));
     charts.rssi.update();
   }
   if (charts.snr) {
     const snrRows = withD.filter(r => r.snr_db != null);
-    const pts = snrRows.map(r => ({ x: r.distance_m, y: r.snr_db }));
-    charts.snr.data.datasets[1].data = pts;
-    charts.snr.data.datasets[0].data = medianTrend(pts);
+    charts.snr.data.datasets[0].data = snrRows.map(r => ({ x: r.distance_m, y: r.snr_db }));
+    charts.snr.data.datasets[0].pointBackgroundColor = snrRows.map(r => rssiColor(r.rssi_dbm));
     charts.snr.update();
   }
   if (charts.delivery) {
@@ -1430,16 +1314,18 @@ function updateCharts(key) {
       bins[b] = bins[b] || { ok: 0, n: 0 };
       bins[b].n++; if (r.event === 'received') bins[b].ok++;
     }
-    const labels = [], vals = [], ns = [];
+    const labels = [], vals = [], colors = [], ns = [];
     for (let i = 0; i < bins.length; i++) {
       if (!bins[i]) continue;
       labels.push(`${Math.round(i * step)}–${Math.round((i + 1) * step)}`);
       const pct = 100 * bins[i].ok / bins[i].n;
       vals.push(pct); ns.push(bins[i].n);
+      colors.push(pct >= 90 ? cssVar('--good') : pct >= 50 ? cssVar('--warn') : cssVar('--bad'));
     }
     charts.delivery.data.labels = labels;
     charts.delivery.data.datasets[0].data = vals;
-    charts.delivery.data.datasets[1].data = ns;
+    charts.delivery.data.datasets[0].backgroundColor = colors;
+    charts.delivery.$n = ns;
     charts.delivery.update();
   }
   if (charts.time) {
@@ -1599,6 +1485,6 @@ function init() {
 init();
 </script>
 <!-- Temporary A/B switch for comparing designs; remove once one is picked. -->
-<a href="previous.html" title="Switch to the previous design" style="position:fixed;top:calc(env(safe-area-inset-top) + 52px);right:12px;z-index:3000;padding:4px 10px;border-radius:999px;background:#ff4230;color:#fff;font:600 12px -apple-system,sans-serif;text-decoration:none;box-shadow:0 4px 14px rgba(0,0,0,.4)">New ⇄</a>
+<a href="./" title="Switch to the new design" style="position:fixed;top:calc(env(safe-area-inset-top) + 52px);right:12px;z-index:3000;padding:4px 10px;border-radius:999px;background:#ff4230;color:#fff;font:600 12px -apple-system,sans-serif;text-decoration:none;box-shadow:0 4px 14px rgba(0,0,0,.4)">Old ⇄</a>
 </body>
 </html>
