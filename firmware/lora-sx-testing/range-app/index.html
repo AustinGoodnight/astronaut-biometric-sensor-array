@@ -53,26 +53,25 @@
 /* 2. Themes. <html data-theme> is set before paint by the script in <head>. */
 [data-theme="dark"] {
   color-scheme: dark;
-  --bg: #07080a;
-  --surface: #101216;
-  --surface-2: #181b21;
-  --border: #23272f;
-  --text: #e9ecf1;
-  --text-2: #a4abb8;
-  --text-3: #6e7685;
-  --accent: #5b9bff;
+  --bg: #050506;
+  --surface: #0d0d0e;
+  --surface-2: #17171a;
+  --border: #242428;
+  --text: #ececee;
+  --text-2: #a6a6ad;
+  --text-3: #6f6f78;
+  --accent: #e5484d;
   --on-accent: #ffffff;
   --good: #3ddc84;
   --warn: #f5b83d;
   --bad: #ff5c5c;
-  --on-bad: #ffffff;
   --shadow: 0 10px 30px rgba(0, 0, 0, .6);
   /* data colors (map + charts) */
   --rssi-strong: #22c55e;
   --rssi-medium: #facc15;
   --rssi-weak: #ef4444;
-  --miss: #6e7685;
-  --miss-fill: #101216;
+  --miss: #6f6f78;
+  --miss-fill: #0d0d0e;
   --crc: #b47cff;
   --anchor: #f59e0b;
   --me: #5b9bff;
@@ -87,12 +86,11 @@
   --text: #0f1115;
   --text-2: #4b5260;
   --text-3: #7b8391;
-  --accent: #2563eb;
+  --accent: #dc2626;
   --on-accent: #ffffff;
   --good: #15803d;
   --warn: #b45309;
   --bad: #dc2626;
-  --on-bad: #ffffff;
   --shadow: 0 8px 24px rgba(15, 17, 21, .14);
   --rssi-strong: #16a34a;
   --rssi-medium: #eab308;
@@ -170,7 +168,7 @@ button {
 button:active { filter: brightness(.92); }
 button:disabled { opacity: .4; cursor: default; }
 button.secondary { background: var(--surface-2); color: var(--text); box-shadow: inset 0 0 0 1px var(--border); }
-button.danger { background: var(--bad); color: var(--on-bad); }
+button.danger { background: transparent; color: var(--bad); box-shadow: inset 0 0 0 1.5px var(--bad); }
 button.link { background: none; color: var(--accent); padding: 0; font-size: var(--fs-sm); font-weight: 500; }
 button.compact { padding: 7px var(--sp-3); font-size: var(--fs-sm); }
 
