@@ -277,11 +277,48 @@ th { color: var(--ink2); font-weight: 500; position: sticky; top: 0; background:
   #wavCard .card-h .sub { display: none; }
   #cvWave { height: 200px; }
 }
+
+/* Side menu: slides in from the left; same markup in the RF and HR pages */
+.drawer {
+  position: fixed; top: 0; bottom: 0; left: 0; z-index: 4000; width: min(280px, 82vw);
+  display: flex; flex-direction: column; gap: 2px;
+  padding: calc(env(safe-area-inset-top) + 10px) 12px 16px;
+  background: var(--surface); border-right: 1px solid var(--rule); box-shadow: var(--shadow);
+  transform: translateX(-100%); visibility: hidden; transition: transform .2s ease, visibility .2s;
+}
+.drawer.open { transform: none; visibility: visible; }
+.drawer-backdrop {
+  position: fixed; inset: 0; z-index: 3999; background: rgba(0, 0, 0, .45);
+  opacity: 0; pointer-events: none; transition: opacity .2s;
+}
+.drawer-backdrop.open { opacity: 1; pointer-events: auto; }
+.drawer-head { display: flex; align-items: center; justify-content: space-between; padding: 0 4px 8px; }
+.drawer-title { font-size: 15px; font-weight: 700; color: var(--ink); }
+.drawer-close {
+  display: inline-flex; align-items: center; justify-content: center; padding: 6px; min-height: 0;
+  background: none; box-shadow: none; border: 0; color: var(--ink2); cursor: pointer;
+}
+.drawer-section { margin: 10px 4px 4px; font-size: 12px; font-weight: 500; color: var(--ink3); }
+.drawer-link {
+  position: relative; display: flex; align-items: center; gap: 10px; padding: 9px 10px;
+  border-radius: 6px; color: var(--ink); text-decoration: none;
+}
+.drawer-link:hover, .drawer-link.current { background: var(--hover); }
+.drawer-link.current::after {
+  content: ""; position: absolute; right: 12px; top: 50%; width: 6px; height: 6px; margin-top: -3px;
+  border-radius: 50%; background: var(--s1);
+}
+.drawer-link .icon { width: 18px; height: 18px; color: var(--ink2); flex: none; }
+.drawer-link b { display: block; font-size: 14px; font-weight: 600; }
+.drawer-link small { display: block; font-size: 12px; color: var(--ink2); }
 </style>
 </head>
 <body>
 <!-- Icons: Lucide (https://lucide.dev), ISC license. -->
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+<symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 5h16" /> <path d="M4 12h16" /> <path d="M4 19h16" /></symbol>
+<symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18" /> <path d="m6 6 12 12" /></symbol>
+<symbol id="i-radio" viewBox="0 0 24 24"><path d="M16.247 7.761a6 6 0 0 1 0 8.478" /> <path d="M19.075 4.933a10 10 0 0 1 0 14.134" /> <path d="M4.925 19.067a10 10 0 0 1 0-14.134" /> <path d="M7.753 16.239a6 6 0 0 1 0-8.478" /> <circle cx="12" cy="12" r="2" /></symbol>
 <symbol id="i-heart-pulse" viewBox="0 0 24 24"><path d="M2 9.5a5.5 5.5 0 0 1 9.591-3.676.56.56 0 0 0 .818 0A5.49 5.49 0 0 1 22 9.5c0 2.29-1.5 4-3 5.5l-5.492 5.313a2 2 0 0 1-3 .019L5 15c-1.5-1.5-3-3.2-3-5.5" /> <path d="M3.22 13H9.5l.5-1 2 4.5 2-7 1.5 3.5h5.27" /></symbol>
 <symbol id="i-activity" viewBox="0 0 24 24"><path d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2" /></symbol>
 <symbol id="i-gauge" viewBox="0 0 24 24"><path d="m12 14 4-4" /> <path d="M3.34 19a10 10 0 1 1 17.32 0" /></symbol>
@@ -300,7 +337,7 @@ th { color: var(--ink2); font-weight: 500; position: sticky; top: 0; background:
 <symbol id="i-trash-2" viewBox="0 0 24 24"><path d="M10 11v6" /> <path d="M14 11v6" /> <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" /> <path d="M3 6h18" /> <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></symbol>
 </svg>
 <header class="app-header">
-  <a class="icon-btn" href="../" title="All apps" aria-label="All apps"><svg class="icon" aria-hidden="true"><use href="#i-house"/></svg></a>
+  <button class="icon-btn" id="btnMenu" title="Menu" aria-label="Menu" aria-expanded="false" aria-controls="sideMenu"><svg class="icon" aria-hidden="true"><use href="#i-menu"/></svg></button>
   <h1 class="app-title">HR</h1>
   <div class="pills">
     <span class="pill" id="conn"><span class="dot" id="connDot"></span><span id="connText">Not connected</span></span>
@@ -1612,6 +1649,35 @@ if (S.hover === false) setHoverFrozenT();
 requestAnimationFrame(frame);
 window.__ppg = { S, get P() { return P; }, startDemo, demoBatch, parseCsv, startReplay, onRaw, onText, C, pushSample };
 { const q = new URLSearchParams(location.search); if (q.has('demo')) startDemo(+q.get('speed') || 1); }
+</script>
+<!-- Side menu (same in the RF and HR pages) -->
+<div class="drawer-backdrop" id="menuBackdrop"></div>
+<nav class="drawer" id="sideMenu" aria-label="Pages">
+  <div class="drawer-head">
+    <span class="drawer-title">Menu</span>
+    <button class="drawer-close" id="btnMenuClose" title="Close menu" aria-label="Close menu"><svg class="icon" aria-hidden="true"><use href="#i-x"/></svg></button>
+  </div>
+  <div class="drawer-section">Dev Pages</div>
+    <a class="drawer-link" href="../lora-range/"><svg class="icon" aria-hidden="true"><use href="#i-radio"/></svg><span><b>RF</b><small>LoRa range test</small></span></a>
+    <a class="drawer-link current" href="../hr-testing/" aria-current="page"><svg class="icon" aria-hidden="true"><use href="#i-heart-pulse"/></svg><span><b>HR</b><small>PPG monitor</small></span></a>
+</nav>
+<script>
+(function () {
+  const menu = document.getElementById('sideMenu'), backdrop = document.getElementById('menuBackdrop');
+  const btn = document.getElementById('btnMenu');
+  function setMenu(open) {
+    menu.classList.toggle('open', open); backdrop.classList.toggle('open', open);
+    btn.setAttribute('aria-expanded', String(open));
+    menu.inert = !open;
+    // Focus after the slide-in starts; the panel is still visibility:hidden on this frame.
+    if (open) setTimeout(() => menu.querySelector('.drawer-link.current, .drawer-link').focus(), 60); else btn.focus();
+  }
+  menu.inert = true;
+  btn.addEventListener('click', () => setMenu(!menu.classList.contains('open')));
+  backdrop.addEventListener('click', () => setMenu(false));
+  document.getElementById('btnMenuClose').addEventListener('click', () => setMenu(false));
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && menu.classList.contains('open')) setMenu(false); });
+})();
 </script>
 </body>
 </html>
