@@ -5,11 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>LoRa Range Test</title>
 <script>
-  // Resolve the theme before first paint so there's no light/dark flash.
-  // Stored choice is "auto" (follow the phone), "dark" or "light".
+  // Theme is shared by the dev pages (RF, HR): "auto" (follow the phone), "dark" or "light".
+  // Resolved before first paint so there's no light/dark flash.
   (function () {
     var pref = 'auto';
-    try { pref = localStorage.getItem('loraRange.theme') || 'auto'; } catch (e) {}
+    try { pref = localStorage.getItem('devPages.theme') || localStorage.getItem('loraRange.theme') || 'auto'; } catch (e) {}
     var dark = pref === 'dark' || (pref === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
     document.documentElement.dataset.theme = dark ? 'dark' : 'light';
   })();
@@ -206,6 +206,7 @@ a.icon-btn {
 }
 .icon-btn span { padding-right: 2px; }
 button.ghost { background: none; color: var(--text-2); box-shadow: none; }
+#btnMenu { color: var(--text); padding-left: 2px; padding-right: 2px; }
 button.rec .icon { color: var(--bad); }
 .card-actions { display: flex; align-items: center; gap: var(--sp-1); }
 .row.tight > * { flex: 0 0 auto; }
@@ -444,7 +445,7 @@ textarea { min-height: 48px; resize: vertical; }
 <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18" /> <path d="m6 6 12 12" /></symbol>
 </svg>
 <header class="app-header">
-  <button class="icon-btn secondary" id="btnMenu" title="Menu" aria-label="Menu" aria-expanded="false" aria-controls="sideMenu"><svg class="icon" aria-hidden="true"><use href="#i-menu"/></svg></button>
+  <button class="icon-btn ghost" id="btnMenu" title="Menu" aria-label="Menu" aria-expanded="false" aria-controls="sideMenu"><svg class="icon" aria-hidden="true"><use href="#i-menu"/></svg></button>
   <h1 class="app-title">RF</h1>
   <div class="pills">
     <span class="pill" id="pillBle" title="Board"><svg class="icon sm" aria-hidden="true"><use href="#i-radio"/></svg><span>No board</span></span>
@@ -1517,11 +1518,11 @@ async function exportCsv() {
 }
 
 /* ---- Theme ---- */
-const THEME_KEY = 'loraRange.theme';
+const THEME_KEY = 'devPages.theme'; // shared with the HR page
 const THEME_ICONS = { auto: 'sun-moon', dark: 'moon', light: 'sun' };
 const darkQuery = matchMedia('(prefers-color-scheme: dark)');
 function themePref() {
-  try { return localStorage.getItem(THEME_KEY) || 'auto'; } catch (e) { return 'auto'; }
+  try { return localStorage.getItem(THEME_KEY) || localStorage.getItem('loraRange.theme') || 'auto'; } catch (e) { return 'auto'; }
 }
 function currentTheme() { return document.documentElement.dataset.theme; }
 function applyTheme() {
@@ -1553,6 +1554,8 @@ function cycleTheme() {
   applyTheme();
 }
 darkQuery.addEventListener('change', () => { if (themePref() === 'auto') applyTheme(); });
+// Changed on the other dev page (another tab): follow it.
+window.addEventListener('storage', (e) => { if (e.key === THEME_KEY) applyTheme(); });
 
 /* ---- Tabs ---- */
 let activeTab = 'home';
