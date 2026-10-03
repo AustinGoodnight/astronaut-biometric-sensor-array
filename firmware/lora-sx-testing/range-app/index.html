@@ -370,6 +370,40 @@ textarea { min-height: 48px; resize: vertical; }
 .leaflet-bar a.map-tool { display: flex; align-items: center; justify-content: center; }
 .leaflet-control-attribution { background: color-mix(in srgb, var(--surface) 80%, transparent) !important; color: var(--text-3); font-size: 9px; line-height: 1.3; }
 .leaflet-control-attribution a { color: var(--accent); }
+
+/* Side menu: slides in from the left; same markup in the RF and HR pages */
+.drawer {
+  position: fixed; top: 0; bottom: 0; left: 0; z-index: 4000; width: min(280px, 82vw);
+  display: flex; flex-direction: column; gap: 2px;
+  padding: calc(env(safe-area-inset-top) + 10px) 12px 16px;
+  background: var(--surface); border-right: 1px solid var(--border); box-shadow: var(--shadow);
+  transform: translateX(-100%); visibility: hidden; transition: transform .2s ease, visibility .2s;
+}
+.drawer.open { transform: none; visibility: visible; }
+.drawer-backdrop {
+  position: fixed; inset: 0; z-index: 3999; background: rgba(0, 0, 0, .45);
+  opacity: 0; pointer-events: none; transition: opacity .2s;
+}
+.drawer-backdrop.open { opacity: 1; pointer-events: auto; }
+.drawer-head { display: flex; align-items: center; justify-content: space-between; padding: 0 4px 8px; }
+.drawer-title { font-size: 15px; font-weight: 700; color: var(--text); }
+.drawer-close {
+  display: inline-flex; align-items: center; justify-content: center; padding: 6px; min-height: 0;
+  background: none; box-shadow: none; border: 0; color: var(--text-2); cursor: pointer;
+}
+.drawer-section { margin: 10px 4px 4px; font-size: 12px; font-weight: 500; color: var(--text-3); }
+.drawer-link {
+  position: relative; display: flex; align-items: center; gap: 10px; padding: 9px 10px;
+  border-radius: 6px; color: var(--text); text-decoration: none;
+}
+.drawer-link:hover, .drawer-link.current { background: var(--surface-2); }
+.drawer-link.current::after {
+  content: ""; position: absolute; right: 12px; top: 50%; width: 6px; height: 6px; margin-top: -3px;
+  border-radius: 50%; background: var(--accent);
+}
+.drawer-link .icon { width: 18px; height: 18px; color: var(--text-2); flex: none; }
+.drawer-link b { display: block; font-size: 14px; font-weight: 600; }
+.drawer-link small { display: block; font-size: 12px; color: var(--text-2); }
 </style>
 </head>
 <body>
@@ -387,6 +421,7 @@ textarea { min-height: 48px; resize: vertical; }
 <symbol id="i-crosshair" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /> <line x1="22" x2="18" y1="12" y2="12" /> <line x1="6" x2="2" y1="12" y2="12" /> <line x1="12" x2="12" y1="6" y2="2" /> <line x1="12" x2="12" y1="22" y2="18" /></symbol>
 <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 15V3" /> <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /> <path d="m7 10 5 5 5-5" /></symbol>
 <symbol id="i-layout-dashboard" viewBox="0 0 24 24"><rect width="7" height="9" x="3" y="3" rx="1" /> <rect width="7" height="5" x="14" y="3" rx="1" /> <rect width="7" height="9" x="14" y="12" rx="1" /> <rect width="7" height="5" x="3" y="16" rx="1" /></symbol>
+<symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 5h16" /> <path d="M4 12h16" /> <path d="M4 19h16" /></symbol>
 <symbol id="i-heart-pulse" viewBox="0 0 24 24"><path d="M2 9.5a5.5 5.5 0 0 1 9.591-3.676.56.56 0 0 0 .818 0A5.49 5.49 0 0 1 22 9.5c0 2.29-1.5 4-3 5.5l-5.492 5.313a2 2 0 0 1-3 .019L5 15c-1.5-1.5-3-3.2-3-5.5" /> <path d="M3.22 13H9.5l.5-1 2 4.5 2-7 1.5 3.5h5.27" /></symbol>
 <symbol id="i-house" viewBox="0 0 24 24"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8" /> <path d="M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /></symbol>
 <symbol id="i-locate-fixed" viewBox="0 0 24 24"><line x1="2" x2="5" y1="12" y2="12" /> <line x1="19" x2="22" y1="12" y2="12" /> <line x1="12" x2="12" y1="2" y2="5" /> <line x1="12" x2="12" y1="19" y2="22" /> <circle cx="12" cy="12" r="7" /> <circle cx="12" cy="12" r="3" /></symbol>
@@ -409,7 +444,7 @@ textarea { min-height: 48px; resize: vertical; }
 <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18" /> <path d="m6 6 12 12" /></symbol>
 </svg>
 <header class="app-header">
-  <a class="icon-btn secondary" href="../" title="All apps" aria-label="All apps"><svg class="icon" aria-hidden="true"><use href="#i-house"/></svg></a>
+  <button class="icon-btn secondary" id="btnMenu" title="Menu" aria-label="Menu" aria-expanded="false" aria-controls="sideMenu"><svg class="icon" aria-hidden="true"><use href="#i-menu"/></svg></button>
   <h1 class="app-title">RF</h1>
   <div class="pills">
     <span class="pill" id="pillBle" title="Board"><svg class="icon sm" aria-hidden="true"><use href="#i-radio"/></svg><span>No board</span></span>
@@ -1597,5 +1632,34 @@ init();
 </script>
 <!-- Temporary A/B switch for comparing designs; remove once one is picked. -->
 <a href="previous.html" title="Switch to the previous design" style="position:fixed;bottom:calc(env(safe-area-inset-bottom) + 66px);right:12px;z-index:3000;padding:4px 10px;border-radius:999px;background:#ff4230;color:#fff;font:600 12px -apple-system,sans-serif;text-decoration:none;box-shadow:0 4px 14px rgba(0,0,0,.4)">New ⇄</a>
+<!-- Side menu (same in the RF and HR pages) -->
+<div class="drawer-backdrop" id="menuBackdrop"></div>
+<nav class="drawer" id="sideMenu" aria-label="Pages">
+  <div class="drawer-head">
+    <span class="drawer-title">Menu</span>
+    <button class="drawer-close" id="btnMenuClose" title="Close menu" aria-label="Close menu"><svg class="icon" aria-hidden="true"><use href="#i-x"/></svg></button>
+  </div>
+  <div class="drawer-section">Dev Pages</div>
+    <a class="drawer-link current" href="../lora-range/" aria-current="page"><svg class="icon" aria-hidden="true"><use href="#i-radio"/></svg><span><b>RF</b><small>LoRa range test</small></span></a>
+    <a class="drawer-link" href="../hr-testing/"><svg class="icon" aria-hidden="true"><use href="#i-heart-pulse"/></svg><span><b>HR</b><small>PPG monitor</small></span></a>
+</nav>
+<script>
+(function () {
+  const menu = document.getElementById('sideMenu'), backdrop = document.getElementById('menuBackdrop');
+  const btn = document.getElementById('btnMenu');
+  function setMenu(open) {
+    menu.classList.toggle('open', open); backdrop.classList.toggle('open', open);
+    btn.setAttribute('aria-expanded', String(open));
+    menu.inert = !open;
+    // Focus after the slide-in starts; the panel is still visibility:hidden on this frame.
+    if (open) setTimeout(() => menu.querySelector('.drawer-link.current, .drawer-link').focus(), 60); else btn.focus();
+  }
+  menu.inert = true;
+  btn.addEventListener('click', () => setMenu(!menu.classList.contains('open')));
+  backdrop.addEventListener('click', () => setMenu(false));
+  document.getElementById('btnMenuClose').addEventListener('click', () => setMenu(false));
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && menu.classList.contains('open')) setMenu(false); });
+})();
+</script>
 </body>
 </html>
