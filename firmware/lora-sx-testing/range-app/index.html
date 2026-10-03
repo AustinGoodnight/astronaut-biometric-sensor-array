@@ -364,6 +364,8 @@ textarea { min-height: 48px; resize: vertical; }
 
 /* 6. Leaflet, restyled with the same tokens */
 .leaflet-container { background: var(--surface-2); font-family: var(--font-ui); }
+/* Dark street map: OpenStreetMap inverted to a neutral dark grey */
+.tiles-dark { filter: invert(1) hue-rotate(180deg) grayscale(.85) brightness(.8) contrast(1.05); }
 .leaflet-popup-content-wrapper, .leaflet-popup-tip { background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
 .leaflet-popup-content { font-size: var(--fs-sm); }
 .leaflet-bar a, .leaflet-control-layers { background: var(--surface); color: var(--text); border-color: var(--border) !important; }
@@ -1208,27 +1210,21 @@ const mapViews = {
   full: { elId: 'map', session: () => $('selSessionMap').value, layerControl: true, tools: true, ringEl: 'vRing' },
   home: { elId: 'homeMap', session: () => String(S.session), layerControl: false, ringEl: null },
 };
-// Street map follows the theme: Esri Dark Gray (base + labels, no API key) in
-// dark mode, OpenStreetMap in light mode.
+// Street map: OpenStreetMap in both themes (real detail to zoom 19; Esri's dark
+// canvas stops at 16 and was blurry when zoomed in). Dark mode darkens it with a
+// CSS filter (.tiles-dark). detectRetina fetches the next zoom level's tiles at
+// half size on 2x/3x screens, so the map is sharp on a phone.
 const ESRI = 'https://server.arcgisonline.com/ArcGIS/rest/services';
+const TILE_OPTS = { maxZoom: 20, maxNativeZoom: 19, detectRetina: true, zIndex: 1 };
 function streetLayer() {
-  if (currentTheme() === 'dark') {
-    return L.layerGroup([
-      L.tileLayer(`${ESRI}/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}`, {
-        maxZoom: 19, maxNativeZoom: 16, zIndex: 1, attribution: 'Map &copy; Esri, HERE, Garmin, &copy; OpenStreetMap contributors',
-      }),
-      L.tileLayer(`${ESRI}/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}`, {
-        maxZoom: 19, maxNativeZoom: 16, zIndex: 2,
-      }),
-    ]);
-  }
   return L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19, zIndex: 1, attribution: '&copy; OpenStreetMap contributors',
+    ...TILE_OPTS, className: currentTheme() === 'dark' ? 'tiles-dark' : '',
+    attribution: '&copy; OpenStreetMap contributors',
   });
 }
 function satelliteLayer() {
   return L.tileLayer(`${ESRI}/World_Imagery/MapServer/tile/{z}/{y}/{x}`, {
-    maxZoom: 19, zIndex: 1, attribution: 'Imagery &copy; Esri',
+    ...TILE_OPTS, attribution: 'Imagery &copy; Esri',
   });
 }
 // (Re)build a view's base layers for the current theme, keeping satellite if it was selected.
