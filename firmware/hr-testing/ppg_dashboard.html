@@ -164,7 +164,9 @@ input[type=checkbox]:checked { background: var(--s1); }
 /* Readings: on the background, label + value badge + meter */
 .tiles { display: grid; grid-template-columns: 1.35fr repeat(4, 1fr); gap: var(--gap-section) 24px; margin-bottom: var(--gap-section); }
 .card, .tile { min-width: 0; }
-.tile .label { color: var(--ink2); font-size: 12px; margin-bottom: 4px; }
+/* Tile titles match the section titles, with an icon */
+.tile .label { display: flex; align-items: center; gap: 6px; color: var(--ink); font-size: 15px; font-weight: 500; margin-bottom: 6px; }
+.tile .label .icon { width: 16px; height: 16px; color: var(--ink2); }
 .card-h .controls { gap: 8px 6px; }
 .tile .val { font-size: 26px; font-weight: 650; line-height: 1.15; letter-spacing: -.01em; font-variant-numeric: tabular-nums; }
 .tile .val small { font-size: 13px; font-weight: 500; color: var(--ink2); letter-spacing: 0; }
@@ -260,7 +262,8 @@ th { color: var(--ink2); font-weight: 500; position: sticky; top: 0; background:
   .tiles { order: 2; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px 12px; }
   .filters, .wrap > .card, .wrap > .two { order: 3; }
   .tiles .hero { grid-column: auto; }
-  .tile .label { font-size: 11px; }
+  .tile .label { font-size: 13px; gap: 4px; align-items: flex-start; }
+  .tile .label .icon { width: 14px; height: 14px; margin-top: 2px; }
   .tile .val { font-size: 22px; }
   .tile .val small { font-size: 11px; }
   .tiles .hero .hero-val { font-size: 34px; margin: 2px 0 4px; }
@@ -277,6 +280,11 @@ th { color: var(--ink2); font-weight: 500; position: sticky; top: 0; background:
 <body>
 <!-- Icons: Lucide (https://lucide.dev), ISC license. -->
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+<symbol id="i-heart-pulse" viewBox="0 0 24 24"><path d="M2 9.5a5.5 5.5 0 0 1 9.591-3.676.56.56 0 0 0 .818 0A5.49 5.49 0 0 1 22 9.5c0 2.29-1.5 4-3 5.5l-5.492 5.313a2 2 0 0 1-3 .019L5 15c-1.5-1.5-3-3.2-3-5.5" /> <path d="M3.22 13H9.5l.5-1 2 4.5 2-7 1.5 3.5h5.27" /></symbol>
+<symbol id="i-activity" viewBox="0 0 24 24"><path d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2" /></symbol>
+<symbol id="i-gauge" viewBox="0 0 24 24"><path d="m12 14 4-4" /> <path d="M3.34 19a10 10 0 1 1 17.32 0" /></symbol>
+<symbol id="i-lightbulb" viewBox="0 0 24 24"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5" /> <path d="M9 18h6" /> <path d="M10 22h4" /></symbol>
+<symbol id="i-link" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /> <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></symbol>
 <symbol id="i-house" viewBox="0 0 24 24"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8" /> <path d="M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /></symbol>
 <symbol id="i-bluetooth" viewBox="0 0 24 24"><path d="m7 7 10 10-5 5V2l5 5L7 17" /></symbol>
 <symbol id="i-bluetooth-connected" viewBox="0 0 24 24"><path d="m7 7 10 10-5 5V2l5 5L7 17" /> <line x1="18" x2="21" y1="12" y2="12" /> <line x1="3" x2="6" y1="12" y2="12" /></symbol>
@@ -302,33 +310,33 @@ th { color: var(--ink2); font-weight: 500; position: sticky; top: 0; background:
 
   <section class="tiles" aria-label="Current readings">
     <div class="tile hero">
-      <div class="label">Heart rate</div>
+      <div class="label"><svg class="icon" aria-hidden="true"><use href="#i-heart-pulse"/></svg>Heart rate</div>
       <div class="hero-val empty" id="hrVal">--<span class="unit">bpm</span></div>
       <div class="note" id="hrSub">Connect a board or start the demo.</div>
     </div>
     <div class="tile">
-      <div class="label">Pulse periodicity (r)</div>
+      <div class="label"><svg class="icon" aria-hidden="true"><use href="#i-activity"/></svg>Pulse periodicity (r)</div>
       <div class="val" id="rVal">--</div>
       <div class="meter" id="rMeter" aria-hidden="true"><div class="fill"></div><div class="tick" style="left:50%"></div><div class="tick" style="left:70%"></div></div>
       <div class="state" id="rState"></div>
       <div class="note">Published at 0.5 or higher; trust it at 0.7 or higher.</div>
     </div>
     <div class="tile">
-      <div class="label">Pulse strength (AC/DC)</div>
+      <div class="label"><svg class="icon" aria-hidden="true"><use href="#i-gauge"/></svg>Pulse strength (AC/DC)</div>
       <div class="val" id="aVal">--</div>
       <div class="meter" id="aMeter" aria-hidden="true"><div class="fill"></div><div class="tick" style="left:30%"></div></div>
       <div class="state" id="aState"></div>
       <div class="note">Aim for 0.3% or more. Lighter pressure usually helps.</div>
     </div>
     <div class="tile">
-      <div class="label">IR light level (DC)</div>
+      <div class="label"><svg class="icon" aria-hidden="true"><use href="#i-lightbulb"/></svg>IR light level (DC)</div>
       <div class="val" id="dVal">--</div>
       <div class="meter" id="dMeter" aria-hidden="true"><div class="fill"></div><div class="tick" style="left:30%"></div><div class="tick" style="left:70%"></div></div>
       <div class="state" id="dState"></div>
       <div class="note">Target 30&ndash;70% of the 18-bit range (262,143).</div>
     </div>
     <div class="tile">
-      <div class="label">Link</div>
+      <div class="label"><svg class="icon" aria-hidden="true"><use href="#i-link"/></svg>Link</div>
       <div class="val" id="lVal">--</div>
       <dl class="kv">
         <dt>Sample rate</dt><dd id="kFs">--</dd>
