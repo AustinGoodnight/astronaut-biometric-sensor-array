@@ -4,6 +4,16 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>PPG Monitor</title>
+<script>
+  // Theme is shared by the dev pages (RF, HR): "auto" (follow the phone), "dark" or "light".
+  // Resolved before first paint so there's no light/dark flash.
+  (function () {
+    var pref = 'auto';
+    try { pref = localStorage.getItem('devPages.theme') || localStorage.getItem('loraRange.theme') || 'auto'; } catch (e) {}
+    var dark = pref === 'dark' || (pref === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
+    document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+  })();
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Scoutie+Sans:wght@200..800&family=JetBrains+Mono:wght@500;600&display=swap">
@@ -124,6 +134,7 @@ a.icon-btn {
   background: var(--hover); color: var(--ink); box-shadow: inset 0 0 0 1px var(--rule);
 }
 .app-header button.icon-btn { padding: 6px 8px; }
+.app-header #btnMenu { background: none; box-shadow: none; padding-left: 2px; padding-right: 2px; }
 .app-header button.icon-btn span { padding-right: 4px; }
 
 /* Controls */
@@ -327,6 +338,7 @@ th { color: var(--ink2); font-weight: 500; position: sticky; top: 0; background:
 <symbol id="i-house" viewBox="0 0 24 24"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8" /> <path d="M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /></symbol>
 <symbol id="i-bluetooth" viewBox="0 0 24 24"><path d="m7 7 10 10-5 5V2l5 5L7 17" /></symbol>
 <symbol id="i-bluetooth-connected" viewBox="0 0 24 24"><path d="m7 7 10 10-5 5V2l5 5L7 17" /> <line x1="18" x2="21" y1="12" y2="12" /> <line x1="3" x2="6" y1="12" y2="12" /></symbol>
+<symbol id="i-sun-moon" viewBox="0 0 24 24"><path d="M12 2v2" /> <path d="M14.837 16.385a6 6 0 1 1-7.223-7.222c.624-.147.97.66.715 1.248a4 4 0 0 0 5.26 5.259c.589-.255 1.396.09 1.248.715" /> <path d="M16 12a4 4 0 0 0-4-4" /> <path d="m19 5-1.256 1.256" /> <path d="M20 12h2" /></symbol>
 <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401" /></symbol>
 <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4" /> <path d="M12 2v2" /> <path d="M12 20v2" /> <path d="m4.93 4.93 1.41 1.41" /> <path d="m17.66 17.66 1.41 1.41" /> <path d="M2 12h2" /> <path d="M20 12h2" /> <path d="m6.34 17.66-1.41 1.41" /> <path d="m19.07 4.93-1.41 1.41" /></symbol>
 <symbol id="i-usb" viewBox="0 0 24 24"><circle cx="10" cy="7" r="1" /> <circle cx="4" cy="20" r="1" /> <path d="M4.7 19.3 19 5" /> <path d="m21 3-3 1 2 2Z" /> <path d="M9.26 7.68 5 12l2 5" /> <path d="m10 14 5 2 3.5-3.5" /> <path d="m18 12 1-1 1 1-1 1Z" /></symbol>
@@ -342,7 +354,7 @@ th { color: var(--ink2); font-weight: 500; position: sticky; top: 0; background:
   <div class="pills">
     <span class="pill" id="conn"><span class="dot" id="connDot"></span><span id="connText">Not connected</span></span>
   </div>
-  <button class="icon-btn" id="btnTheme" title="Toggle light / dark" aria-label="Toggle light / dark"><svg class="icon" aria-hidden="true"><use href="#i-moon"/></svg></button>
+  <button class="icon-btn" id="btnTheme" title="Theme: auto" aria-label="Theme: auto"><svg class="icon" aria-hidden="true"><use href="#i-sun-moon"/></svg></button>
   <button class="primary icon-btn" id="btnConnect" title="Connect over Bluetooth"><svg class="icon" aria-hidden="true"><use href="#i-bluetooth"/></svg><span>Connect</span></button>
 </header>
 <div class="wrap">
@@ -1598,15 +1610,26 @@ function wire() {
     if (Date.now() - clearArm < 3000) { resetAll(); toast('Cleared.'); $('btnClear').textContent = 'Clear'; clearArm = 0; }
     else { clearArm = Date.now(); $('btnClear').textContent = 'Click again to clear'; setTimeout(() => { if (Date.now() - clearArm >= 2900) $('btnClear').textContent = 'Clear'; }, 3000); }
   };
-  const effectiveTheme = () => document.documentElement.dataset.theme || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-  // The button shows what a tap switches to.
-  const themeIcon = () => $('btnTheme').querySelector('use').setAttribute('href', effectiveTheme() === 'dark' ? '#i-sun' : '#i-moon');
-  themeIcon();
-  $('btnTheme').onclick = () => {
-    document.documentElement.dataset.theme = effectiveTheme() === 'dark' ? 'light' : 'dark'; themeChanged(); themeIcon();
+  // Same theme control as the RF page: Auto -> Dark -> Light, one shared setting.
+  const THEME_KEY = 'devPages.theme', THEME_ICONS = { auto: 'sun-moon', dark: 'moon', light: 'sun' };
+  const darkQuery = matchMedia('(prefers-color-scheme: dark)');
+  const themePref = () => { try { return localStorage.getItem(THEME_KEY) || localStorage.getItem('loraRange.theme') || 'auto'; } catch (e) { return 'auto'; } };
+  const applyThemePref = () => {
+    const pref = themePref();
+    const theme = pref === 'dark' || (pref === 'auto' && darkQuery.matches) ? 'dark' : 'light';
+    const b = $('btnTheme');
+    b.querySelector('use').setAttribute('href', '#i-' + THEME_ICONS[pref]);
+    b.title = 'Theme: ' + pref; b.setAttribute('aria-label', b.title);
+    if (document.documentElement.dataset.theme !== theme) { document.documentElement.dataset.theme = theme; themeChanged(); }
   };
-  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', themeIcon);
-  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', themeChanged);
+  applyThemePref();
+  $('btnTheme').onclick = () => {
+    const order = ['auto', 'dark', 'light'], next = order[(order.indexOf(themePref()) + 1) % order.length];
+    try { localStorage.setItem(THEME_KEY, next); } catch (e) {}
+    applyThemePref();
+  };
+  darkQuery.addEventListener('change', () => { if (themePref() === 'auto') applyThemePref(); });
+  window.addEventListener('storage', e => { if (e.key === THEME_KEY) applyThemePref(); });
   $('winSel').onchange = e => { S.windowSec = +e.target.value; S.dirty = true; };
   $('trendSel').onchange = e => { S.trendSec = +e.target.value; S.dirty = true; };
   $('scrub').oninput = e => {
