@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
 <title>LoRa Range Test</title>
 <script>
   // Theme is shared by the dev pages (RF, HR): "auto" (follow the phone), "dark" or "light".
@@ -213,14 +213,15 @@ button.rec .icon { color: var(--bad); }
 .settings { display: flex; align-items: flex-end; gap: var(--sp-2); }
 .settings .field { flex: 1 1 0; min-width: 0; }
 .toolbar { display: flex; align-items: center; gap: var(--sp-2); }
-/* 16px text stops iOS zooming on focus; padding keeps the control short */
-select.compact { width: auto; padding: 3px 22px 3px var(--sp-2); border-radius: var(--r-md); }
+select.compact { width: auto; min-height: 28px; padding: 3px 22px 3px var(--sp-2); border-radius: var(--r-md); }
 
 /* Form fields */
 .field { display: flex; flex-direction: column; gap: var(--sp-1); font-size: var(--fs-xs); font-weight: var(--fw-label); color: var(--text-3); }
+/* Same size as the buttons. (maximum-scale=1 in the viewport stops iOS auto-zooming
+   into small fields on focus; people can still pinch-zoom.) */
 input, select, textarea {
-  width: 100%; font-size: 16px; /* 16px stops iOS zooming on focus */
-  padding: 7px var(--sp-3);
+  width: 100%; font-size: var(--fs-sm); min-height: 32px;
+  padding: 6px var(--sp-2);
   background: var(--surface); color: var(--text);
   border: 1px solid var(--border); border-radius: var(--r-md);
 }
