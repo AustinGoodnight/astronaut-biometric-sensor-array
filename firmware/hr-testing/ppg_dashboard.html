@@ -1598,16 +1598,24 @@ function updateLog() {
 /* =========================================================================
    Export
    ========================================================================= */
-function download(name, text, type) {
-  const url = URL.createObjectURL(new Blob([text], { type: type || 'text/csv' }));
-  const a = document.createElement('a'); a.href = url; a.download = name; document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 2000);
+/* Same as the RF page: the share sheet where there is one (iOS: Save to Files, AirDrop, ...),
+   otherwise a plain download. `msg` is toasted unless the share sheet was cancelled. */
+async function download(name, text, type, msg) {
+  const file = new File([text], name, { type: type || 'text/csv' });
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    try { await navigator.share({ files: [file], title: name }); if (msg) toast(msg); return; }
+    catch (e) { if (e.name === 'AbortError') return; } // NotAllowedError (no tap, e.g. auto-stop): fall through
+  }
+  const url = URL.createObjectURL(file);
+  const a = document.createElement('a'); a.href = url; a.download = name; document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 10000);
+  toast((msg ? msg + ' ' : '') + 'Downloaded ' + name + ' to your Downloads folder.');
 }
 function stamp() { const d = new Date(), p = n => String(n).padStart(2, '0'); return d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate()) + '_' + p(d.getHours()) + p(d.getMinutes()) + p(d.getSeconds()); }
 function saveCsv() {
   if (!S.n) { toast('Nothing to save yet.'); return; }
   const out = ['seq,sample_index,ir,red'];
   for (let i = 0; i < S.n; i++) { if (!isFinite(S.ir[i])) continue; out.push(((i / BATCH) | 0) + ',' + (i % BATCH) + ',' + S.ir[i] + ',' + S.red[i]); }
-  download('ppg_' + stamp() + '.csv', out.join('\n') + '\n'); toast('Saved ' + (out.length - 1).toLocaleString() + ' samples.');
+  download('ppg_' + stamp() + '.csv', out.join('\n') + '\n', 'text/csv', 'Saved ' + (out.length - 1).toLocaleString() + ' samples.');
 }
 function saveLog() {
   const lines = S.logs.map(l => fmtTime(l.t, true) + '\t' + l.src + '\t' + l.text);
@@ -1634,8 +1642,8 @@ function stopRecording(reason) {
   const end = S.n, out = recCsv(REC.start, end);
   S.marks.push({ n: Math.max(0, end - 1), text: 'Recording ' + REC.num + ' stop' }); S.dirty = true;
   if (out.length > 1) {
-    download('ppg_rec' + REC.num + '_' + stamp() + '.csv', out.join('\n') + '\n');
-    toast('Recording ' + REC.num + ' saved: ' + (out.length - 1).toLocaleString() + ' samples' + (reason ? ' (' + reason + ')' : '') + '.');
+    download('ppg_rec' + REC.num + '_' + stamp() + '.csv', out.join('\n') + '\n', 'text/csv',
+      'Recording ' + REC.num + ' saved: ' + (out.length - 1).toLocaleString() + ' samples' + (reason ? ' (' + reason + ')' : '') + '.');
   } else toast('Recording ' + REC.num + ' had no samples.');
   addLog('ui', 'recording ' + REC.num + ' stopped, ' + (out.length - 1) + ' samples');
   renderRec();
