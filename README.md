@@ -37,10 +37,10 @@ work with every node later.
 
 | Device | What it measures / does | Where it's worn | MCU | Owning team |
 |---|---|---|---|---|
-| [biometric-wrist](devices/biometric-wrist) | Heart rate, perspiration, respiration, skin temp, core temp | Wrist | nRF52840 (Zephyr) | Environmental wrist team |
-| [environmental-body](devices/environmental-body) | Environmental factors: temperature, body movement | Body | TBD | TBD |
-| [head-module](devices/head-module) | Packages node data + GPS, transmits over LoRa | Head | TBD | TBD |
-| [base-station](devices/base-station) | Receives LoRa, forwards over USB serial to the web UI | Not worn (ground) | TBD | TBD |
+| [biometric-wrist](devices/biometric-wrist) | Heart rate, perspiration, respiration, skin temp, core temp | Wrist | nRF52840 (Zephyr) | ENV team |
+| [environmental-body](devices/environmental-body) | Environmental factors: temperature, body movement | Body | STM32 | BIO team |
+| [head-module](devices/head-module) | Packages node data + GPS, transmits over LoRa | Head | nRF52840 (Zephyr) | ENV team |
+| [base-station](devices/base-station) | Receives LoRa, forwards over USB serial to the web UI | Not worn (ground) | TBD | BIO team |
 
 Code owners for each path are listed in [.github/CODEOWNERS](.github/CODEOWNERS).
 
