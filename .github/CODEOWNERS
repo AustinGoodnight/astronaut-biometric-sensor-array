@@ -2,9 +2,9 @@
 # touch their paths. Later lines win over earlier ones, so per-device lines
 # go below the default. Ownership is listed here, never in folder names.
 
-# Default: the environmental wrist team owns the whole repo for now.
+# Default: both teams own the whole repo.
 * @AustinGoodnight @sstonereby-eng
 
-# When another team takes over a device, add a line for it, e.g.:
+# To give a device its own owners, add a line for it, e.g.:
 # /devices/base-station/  @their-username
 # /hardware/base-station/ @their-username
