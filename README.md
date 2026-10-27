@@ -23,7 +23,9 @@ base station, which shows it in a web UI.
 1. **biometric-wrist** measures heart rate, perspiration, respiration, skin
    temperature and core temperature.
 2. **environmental-body** nodes measure environmental factors such as
-   temperature and body movement.
+   temperature and body movement. There are six: one on the chest, one on
+   the neck and one on each limb. The chest node collects the others' data
+   and transmits it to the head module.
 3. Both report to the **head-module**, which packages their data together
    with GPS and sends it over LoRa. The byte format is in
    [docs/protocol.md](docs/protocol.md).
@@ -40,7 +42,7 @@ work with every node later.
 | Device | What it measures / does | Where it's worn | MCU | Owning team |
 |---|---|---|---|---|
 | [biometric-wrist](devices/biometric-wrist) | Heart rate, perspiration, respiration, skin temp, core temp | Wrist | nRF52840 (Zephyr) | ENV team |
-| [environmental-body](devices/environmental-body) | Environmental factors: temperature, body movement | Body | STM32 | BIO team |
+| [environmental-body](devices/environmental-body) | Environmental factors: temperature, body movement | Chest (transmits), neck, each limb | STM32 | BIO team |
 | [head-module](devices/head-module) | Packages node data + GPS, transmits over LoRa | Head | nRF52840 (Zephyr) | ENV team |
 | [base-station](devices/base-station) | Receives LoRa, forwards over USB serial to the web UI | Not worn (ground) | TBD | BIO team |
 

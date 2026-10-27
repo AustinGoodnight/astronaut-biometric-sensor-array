@@ -1,10 +1,11 @@
 # environmental-body
 
 **Purpose:** Body-worn environmental nodes. Measure environmental factors
-such as temperature and body movement, and report to the
-[head-module](../head-module).
+such as temperature and body movement. There are six nodes: chest, neck
+and one on each limb. The chest node collects the other nodes' data and
+transmits it to the [head-module](../head-module).
 
-**MCU:** TBD.
+**MCU:** STM32.
 
 ## Layout
 
