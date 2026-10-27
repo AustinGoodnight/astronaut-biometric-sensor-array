@@ -1,0 +1,12 @@
+description: |
+  MAX17048 fuel gauge, used through the app's own thin driver
+  (src/drivers/max17048.c): the in-tree fuel_gauge driver has no ALRT support.
+
+compatible: "abs,max17048"
+
+include: i2c-device.yaml
+
+properties:
+  alert-gpios:
+    type: phandle-array
+    description: ALRT output (open-drain, active low).

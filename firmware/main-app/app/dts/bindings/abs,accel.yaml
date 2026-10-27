@@ -1,0 +1,14 @@
+description: |
+  Wrist accelerometer (part undecided, open decision 1). Accessed through
+  include/app/drv/accel_drv.h.
+
+compatible: "abs,accel"
+
+include: i2c-device.yaml
+
+properties:
+  int-gpios:
+    type: phandle-array
+    description: |
+      FIFO watermark interrupt. Omit if not routed; firmware then drains the
+      FIFO in the PPG pass (CONFIG_APP_ACCEL_INT_ROUTED=n).

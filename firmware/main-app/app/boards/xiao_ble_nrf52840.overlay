@@ -1,0 +1,176 @@
+/*
+ * Seeed XIAO nRF52840 (plain, not Sense) on the wrist breakout.
+ * Pin map: README.md "XIAO breakout pin map (proposed)".
+ *
+ * Code only references the labels and zephyr,user properties defined here,
+ * so the Raytac wrist board gets its own board files and no source changes.
+ */
+
+#include <zephyr/dt-bindings/input/input-event-codes.h>
+#include <zephyr/dt-bindings/adc/nrf-saadc.h>
+
+/ {
+	zephyr,user {
+		/* Per-bus sensor load switches (NFC pads on the back of the XIAO). */
+		rail-a-en-gpios = <&gpio0 9 GPIO_ACTIVE_HIGH>;
+		rail-b-en-gpios = <&gpio0 10 GPIO_ACTIVE_HIGH>;
+		/* 5 V boost for the PPG LEDs (D8). */
+		boost-5v-en-gpios = <&gpio1 13 GPIO_ACTIVE_HIGH>;
+		/* GSR and flex front ends share one enable on the XIAO (D9). */
+		gsr-en-gpios = <&gpio1 14 GPIO_ACTIVE_HIGH>;
+		flex-en-gpios = <&gpio1 14 GPIO_ACTIVE_HIGH>;
+		/* No power-hold on the XIAO: power-off falls back to System OFF. */
+
+		io-channels = <&adc 0>, <&adc 1>;
+		io-channel-names = "gsr", "flex";
+	};
+
+	buttons: buttons {
+		compatible = "gpio-keys";
+
+		power_button: power_button {
+			/* D10, to GND. */
+			gpios = <&gpio1 15 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>;
+			zephyr,code = <INPUT_KEY_0>;
+		};
+	};
+
+	longpress: longpress {
+		compatible = "zephyr,input-longpress";
+		input = <&buttons>;
+		input-codes = <INPUT_KEY_0>;
+		short-codes = <INPUT_KEY_A>;
+		long-codes = <INPUT_KEY_POWER>;
+		long-delay-ms = <3000>;
+	};
+
+	/* The red LED pin is also routed to pwm0; we drive it as plain GPIO. */
+	pwmleds {
+		status = "disabled";
+	};
+};
+
+/* NFC pads as GPIO (rail enables). */
+&uicr {
+	nfct-pins-as-gpios;
+};
+
+/* D6/D7 become I2C bus A and D8-D10 are GPIO, so the header UART, SPI and
+ * PWM are off. The console is on USB CDC ACM, not uart0.
+ */
+&uart0 {
+	status = "disabled";
+};
+
+&spi2 {
+	status = "disabled";
+};
+
+&pwm0 {
+	status = "disabled";
+};
+
+&i2c0_default {
+	group1 {
+		psels = <NRF_PSEL(TWIM_SDA, 1, 11)>,
+			<NRF_PSEL(TWIM_SCL, 1, 12)>;
+	};
+};
+
+&i2c0_sleep {
+	group1 {
+		psels = <NRF_PSEL(TWIM_SDA, 1, 11)>,
+			<NRF_PSEL(TWIM_SCL, 1, 12)>;
+		low-power-enable;
+	};
+};
+
+/* I2C bus A (TWIM0): PPG + accelerometer. D6 = SDA, D7 = SCL. */
+&i2c0 {
+	compatible = "nordic,nrf-twim";
+	status = "okay";
+	clock-frequency = <I2C_BITRATE_FAST>;
+	pinctrl-0 = <&i2c0_default>;
+	pinctrl-1 = <&i2c0_sleep>;
+	pinctrl-names = "default", "sleep";
+	zephyr,pm-device-runtime-auto;
+
+	ppg: max30101@57 {
+		compatible = "abs,max30101";
+		reg = <0x57>;
+		/* D2. Open-drain, active low. */
+		int-gpios = <&gpio0 28 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
+	};
+
+	accel: accel@18 {
+		compatible = "abs,accel";
+		/* TODO(open decision #1): address depends on the part. INT not
+		 * routed on the XIAO breakout.
+		 */
+		reg = <0x18>;
+	};
+};
+
+/* I2C bus B (TWIM1): skin temp + fuel gauge. D4 = SDA, D5 = SCL (board default pins). */
+&i2c1 {
+	compatible = "nordic,nrf-twim";
+	status = "okay";
+	clock-frequency = <I2C_BITRATE_FAST>;
+	zephyr,pm-device-runtime-auto;
+
+	skin_temp: max3020x@48 {
+		compatible = "abs,max3020x";
+		reg = <0x48>;
+	};
+
+	fuel_gauge: max17048@36 {
+		compatible = "abs,max17048";
+		reg = <0x36>;
+		/* D3. */
+		alert-gpios = <&gpio0 29 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
+	};
+};
+
+&adc {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	zephyr,pm-device-runtime-auto;
+
+	/* GSR: D0 / AIN0. */
+	channel@0 {
+		reg = <0>;
+		zephyr,gain = "ADC_GAIN_1_6";
+		zephyr,reference = "ADC_REF_INTERNAL";
+		zephyr,acquisition-time = <ADC_ACQ_TIME_DEFAULT>;
+		zephyr,input-positive = <NRF_SAADC_AIN0>;
+		zephyr,resolution = <12>;
+	};
+
+	/* Flex: D1 / AIN1. */
+	channel@1 {
+		reg = <1>;
+		zephyr,gain = "ADC_GAIN_1_6";
+		zephyr,reference = "ADC_REF_INTERNAL";
+		zephyr,acquisition-time = <ADC_ACQ_TIME_DEFAULT>;
+		zephyr,input-positive = <NRF_SAADC_AIN1>;
+		zephyr,resolution = <12>;
+	};
+};
+
+&qspi {
+	zephyr,pm-device-runtime-auto;
+};
+
+/* Record log: the whole 2 MB P25Q16H (ARCHITECTURE.md §9). */
+&p25q16h {
+	partitions {
+		compatible = "fixed-partitions";
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		log_partition: partition@0 {
+			label = "log";
+			reg = <0x00000000 0x00200000>;
+		};
+	};
+};

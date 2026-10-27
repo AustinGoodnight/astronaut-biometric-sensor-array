@@ -1,0 +1,35 @@
+/*
+ * Battery-sense test wiring for the nRF52820 (nRF52833 DK in nRF52820
+ * emulation). All four pins exist on the real nRF52820 QFN40 package and are
+ * broken out on the DK's headers. See README.md for the full wiring table.
+ *
+ *   P0.29  SCL     -> JP1 pin 5
+ *   P0.28  SDA     -> JP1 pin 6
+ *   P0.17  SELECT  -> JP1 pin 2
+ *   P0.20  STATUS  <- JP1 pin 1
+ */
+
+/ {
+	zephyr,user {
+		select-gpios = <&gpio0 17 GPIO_ACTIVE_HIGH>;
+		/* No pull: LTC4412 STAT only sinks 10uA against the board's 470k. */
+		status-gpios = <&gpio0 20 GPIO_ACTIVE_HIGH>;
+	};
+};
+
+/* spi1 uses P0.17/P0.20 by default on this board; we don't need it. */
+&spi1 {
+	status = "disabled";
+};
+
+&i2c0 {
+	clock-frequency = <I2C_BITRATE_STANDARD>;
+};
+
+/* The charger board has no I2C pull-ups, so the bus runs on the internal
+ * ~13k ones (see README). */
+&i2c0_default {
+	group1 {
+		bias-pull-up;
+	};
+};

@@ -1,0 +1,143 @@
+# Wrist module application options. See ARCHITECTURE.md.
+
+mainmenu "Wrist module firmware"
+
+menu "Wrist application"
+
+config APP_FAKE_SENSORS
+	bool "Fake sensors (simulated driver layer)"
+	help
+	  Replace the register-level drivers with generators (synthetic PPG,
+	  accel, temperature, GSR, flex, battery) that implement the same
+	  include/app/drv/<name>.h interfaces, so the whole pipeline runs on a bare
+	  XIAO. In shell builds, adds the "fake" command for fault injection.
+
+config APP_SHELL
+	bool "Wrist shell commands"
+	default y if SHELL
+	depends on SHELL
+	help
+	  "wrist stats", "wrist health", "wrist mode", "wrist poweroff".
+
+config APP_RECORD_PERIOD_MS
+	int "Record period (ms)"
+	default 5000
+
+config APP_SLOW_TICK_MS
+	int "Slow sensor tick (ms)"
+	default 1000
+	help
+	  Base period for slow sensors. Each slow sensor runs every N ticks
+	  (the *_DIV options below).
+
+config APP_SKIN_TEMP_DIV
+	int "Skin temperature: read every N slow ticks"
+	default 10
+
+config APP_GSR_DIV
+	int "GSR: read every N slow ticks"
+	default 1
+
+config APP_FLEX_DIV
+	int "Flex sensor: read every N slow ticks"
+	default 1
+
+config APP_BATTERY_DIV
+	int "Battery: read every N slow ticks"
+	default 30
+
+config APP_ANALOG_SETTLE_MS
+	int "Analog front-end settle time before the SAADC read (ms)"
+	default 5
+
+config APP_PPG_RATE_HZ
+	int "PPG sample rate (samples/s)"
+	default 100
+
+config APP_PPG_FIFO_THRESHOLD
+	int "PPG FIFO-almost-full threshold (samples)"
+	default 24
+	range 1 32
+	help
+	  Interrupt fires when this many samples are waiting. At 100 sps, 24
+	  samples = 240 ms between wakeups with 80 ms of slack before the
+	  32-sample FIFO overflows.
+
+config APP_ACCEL_RATE_HZ
+	int "Accelerometer output data rate (Hz)"
+	default 25
+
+config APP_ACCEL_INT_ROUTED
+	bool "Accelerometer FIFO interrupt pin is routed"
+	help
+	  If n, the accel FIFO is drained only in the PPG pass (and on the slow
+	  tick when PPG is down).
+
+choice APP_ACCEL_PART
+	prompt "Accelerometer part (open decision #1)"
+	default APP_ACCEL_PART_NONE
+
+config APP_ACCEL_PART_NONE
+	bool "None / undecided"
+	help
+	  No accelerometer driver; the accel reports NOT_PRESENT (except with
+	  fake sensors, which always provide one).
+
+endchoice
+
+choice APP_SKIN_TEMP_PART
+	prompt "Skin temperature part (open decision #2)"
+	default APP_SKIN_TEMP_MAX30205
+
+config APP_SKIN_TEMP_MAX30205
+	bool "MAX30205"
+
+config APP_SKIN_TEMP_MAX30208
+	bool "MAX30208"
+
+endchoice
+
+choice APP_RESP_SRC
+	prompt "Respiration source (open decision #3)"
+	default APP_RESP_SRC_PPG
+
+config APP_RESP_SRC_PPG
+	bool "Derived from PPG"
+	help
+	  Respiration from PPG amplitude, baseline and beat-interval modulation.
+	  The flex sensor is not sampled (reported NOT_PRESENT).
+
+config APP_RESP_SRC_FLEX
+	bool "Flex sensor (ADC divider)"
+
+endchoice
+
+choice APP_STORAGE_BACKEND
+	prompt "Record log backend (open decision #4)"
+	default APP_STORAGE_BACKEND_NOR
+
+config APP_STORAGE_BACKEND_NOR
+	bool "QSPI NOR flash (FCB)"
+
+config APP_STORAGE_BACKEND_SD
+	bool "SD card (stub)"
+
+endchoice
+
+config APP_BLE_SMP
+	bool "Firmware update over BLE (mcumgr SMP)"
+	help
+	  Reserved. Adds the SMP service next to the wrist service (not wired
+	  yet; see ARCHITECTURE.md §10.3).
+
+config APP_IMG_CONFIRM_DELAY_S
+	int "Seconds of healthy running before confirming a new MCUboot image"
+	default 60
+
+module = APP
+module-str = app
+source "subsys/logging/Kconfig.template.log_config"
+
+endmenu
+
+source "Kconfig.zephyr"

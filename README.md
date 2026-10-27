@@ -10,7 +10,8 @@ plus the software that trains on and displays what it captures.
 | [firmware/hr-testing](firmware/hr-testing) | PlatformIO firmware bringing up a MAX30102 heart-rate sensor on a Seeed XIAO ESP32C6, streamed over BLE | [README](firmware/hr-testing/README.md) · [CLAUDE.md](firmware/hr-testing/CLAUDE.md) |
 | [firmware/wifi-streaming](firmware/wifi-streaming) | Same MAX30102 bring-up as hr-testing, streamed over WiFi (TCP) instead of BLE | [README](firmware/wifi-streaming/README.md) · [CLAUDE.md](firmware/wifi-streaming/CLAUDE.md) |
 | [firmware/temp-testing](firmware/temp-testing) | PlatformIO firmware bringing up a MAX30205 body-temperature sensor on a Seeed XIAO ESP32C6, streamed over USB serial | [README](firmware/temp-testing/README.md) |
-| [firmware/main-app](firmware/main-app) | Firmware for the real sensor-node board (per-second sensor read + LoRa transmit) | [README](firmware/main-app/README.md) |
+| [firmware/battery-sense-testing](firmware/battery-sense-testing) | Test firmware for the dual-USB charger's two MAX17048 fuel gauges (via the TS5A23157 switch) and LTC4412 power-path status. Builds for nRF52820 (Zephyr) and XIAO ESP32C6 (Arduino) | [README](firmware/battery-sense-testing/README.md) |
+| [firmware/main-app](firmware/main-app) | Wrist module firmware (Zephyr / NCS v3.4.0, nRF52840): sensors → 5 s summary records → local flash log + BLE to the helmet | [README](firmware/main-app/README.md) · [ARCHITECTURE](firmware/main-app/ARCHITECTURE.md) · [CLAUDE.md](firmware/main-app/CLAUDE.md) |
 | [machine-learning](machine-learning) | ML models on the captured biometric/sensor data | [README](machine-learning/README.md) |
 | [web-ui](web-ui) | Web UI for monitoring/visualizing the link | [README](web-ui/README.md) |
 

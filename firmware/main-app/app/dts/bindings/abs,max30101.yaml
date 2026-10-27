@@ -1,0 +1,14 @@
+description: |
+  MAX30101 PPG sensor, used through the app's own thin driver
+  (src/drivers/max30101.c), not the in-tree maxim,max30101 driver.
+  See ARCHITECTURE.md section 5 for why.
+
+compatible: "abs,max30101"
+
+include: i2c-device.yaml
+
+properties:
+  int-gpios:
+    type: phandle-array
+    required: true
+    description: FIFO-almost-full interrupt (open-drain, active low).

@@ -1,0 +1,7 @@
+description: |
+  MAX30205 or MAX30208 skin temperature sensor (open decision 2; the part is
+  chosen by CONFIG_APP_SKIN_TEMP_*). Accessed through include/app/drv/temp_drv.h.
+
+compatible: "abs,max3020x"
+
+include: i2c-device.yaml

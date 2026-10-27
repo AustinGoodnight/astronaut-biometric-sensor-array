@@ -1,0 +1,41 @@
+/*
+ * MCUboot flash layout for the XIAO nRF52840 (ARCHITECTURE.md §10.3).
+ * Replaces the board default UF2/SoftDevice layout. Installing it erases the
+ * Adafruit UF2 bootloader, so it needs an SWD probe.
+ * KEEP IN SYNC: mcuboot/partitions.overlay (app) and sysbuild/mcuboot.overlay (bootloader).
+ */
+
+/delete-node/ &reserved_partition_0;
+/delete-node/ &code_partition;
+/delete-node/ &storage_partition;
+/delete-node/ &boot_partition;
+
+&flash0 {
+	partitions {
+		boot_partition: partition@0 {
+			label = "mcuboot";
+			reg = <0x00000000 0x0000c000>;
+		};
+
+		slot0_partition: partition@c000 {
+			label = "image-0";
+			reg = <0x0000c000 0x00076000>;
+		};
+
+		slot1_partition: partition@82000 {
+			label = "image-1";
+			reg = <0x00082000 0x00076000>;
+		};
+
+		storage_partition: partition@f8000 {
+			label = "storage";
+			reg = <0x000f8000 0x00008000>;
+		};
+	};
+};
+
+/ {
+	chosen {
+		zephyr,code-partition = &slot0_partition;
+	};
+};

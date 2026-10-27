@@ -1,0 +1,3 @@
+# west build output
+build/
+app/build/

@@ -200,6 +200,7 @@ button.compact { padding: 6px var(--sp-3); font-size: var(--fs-sm); }
   display: inline-flex; align-items: center; justify-content: center; gap: var(--sp-1);
   flex: 0 0 auto; padding: 7px; font-size: var(--fs-sm);
 }
+.icon-btn[hidden] { display: none; }
 a.icon-btn {
   border-radius: var(--r-md); text-decoration: none;
   background: var(--surface-2); color: var(--text); box-shadow: inset 0 0 0 1px var(--border);
@@ -445,6 +446,7 @@ textarea { min-height: 48px; resize: vertical; }
 <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4" /> <path d="M12 2v2" /> <path d="M12 20v2" /> <path d="m4.93 4.93 1.41 1.41" /> <path d="m17.66 17.66 1.41 1.41" /> <path d="M2 12h2" /> <path d="M20 12h2" /> <path d="m6.34 17.66-1.41 1.41" /> <path d="m19.07 4.93-1.41 1.41" /></symbol>
 <symbol id="i-timer" viewBox="0 0 24 24"><line x1="10" x2="14" y1="2" y2="2" /> <line x1="12" x2="15" y1="14" y2="11" /> <circle cx="12" cy="14" r="8" /></symbol>
 <symbol id="i-trash-2" viewBox="0 0 24 24"><path d="M10 11v6" /> <path d="M14 11v6" /> <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" /> <path d="M3 6h18" /> <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></symbol>
+<symbol id="i-usb" viewBox="0 0 24 24"><circle cx="10" cy="7" r="1" /> <circle cx="4" cy="20" r="1" /> <path d="M4.7 19.3 19 5" /> <path d="m21 3-3 1 2 2Z" /> <path d="M9.26 7.68 5 12l2 5" /> <path d="m10 14 5 2 3.5-3.5" /> <path d="m18 12 1-1 1 1-1 1Z" /></symbol>
 <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18" /> <path d="m6 6 12 12" /></symbol>
 </svg>
 <header class="app-header">
@@ -455,6 +457,7 @@ textarea { min-height: 48px; resize: vertical; }
     <span class="pill" id="pillGps" title="GPS accuracy"><svg class="icon sm" aria-hidden="true"><use href="#i-locate-fixed"/></svg><span>…</span></span>
   </div>
   <button class="icon-btn secondary" id="btnTheme" title="Theme: auto" aria-label="Theme: auto"><svg class="icon" aria-hidden="true"><use href="#i-sun-moon"/></svg></button>
+  <button class="icon-btn secondary" id="btnUsb" title="Connect board over USB" aria-label="Connect board over USB" hidden><svg class="icon" aria-hidden="true"><use href="#i-usb"/></svg><span>USB</span></button>
   <button class="icon-btn" id="btnConnect" title="Connect board" aria-label="Connect board"><svg class="icon" aria-hidden="true"><use href="#i-bluetooth"/></svg><span>Connect</span></button>
 </header>
 
@@ -656,6 +659,7 @@ const CSV_COLUMNS = [
 /* ---- State ---- */
 const S = {
   dev: null, txChar: null, rxChar: null, wantConnected: false,
+  usb: null, // { port, writer, reader, stop } while a USB serial link is open
   role: null, name: null, cfg: { sf: null, bw: null, pwr: null },
   lineBuf: '', decoder: new TextDecoder(),
   fix: null, track: [],
@@ -761,6 +765,7 @@ async function connectBle() {
     return;
   }
   try {
+    if (S.usb) await closeUsb();
     const dev = await navigator.bluetooth.requestDevice({
       filters: [{ namePrefix: 'LoRa-' }, { services: [NUS_SERVICE] }],
       optionalServices: [NUS_SERVICE],
@@ -795,6 +800,8 @@ async function openGatt() {
 }
 async function onBleDisconnected() {
   S.txChar = null; S.rxChar = null;
+  // Dropped on purpose because USB took over: leave the USB link's state alone.
+  if (S.usb) { setIcon($('btnConnect'), 'bluetooth', 'Connect board', { text: 'Connect' }); return; }
   // Packets that arrive over LoRa while BLE is down never reach the phone;
   // don't log that gap as radio misses.
   resetGapTracking();
@@ -812,13 +819,17 @@ async function onBleDisconnected() {
   setIcon($('btnConnect'), 'bluetooth', 'Connect board', { text: 'Connect' });
 }
 async function sendCommand(cmd) {
-  if (!S.rxChar) return;
-  try { await S.rxChar.writeValue(new TextEncoder().encode(cmd)); }
-  catch (e) { toast('Could not send to board: ' + e.message); }
+  try {
+    if (S.usb) await S.usb.writer.write(new TextEncoder().encode(cmd + '\n'));
+    else if (S.rxChar) await S.rxChar.writeValue(new TextEncoder().encode(cmd));
+  } catch (e) { toast('Could not send to board: ' + e.message); }
 }
 function onNotify(e) {
   // Firmware splits each newline-terminated line into MTU-sized chunks.
-  S.lineBuf += S.decoder.decode(e.target.value, { stream: true });
+  feedText(S.decoder.decode(e.target.value, { stream: true }));
+}
+function feedText(text) {
+  S.lineBuf += text;
   let nl;
   while ((nl = S.lineBuf.indexOf('\n')) !== -1) {
     const line = S.lineBuf.slice(0, nl).trim();
@@ -827,15 +838,77 @@ function onNotify(e) {
   }
   if (S.lineBuf.length > 2000) S.lineBuf = '';
 }
+function boardConnected() {
+  return !!(S.usb || (S.dev && S.dev.gatt && S.dev.gatt.connected));
+}
 function setBlePill(text, cls) {
   if (text) setPill('pillBle', text, cls);
-  else if (S.dev && S.dev.gatt && S.dev.gatt.connected) setPill('pillBle', S.name, 'good');
+  else if (boardConnected()) setPill('pillBle', S.name, 'good');
   else setPill('pillBle', 'No board');
   renderHomeBoard();
 }
 function renderHomeBoard() {
-  const connected = S.dev && S.dev.gatt && S.dev.gatt.connected;
-  $('vHomeBoard').textContent = !connected ? 'No board connected' : `${S.name} (${S.role.toUpperCase()})`;
+  $('vHomeBoard').textContent = !boardConnected() ? 'No board connected'
+    : `${S.name}${S.role ? ` (${S.role.toUpperCase()})` : ''}`;
+}
+
+/* ---- USB serial ---- */
+// Same line protocol as BLE: the firmware prints every line to Serial and
+// accepts newline-terminated SET/GET commands there. Desktop Chrome/Edge only.
+async function connectUsb() {
+  if (S.usb) { await closeUsb(); return; }
+  if (!navigator.serial) { toast('Web Serial is not available here. Use Chrome or Edge on a computer.', 6000); return; }
+  try {
+    const port = await navigator.serial.requestPort();
+    await port.open({ baudRate: 115200, bufferSize: 65536 });
+    if (S.dev && S.dev.gatt.connected) { S.wantConnected = false; S.dev.gatt.disconnect(); }
+    const u = { port, writer: port.writable.getWriter(), reader: null, stop: false, askTimer: null };
+    S.usb = u;
+    // Role comes from the board's CFG reply (TX includes pwr=).
+    S.name = 'USB board'; S.role = null; S.lineBuf = ''; S.decoder = new TextDecoder();
+    resetGapTracking();
+    setBlePill();
+    setIcon($('btnUsb'), 'usb', 'Disconnect USB', { text: 'Disconnect' });
+    $('btnApply').disabled = false;
+    addLog('connected over USB');
+    // The board may still be booting when the port opens; ask until it answers.
+    const ask = () => { if (S.usb === u && !S.role) sendCommand('GET'); else clearInterval(u.askTimer); };
+    ask(); u.askTimer = setInterval(ask, 1000);
+    readUsb(u);
+  } catch (err) {
+    if (err && err.name === 'NotFoundError') return; // chooser dismissed
+    toast('USB: ' + (err && err.message ? err.message : err));
+    if (S.usb) await closeUsb();
+  }
+}
+async function readUsb(u) {
+  const dec = new TextDecoder();
+  try {
+    while (!u.stop && u.port.readable) {
+      u.reader = u.port.readable.getReader();
+      try {
+        for (;;) {
+          const { value, done } = await u.reader.read();
+          if (done) break;
+          feedText(dec.decode(value, { stream: true }).replace(/\r/g, ''));
+        }
+      } finally { u.reader.releaseLock(); }
+    }
+  } catch (err) { if (!u.stop) addLog('USB read error: ' + (err && err.message ? err.message : err)); }
+  if (S.usb === u) await closeUsb();
+}
+async function closeUsb() {
+  const u = S.usb;
+  if (!u) return;
+  S.usb = null; u.stop = true; clearInterval(u.askTimer);
+  try { if (u.reader) await u.reader.cancel(); } catch (e) { /* already closed */ }
+  try { u.writer.releaseLock(); } catch (e) { /* ignore */ }
+  try { await u.port.close(); } catch (e) { /* unplugged */ }
+  resetGapTracking();
+  $('btnApply').disabled = true;
+  setIcon($('btnUsb'), 'usb', 'Connect board over USB', { text: 'USB' });
+  setBlePill();
+  addLog('USB disconnected');
 }
 
 /* ---- Board output ---- */
@@ -845,6 +918,9 @@ function handleLine(line) {
   if ((m = line.match(CFG_RE))) {
     S.cfg = { sf: +m[1], bw: +m[2], pwr: m[3] != null ? +m[3] : S.cfg.pwr };
     if (m[3] != null) S.role = 'tx';
+    else if (S.usb) S.role = 'rx';
+    if (S.usb) S.name = `USB ${S.role.toUpperCase()}`;
+    $('fieldPwr').style.display = S.role === 'tx' ? '' : 'none';
     renderCfg(); setBlePill(); return;
   }
   if ((m = line.match(RX_PACKET_RE))) {
@@ -980,7 +1056,7 @@ function resetGapTracking() {
 // time a packet was due, so the map shows where reception stopped.
 function checkSilence() {
   const rx = S.rx;
-  if (!S.logging || S.role !== 'rx' || rx.lastCount == null || !S.txChar) return;
+  if (!S.logging || S.role !== 'rx' || rx.lastCount == null || !boardConnected()) return;
   const interval = expectedInterval();
   let next = (rx.highestLogged ?? rx.lastCount) + 1;
   while (Date.now() > rx.lastAt + (next - rx.lastCount + 0.6) * interval) {
@@ -995,7 +1071,7 @@ async function toggleLogging() {
   if (S.logging) {
     resetGapTracking();
     if (!S.anchor) toast('No anchor set yet — distance will be blank until you set one (Location tab).', 6000);
-    if (!S.dev || !S.dev.gatt.connected) toast('Logging started, but no board is connected yet.');
+    if (!boardConnected()) toast('Logging started, but no board is connected yet.');
     else toast('Logging. Keep this screen on — iOS pauses GPS and Bluetooth when the phone locks.', 5000);
     requestWakeLock();
   } else { releaseWakeLock(); }
@@ -1579,6 +1655,7 @@ function init() {
   $('inNote').value = S.note;
 
   $('btnConnect').onclick = connectBle;
+  if (navigator.serial) { $('btnUsb').hidden = false; $('btnUsb').onclick = connectUsb; }
   $('btnTheme').onclick = cycleTheme;
   applyTheme();
   $('btnLog').onclick = toggleLogging;
