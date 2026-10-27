@@ -1,0 +1,160 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1960 1330" width="1960" height="1330" font-family="Satoshi, 'General Sans', 'Avenir Next', Inter, 'Helvetica Neue', Arial, sans-serif">
+  <defs>
+    <style>
+      .title   { fill: #f4f4f4; font-size: 88px; font-weight: 700; letter-spacing: -1px; }
+      .accent  { fill: #dcf57a; }
+      .h2      { fill: #f4f4f4; font-size: 30px; font-weight: 700; }
+      .h3      { fill: #f4f4f4; font-size: 25px; font-weight: 600; }
+      .body    { fill: #9d9d9d; font-size: 25px; font-weight: 400; }
+      .label   { fill: #dcf57a; font-size: 23px; font-weight: 500; }
+      .foot    { fill: #9d9d9d; font-size: 25px; }
+      .panel   { fill: #17171a; }
+      .card    { fill: #232326; }
+      .data    { stroke: #dcf57a; stroke-width: 3; fill: none; }
+      .power   { stroke: #8a8a8a; stroke-width: 3; fill: none; stroke-dasharray: 8 7; }
+      .ours    { stroke: #dcf57a; stroke-width: 2.5; fill: none; stroke-dasharray: 10 9; }
+      .theirs  { stroke: #8a8a8a; stroke-width: 2.5; fill: none; stroke-dasharray: 10 9; }
+    </style>
+    <marker id="ah" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="4.5" markerHeight="4.5" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#dcf57a"/>
+    </marker>
+    <marker id="ahg" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="4.5" markerHeight="4.5" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#8a8a8a"/>
+    </marker>
+  </defs>
+
+  <rect width="1960" height="1330" fill="#0b0b0b"/>
+
+  <text class="title" x="72" y="165">System Block Diagram</text>
+  <text class="label" x="323" y="245" style="font-size:25px">Our product, including our own ground station</text>
+
+  <!-- Astronaut -->
+  <rect x="72" y="360" width="208" height="390" rx="22" fill="none" stroke="#3a3a3d" stroke-width="2.5"/>
+  <text class="h2" x="93" y="408">Astronaut</text>
+  <text class="body" style="font-size:23px"><tspan x="92" y="455">Pulse, skin temp,</tspan><tspan x="92" y="494">sweat, chest</tspan><tspan x="92" y="533">motion</tspan><tspan x="92" y="565">Via skin contact</tspan><tspan x="92" y="604">and chest strap</tspan><tspan x="92" y="650">Body temp,</tspan><tspan x="92" y="689">movement via</tspan><tspan x="92" y="728">body nodes</tspan></text>
+
+  <!-- USB-C charging -->
+  <rect x="72" y="822" width="206" height="86" rx="18" fill="none" stroke="#8a8a8a" stroke-width="2.5" stroke-dasharray="10 9"/>
+  <text class="body" x="86" y="860" fill="#c9c9c9">USB-C charging</text>
+
+  <!-- Our product boundary -->
+  <rect class="ours" x="320" y="268" width="1315" height="690" rx="30"/>
+
+  <!-- Wrist module -->
+  <rect class="panel" x="340" y="305" width="615" height="633" rx="26"/>
+  <text class="h2" x="361" y="345">Wrist module</text>
+  <rect class="card" x="360" y="365" width="575" height="130" rx="16"/>
+  <text class="h3" x="375" y="402">Sensors</text>
+  <text class="body" x="375" y="437">Heart rate · skin temp · sweat · motion</text>
+
+  <rect class="card" x="360" y="532" width="575" height="96" rx="16"/>
+  <text class="h3" x="376" y="570">MCU + Bluetooth</text>
+  <text class="body" x="375" y="605">nRF52840, builds 1 Hz records</text>
+
+
+  <rect class="card" x="360" y="672" width="262" height="95" rx="16"/>
+  <text class="h3" x="375" y="708">Storage</text>
+  <text class="body" x="375" y="743">Logs data always</text>
+  <rect class="card" x="676" y="672" width="259" height="95" rx="16"/>
+  <text class="h3" x="690" y="708">Button, LEDs</text>
+  <text class="body" x="690" y="743">Power, status</text>
+
+  <rect class="card" x="360" y="816" width="575" height="96" rx="16"/>
+  <text class="h3" x="375" y="852">Power</text>
+  <text class="body" x="375" y="888">LiPo, charger, 5 V / 3.3 V / 1.8 V, battery monitor</text>
+
+  <!-- Wrist -> helmet BLE -->
+  <text class="label" x="993" y="528" text-anchor="middle">BLE</text>
+  <text class="label" x="993" y="564" text-anchor="middle">0.2 Hz</text>
+
+  <!-- Helmet module -->
+  <rect class="panel" x="1030" y="305" width="262" height="633" rx="26"/>
+  <text class="h2" x="1050" y="345">Helmet module</text>
+  <rect class="card" x="1050" y="365" width="222" height="95" rx="16"/>
+  <text class="h3" x="1064" y="401">GPS</text>
+  <text class="body" x="1064" y="436">Position, time</text>
+
+  <rect class="card" x="1050" y="502" width="222" height="135" rx="16"/>
+  <text class="h3" x="1064" y="538">MCU + BT</text>
+  <text class="body"><tspan x="1064" y="573">nRF52840, packs</tspan><tspan x="1064" y="610">all data + GPS</tspan></text>
+
+  <rect class="card" x="1050" y="675" width="222" height="125" rx="16"/>
+  <text class="h3" x="1064" y="711">LoRa radio</text>
+  <text class="body"><tspan x="1064" y="746">SX1262, relays to</tspan><tspan x="1064" y="783">ground</tspan></text>
+
+  <rect class="card" x="1050" y="838" width="222" height="82" rx="16"/>
+  <text class="h3" x="1064" y="872">Power</text>
+  <text class="body" x="1064" y="905">Same as wrist</text>
+
+  <!-- Helmet -> base station LoRa -->
+  <text class="label" x="1333" y="642" text-anchor="middle">LoRa</text>
+  <text class="label" x="1333" y="678" text-anchor="middle">≤500 m</text>
+  <text class="label" x="1333" y="714" text-anchor="middle">one-way</text>
+
+  <!-- Base station -->
+  <rect class="panel" x="1378" y="305" width="234" height="633" rx="26"/>
+  <text class="h2" x="1398" y="345">Basestation</text>
+  <rect class="card" x="1392" y="365" width="205" height="190" rx="22"/>
+  <text class="h3" x="1402" y="405">Dashboard</text>
+  <text class="body"><tspan x="1402" y="440">Laptop, built by</tspan><tspan x="1402" y="477">us</tspan></text>
+
+  <rect class="card" x="1392" y="672" width="205" height="128" rx="16"/>
+  <text class="h3" x="1402" y="708">Receiver</text>
+  <text class="body"><tspan x="1402" y="743">nRF + SX1262</tspan><tspan x="1402" y="780">breakouts</tspan></text>
+  <text class="label" x="1508" y="628" text-anchor="end" style="font-size:20px">USB</text>
+  <text class="label" x="1508" y="652" text-anchor="end" style="font-size:20px">serial</text>
+
+  <rect x="1392" y="832" width="205" height="102" rx="16" fill="none" stroke="#5a5a5e" stroke-width="2.5" stroke-dasharray="10 9"/>
+  <text class="body"><tspan x="1408" y="870">Other team's</tspan><tspan x="1408" y="909">base station</tspan></text>
+
+  <!-- Operator -->
+  <rect x="1680" y="360" width="206" height="302" rx="22" fill="none" stroke="#3a3a3d" stroke-width="2.5"/>
+  <text class="h2" x="1697" y="408">Operator</text>
+  <text class="body"><tspan x="1697" y="455">Uses</tspan><tspan x="1697" y="494">dashboard to</tspan><tspan x="1697" y="533">monitor</tspan><tspan x="1697" y="572">Astronaut</tspan></text>
+
+  <!-- Other team: body nodes -->
+  <rect class="theirs" x="960" y="1000" width="675" height="205" rx="30"/>
+  <text class="h2" x="1030" y="1046">Body nodes</text>
+  <text class="body" x="1215" y="1046">Other team · STM32</text>
+
+  <rect class="card" x="980" y="1066" width="200" height="118" rx="16"/>
+  <text class="h3" x="995" y="1102">MCU + radio</text>
+  <text class="body"><tspan x="995" y="1137">STM32, link</tspan><tspan x="995" y="1172">to helmet TBD</tspan></text>
+
+  <rect class="card" x="1222" y="1066" width="222" height="118" rx="16"/>
+  <text class="h3" x="1237" y="1102">Sensors</text>
+  <text class="body"><tspan x="1237" y="1137">Temperature,</tspan><tspan x="1237" y="1172">body movement</tspan></text>
+
+  <rect class="card" x="1486" y="1066" width="130" height="118" rx="16"/>
+  <text class="h3" x="1501" y="1102">Power</text>
+  <text class="body" x="1501" y="1137">TBD</text>
+
+  <!-- Body nodes -> helmet -->
+  <text class="label" transform="translate(990 810) rotate(-90)" text-anchor="middle" style="font-size:21px">body data</text>
+
+  <!-- Astronaut -> body nodes -->
+
+  <!-- Arrows, drawn last so panels never cover their heads -->
+  <path class="power" d="M280,864 L352,864" marker-end="url(#ahg)"/>
+  <path class="data" d="M282,430 L352,430" marker-end="url(#ah)"/>
+  <path class="data" d="M648,497 L648,524" marker-end="url(#ah)"/>
+  <path class="data" d="M491,630 L491,662" marker-end="url(#ah)"/>
+  <path class="power" d="M648,812 L648,638" marker-end="url(#ahg)"/>
+  <path class="data" d="M805,668 L805,638" marker-end="url(#ah)"/>
+  <path class="data" d="M937,580 L1040,580" marker-end="url(#ah)"/>
+  <path class="data" d="M1161,462 L1161,494" marker-end="url(#ah)"/>
+  <path class="data" d="M1161,639 L1161,667" marker-end="url(#ah)"/>
+  <path class="power" d="M1161,834 L1161,808" marker-end="url(#ahg)"/>
+  <path class="data" d="M1274,735 L1382,735" marker-end="url(#ah)"/>
+  <path class="data" d="M1520,668 L1520,563" marker-end="url(#ah)"/>
+  <path class="data" d="M1599,440 L1668,440" marker-end="url(#ah)"/>
+  <path class="data" d="M1220,1125 L1188,1125" marker-end="url(#ah)"/>
+  <path class="power" d="M1484,1125 L1452,1125" marker-end="url(#ahg)"/>
+  <path class="data" d="M1000,1064 L1000,615 L1040,615" marker-end="url(#ah)"/>
+  <path class="data" d="M72,700 L46,700 L46,1240 L1333,1240 L1333,1192" marker-end="url(#ah)"/>
+
+  <!-- Footer -->
+  <text class="foot" x="72" y="1295">Solid green: data · Dashed grey: power · Grey dashed outline: other team</text>
+  <text class="foot" x="1755" y="1295" fill="#c9c9c9">SCAALE</text>
+  <text class="foot" x="1918" y="1318" fill="#f4f4f4" style="font-size:30px">9</text>
+</svg>

@@ -7,6 +7,8 @@ base station, which shows it in a web UI.
 
 ## How the system works
 
+![System block diagram](docs/system-block-diagram.svg)
+
 ```
  biometric-wrist ──┐
  (HR, perspiration,│ BLE

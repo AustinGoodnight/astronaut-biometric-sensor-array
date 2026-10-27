@@ -2,7 +2,7 @@ name: Deploy web apps (HR dashboard, LoRa range test)
 
 on:
   push:
-    branches: [main, test, lora-sx-testing]
+    branches: [main]
     paths:
       - 'tools/bringup/hr-max30102-ble/ppg_dashboard.html'
       - 'tools/test-base-station/range-app/**'
