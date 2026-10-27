@@ -15,10 +15,8 @@ toolchain — there's no single shared build for the whole repo. Start with
 the subsystem you're working on.
 
 ## Transmission Byte Setup
-+--------+--------+--------+--------+-----------+
-| Header | Parity |   BIO  |   ENV  | Extension |
-|  2 B   |  8 B   |  20 B  |  20 B  |  (opt.)   |
-+--------+--------+--------+--------+-----------+
+<img width="1272" height="423" alt="image" src="https://github.com/user-attachments/assets/a81f7a35-d33d-4ab9-9ba0-23bf0eae209e" />
+
 
 First 14 bits of Header are Sequence #
 last 2 bits are Stale flags, first for BIO, second for ENV
