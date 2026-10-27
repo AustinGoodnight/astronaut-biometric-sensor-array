@@ -14,6 +14,17 @@ Each subsystem has its own README with setup instructions specific to its
 toolchain — there's no single shared build for the whole repo. Start with
 the subsystem you're working on.
 
+## Transmission Byte Setup
++--------+--------+--------+--------+-----------+
+| Header | Parity |   BIO  |   ENV  | Extension |
+|  2 B   |  8 B   |  20 B  |  20 B  |  (opt.)   |
++--------+--------+--------+--------+-----------+
+
+First 14 bits of Header are Sequence #
+last 2 bits are Stale flags, first for BIO, second for ENV
+
+Parity is calculated using Reed-Solomon method
+
 ## Setup
 
 ### firmware/lora-testing
