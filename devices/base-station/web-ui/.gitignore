@@ -1,0 +1,5 @@
+node_modules/
+dist/
+.astro/
+# runtime SQLite database, created by src/lib/db.ts
+data/

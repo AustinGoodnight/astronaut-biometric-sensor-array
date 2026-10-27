@@ -1,0 +1,26 @@
+# Pins the nRF Connect SDK version this firmware is built and tested against.
+#
+# Day-to-day builds use the Toolchain Manager install at /opt/nordic/ncs/v3.4.0
+# (see CLAUDE.md / README.md). This manifest lets a teammate create an
+# equivalent workspace from scratch, outside the monorepo:
+#
+#   west init -m https://github.com/AustinGoodnight/astronaut-biometric-sensor-array \
+#             --mf tools/bringup/zephyr-main-app/west.yml wrist-ws
+#   cd wrist-ws && west update
+#
+# Bump the revision only together with a clean debug + release build.
+
+manifest:
+  remotes:
+    - name: ncs
+      url-base: https://github.com/nrfconnect
+
+  projects:
+    - name: nrf
+      remote: ncs
+      repo-path: sdk-nrf
+      revision: v3.4.0
+      import: true
+
+  self:
+    path: astronaut-biometric-sensor-array

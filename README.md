@@ -1,56 +1,67 @@
 # Astronaut Biometric Sensor Array
 
-Monorepo for the capstone project: a LoRa-linked biometric sensor array,
-plus the software that trains on and displays what it captures.
+Capstone project: a remote monitoring system for astronauts. Sensor nodes
+worn on the body measure biometric and environmental data. A head-worn
+transmitter packages it with GPS and sends it long distance over LoRa to a
+base station, which shows it in a web UI.
 
-| Subsystem | What it is | Docs |
-|---|---|---|
-| [firmware/lora-testing](firmware/lora-testing) | PlatformIO firmware for the two Seeed XIAO ESP32C3 LoRa TX/RX boards | [README](firmware/lora-testing/README.md) · [CLAUDE.md](firmware/lora-testing/CLAUDE.md) |
-| [firmware/lora-sx-testing](firmware/lora-sx-testing) | Same LoRa TX/RX link as lora-testing, ported to Seeed XIAO ESP32C6 boards with the Wio-SX1262 radio (RadioLib) | [README](firmware/lora-sx-testing/README.md) |
-| [firmware/hr-testing](firmware/hr-testing) | PlatformIO firmware bringing up a MAX30102 heart-rate sensor on a Seeed XIAO ESP32C6, streamed over BLE | [README](firmware/hr-testing/README.md) · [CLAUDE.md](firmware/hr-testing/CLAUDE.md) |
-| [firmware/wifi-streaming](firmware/wifi-streaming) | Same MAX30102 bring-up as hr-testing, streamed over WiFi (TCP) instead of BLE | [README](firmware/wifi-streaming/README.md) · [CLAUDE.md](firmware/wifi-streaming/CLAUDE.md) |
-| [firmware/temp-testing](firmware/temp-testing) | PlatformIO firmware bringing up a MAX30205 body-temperature sensor on a Seeed XIAO ESP32C6, streamed over USB serial | [README](firmware/temp-testing/README.md) |
-| [firmware/battery-sense-testing](firmware/battery-sense-testing) | Test firmware for the dual-USB charger's two MAX17048 fuel gauges (via the TS5A23157 switch) and LTC4412 power-path status. Builds for nRF52820 (Zephyr) and XIAO ESP32C6 (Arduino) | [README](firmware/battery-sense-testing/README.md) |
-| [firmware/main-app](firmware/main-app) | Wrist module firmware (Zephyr / NCS v3.4.0, nRF52840): sensors → 5 s summary records → local flash log + BLE to the helmet | [README](firmware/main-app/README.md) · [ARCHITECTURE](firmware/main-app/ARCHITECTURE.md) · [CLAUDE.md](firmware/main-app/CLAUDE.md) |
-| [machine-learning](machine-learning) | ML models on the captured biometric/sensor data | [README](machine-learning/README.md) |
-| [web-ui](web-ui) | Web UI for monitoring/visualizing the link | [README](web-ui/README.md) |
+## How the system works
 
-Each subsystem has its own README with setup instructions specific to its
-toolchain — there's no single shared build for the whole repo. Start with
-the subsystem you're working on.
+```
+ biometric-wrist ──┐
+ (HR, perspiration,│ BLE
+  respiration,     │
+  skin/core temp)  ├──▶ head-module ──── LoRa (long range) ────▶ base-station ── USB serial ──▶ base-station web UI
+                   │    (packages node data
+ environmental-body│     + GPS into one packet)
+ (temperature,  ───┘
+  body movement)
+```
 
-## Setup
+1. **biometric-wrist** measures heart rate, perspiration, respiration, skin
+   temperature and core temperature.
+2. **environmental-body** nodes measure environmental factors such as
+   temperature and body movement.
+3. Both report to the **head-module**, which packages their data together
+   with GPS and sends it over LoRa. The byte format is in
+   [docs/protocol.md](docs/protocol.md).
+4. The **base-station** receives the LoRa packets and sends them over USB
+   serial to the [base-station web UI](devices/base-station/web-ui).
 
-### firmware/lora-testing
+The **testing web UIs** in [tools/](tools) are a different thing: they read
+one node directly over serial or BLE (heart rate, for example) and show it
+on a phone or laptop, with no LoRa link needed. They may be generalized to
+work with every node later.
 
-PlatformIO firmware for two Seeed XIAO ESP32C3 boards (one TX, one RX)
-talking over a 915 MHz LoRa radio.
+## Devices
 
-1. Install [VS Code](https://code.visualstudio.com/) and the
-   **pioarduino** extension (`pioarduino.pioarduino-ide`). No separate
-   PlatformIO toolchain install is needed — it's fetched automatically on
-   first build.
-2. Plug in a board and open [firmware/lora-testing](firmware/lora-testing)
-   in VS Code.
-3. Pick the `tx` or `rx` environment in the PlatformIO status bar, then
-   build/upload/monitor — or from the CLI:
-   ```
-   pio run -e tx -t upload
-   pio device monitor -e tx
-   ```
-4. Repeat for the second board with the other environment.
+| Device | What it measures / does | Where it's worn | MCU | Owning team |
+|---|---|---|---|---|
+| [biometric-wrist](devices/biometric-wrist) | Heart rate, perspiration, respiration, skin temp, core temp | Wrist | nRF52840 (Zephyr) | Environmental wrist team |
+| [environmental-body](devices/environmental-body) | Environmental factors: temperature, body movement | Body | TBD | TBD |
+| [head-module](devices/head-module) | Packages node data + GPS, transmits over LoRa | Head | TBD | TBD |
+| [base-station](devices/base-station) | Receives LoRa, forwards over USB serial to the web UI | Not worn (ground) | TBD | TBD |
 
-If both boards are plugged in at once, see
-[firmware/lora-testing/CLAUDE.md](firmware/lora-testing/CLAUDE.md#local-port-overrides)
-for per-machine port overrides. Full macOS/Windows setup and library
-management notes are in that same CLAUDE.md.
+Code owners for each path are listed in [.github/CODEOWNERS](.github/CODEOWNERS).
 
-### machine-learning
+## Repo layout
 
-Machine Learning using Pytorch and Exutorch 
-** Not yet configured **
+| Folder | What goes there |
+|---|---|
+| [devices/](devices) | Everything that ships as part of the real system. One folder per device, each with `firmware/`, `tests/` and a README. |
+| [common/](common) | Code used by **two or more** devices: [protocol](common/protocol), [drivers](common/drivers), [utils](common/utils). |
+| [hardware/](hardware) | Schematics, PCB and enclosures, one folder per device. |
+| [tools/](tools) | Development and test support that doesn't ship: the test base station, testing web UIs, sensor bring-up firmware, flash scripts. |
+| [tests/](tests) | System-level, integration and hardware-in-the-loop tests that need more than one device. |
+| [docs/](docs) | [Architecture](docs/architecture.md), [protocol](docs/protocol.md), [onboarding](docs/onboarding.md). |
 
-### web-ui
+Folders are organized by device, never by team. Device names put the
+function first, then the location (`biometric-wrist`, `environmental-body`).
 
-Web UI with Node, Tailwind, and likely Astro
-** Not yet configured **
+## Where to start
+
+- New to the project: [docs/onboarding.md](docs/onboarding.md).
+- Working on a device: open its README under [devices/](devices). Each
+  device has its own toolchain; there's no single build for the whole repo.
+- Most work is still prototyping, so the current code is under
+  [tools/bringup](tools/bringup); see [tools/README.md](tools/README.md).
