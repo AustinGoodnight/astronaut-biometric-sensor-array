@@ -14,9 +14,9 @@ Priorities, in order: **reliability → low power → simplicity.**
 Three gotchas, all handled by the recipe below:
 - `west` isn't on PATH, and this repo isn't a west workspace. Build against
   the Toolchain Manager install, the same way as MonoWatch.
-- **The repo path has spaces** ("Capstone Code"), which Zephyr's build
-  system can't handle (`File not found: .../Capstone`). Build through a
-  space-free symlink.
+- Zephyr's build system can't handle **spaces in the repo path**
+  (`File not found: ...`), and stale CMake caches pin absolute paths. Build
+  through a symlink (point it at your clone) so both stay harmless.
 - Build *from* the NCS topdir (`cd /opt/nordic/ncs/v3.4.0`), or west says
   `unknown command "build"`.
 
@@ -25,7 +25,7 @@ HASH=$(ls /opt/nordic/ncs/toolchains | grep -v '\.json$' | head -1)
 export PATH="/opt/nordic/ncs/toolchains/$HASH/bin:/opt/nordic/ncs/toolchains/$HASH/opt/zephyr-sdk/gnu/arm-zephyr-eabi/bin:$PATH"
 export ZEPHYR_TOOLCHAIN_VARIANT="zephyr/gnu"
 export ZEPHYR_SDK_INSTALL_DIR="/opt/nordic/ncs/toolchains/$HASH/opt/zephyr-sdk"
-mkdir -p ~/.cache && ln -sfn "/Users/austingoodnight/Documents/Capstone Code/Astronaut Biometric Sensor Array/tools/bringup/zephyr-main-app" ~/.cache/wrist-fw
+mkdir -p ~/.cache && ln -sfn "$HOME/code/astronaut-biometric-sensor-array/tools/bringup/zephyr-main-app" ~/.cache/wrist-fw
 W=~/.cache/wrist-fw
 cd /opt/nordic/ncs/v3.4.0
 
