@@ -7,6 +7,7 @@ the shipping firmware lives in [devices/](../devices).
 |---|---|---|
 | [test-base-station](test-base-station) | Bench LoRa TX/RX pair (Wio-SX1262) that stands in for the base station, plus the BLE/GPS range-test web app in `range-app/` | XIAO ESP32-C6 |
 | [bringup/zephyr-main-app](bringup/zephyr-main-app) | Zephyr / NCS skeleton of the biometric-wrist firmware | nRF52840 |
+| [bringup/hr-max30102-nrf](bringup/hr-max30102-nrf) | MAX30102 red/IR heart-rate and SpO₂ bring-up over I²C | XIAO nRF52840 |
 | [bringup/freertos-env-sensors](bringup/freertos-env-sensors) | FreeRTOS prototype: SCD30 CO₂ + fast analog sensor packed into a LoRa payload | XIAO ESP32-C6 |
 | [bringup/hr-max30102-ble](bringup/hr-max30102-ble) | MAX30102 heart-rate bring-up streamed over BLE, plus the PPG dashboard | XIAO ESP32-C6 |
 | [bringup/hr-max30102-wifi](bringup/hr-max30102-wifi) | The same MAX30102 bring-up streamed over WiFi (TCP) | XIAO ESP32-C6 |
