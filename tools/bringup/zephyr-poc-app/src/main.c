@@ -5,10 +5,10 @@
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
 
+LOG_MODULE_REGISTER(blinky_main, LOG_LEVEL_INF);
+
 #include "persp/persp.h"
 #include "max/hr_main.c"
-
-LOG_MODULE_REGISTER(blinky_main, LOG_LEVEL_INF);
 
 struct sensor_data {
     int hr;

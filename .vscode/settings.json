@@ -1,0 +1,6 @@
+{
+    "cmake.sourceDirectory": "/Users/smstonereby/astronaut-biometric-sensor-array/tools/bringup/zephyr-poc-app",
+    "nrf-connect.applications": [
+        "${workspaceFolder}/tools/bringup/zephyr-poc-app"
+    ]
+}

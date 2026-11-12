@@ -29,7 +29,7 @@
     max30102: max30102@57 {
         compatible = "maxim,max30101";
         reg = <0x57>;
-	acq-mode = "spo2";
+	    acq-mode = "spo2";
 
         led-pa = [3C 3C 3C];      /* 0x3C (~12mA) LED amplitude */
         smp-ave = <4>;            /* 4-sample averaging */
