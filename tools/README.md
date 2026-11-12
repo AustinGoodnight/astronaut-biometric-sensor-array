@@ -5,7 +5,7 @@ the shipping firmware lives in [devices/](../devices).
 
 | Folder | What it is | MCU |
 |---|---|---|
-| [overview](overview) | One-page overview of heart rate, RF signal, skin temperature and GSR over one BLE link (design; demo data for now) | — |
+| [overview](overview) | One-page overview of heart rate, respiration, skin temperature and GSR over one BLE link (design; demo data for now) | — |
 | [test-base-station](test-base-station) | Bench LoRa TX/RX pair (Wio-SX1262) that stands in for the base station, plus the BLE/GPS range-test web app in `range-app/` | XIAO ESP32-C6 |
 | [bringup/zephyr-main-app](bringup/zephyr-main-app) | Zephyr / NCS skeleton of the biometric-wrist firmware | nRF52840 |
 | [bringup/hr-max30102-nrf](bringup/hr-max30102-nrf) | MAX30102 red/IR heart-rate and SpO₂ bring-up over I²C | XIAO nRF52840 |
@@ -27,6 +27,6 @@ separate from the base-station web UI in
 [devices/base-station/web-ui](../devices/base-station/web-ui). Both are published to GitHub Pages by
 [.github/workflows/pages.yml](../.github/workflows/pages.yml) (at
 `/hr-testing/` and `/lora-range/`). The [overview](overview) page puts
-heart rate, RF signal, skin temperature and GSR side by side over one BLE
+heart rate, respiration, skin temperature and GSR side by side over one BLE
 link (visual design for now; the single nRF board isn't built yet). It's
 published at `/overview/`.
