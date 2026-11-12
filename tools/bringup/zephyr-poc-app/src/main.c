@@ -109,13 +109,14 @@ int main(void)
     int ret = persp_init();
 
     if (ret < 0) {
-        LOG_ERR("Failed to initialize skin-resistance sensor: %d", ret);
-        return ret;
+        LOG_WRN("Failed to initialize skin-resistance sensor: %d; continuing without it",
+                ret);
     }
 
     ret = max30102_try_init_sensor();
     if (ret < 0) {
-        return ret;
+         LOG_WRN("Failed to initialize heart rate sensor: %d; continuing without it",
+                ret);
     }
 
     k_work_init_delayable(&max30102_sample_poll, max30102_sample_poll_handler);
