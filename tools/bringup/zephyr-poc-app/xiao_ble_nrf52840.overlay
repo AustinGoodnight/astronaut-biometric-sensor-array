@@ -1,0 +1,40 @@
+#include <zephyr/dt-bindings/adc/adc.h>
+#include <zephyr/dt-bindings/adc/nrf-saadc.h>
+
+/ {
+    zephyr,user {
+        io-channels = <&adc 0>;
+    };
+};
+
+&adc {
+    status = "okay";
+    #address-cells = <1>;
+    #size-cells = <0>;
+
+    channel@0 {
+        reg = <0>;
+        zephyr,gain = "ADC_GAIN_1_6";
+        zephyr,reference = "ADC_REF_INTERNAL";
+        zephyr,acquisition-time =
+            <ADC_ACQ_TIME(ADC_ACQ_TIME_MICROSECONDS, 40)>;
+        zephyr,input-positive = <NRF_SAADC_AIN0>;
+        zephyr,resolution = <12>;
+    };
+};
+
+&i2c1 {
+    status = "okay";
+
+    max30102: max30102@57 {
+        compatible = "maxim,max30101";
+        reg = <0x57>;
+	acq-mode = "spo2";
+
+        led-pa = [3C 3C 3C];      /* 0x3C (~12mA) LED amplitude */
+        smp-ave = <4>;            /* 4-sample averaging */
+        smp-sr = <100>;           /* 100 samples per second */
+        led-pw = <411>;           /* 411us LED pulse width */
+        adc-rge = <4096>;         /* 4096nA ADC range */
+    };
+};
