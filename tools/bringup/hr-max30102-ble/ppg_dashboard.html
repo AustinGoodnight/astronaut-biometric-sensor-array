@@ -349,6 +349,7 @@ th { color: var(--ink2); font-weight: 500; position: sticky; top: 0; background:
 <body>
 <!-- Icons: Lucide (https://lucide.dev), ISC license. -->
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+<symbol id="i-layout-dashboard" viewBox="0 0 24 24"><rect width="7" height="9" x="3" y="3" rx="1" /> <rect width="7" height="5" x="14" y="3" rx="1" /> <rect width="7" height="9" x="14" y="12" rx="1" /> <rect width="7" height="5" x="3" y="16" rx="1" /></symbol>
 <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 5h16" /> <path d="M4 12h16" /> <path d="M4 19h16" /></symbol>
 <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18" /> <path d="m6 6 12 12" /></symbol>
 <symbol id="i-radio" viewBox="0 0 24 24"><path d="M16.247 7.761a6 6 0 0 1 0 8.478" /> <path d="M19.075 4.933a10 10 0 0 1 0 14.134" /> <path d="M4.925 19.067a10 10 0 0 1 0-14.134" /> <path d="M7.753 16.239a6 6 0 0 1 0-8.478" /> <circle cx="12" cy="12" r="2" /></symbol>
@@ -1754,7 +1755,7 @@ requestAnimationFrame(frame);
 window.__ppg = { S, get P() { return P; }, startDemo, demoBatch, parseCsv, startReplay, onRaw, onText, C, pushSample };
 { const q = new URLSearchParams(location.search); if (q.has('demo')) startDemo(+q.get('speed') || 1); }
 </script>
-<!-- Side menu (same in the RF and HR pages) -->
+<!-- Side menu (same in the RF, HR and Overview pages) -->
 <div class="drawer-backdrop" id="menuBackdrop"></div>
 <nav class="drawer" id="sideMenu" aria-label="Pages">
   <div class="drawer-head">
@@ -1762,6 +1763,7 @@ window.__ppg = { S, get P() { return P; }, startDemo, demoBatch, parseCsv, start
     <button class="drawer-close" id="btnMenuClose" title="Close menu" aria-label="Close menu"><svg class="icon" aria-hidden="true"><use href="#i-x"/></svg></button>
   </div>
   <div class="drawer-section">Dev Pages</div>
+    <a class="drawer-link" href="../overview/"><svg class="icon" aria-hidden="true"><use href="#i-layout-dashboard"/></svg><span><b>Overview</b><small>HR, respiration, skin temp, GSR</small></span></a>
     <a class="drawer-link" href="../lora-range/"><svg class="icon" aria-hidden="true"><use href="#i-radio"/></svg><span><b>RF</b><small>LoRa range test</small></span></a>
     <a class="drawer-link current" href="../hr-testing/" aria-current="page"><svg class="icon" aria-hidden="true"><use href="#i-heart-pulse"/></svg><span><b>HR</b><small>PPG monitor</small></span></a>
 </nav>

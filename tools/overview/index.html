@@ -1,0 +1,802 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<title>Sensor Overview</title>
+<script>
+  // Theme is shared by the dev pages (RF, HR, Overview): "auto" (follow the phone), "dark" or "light".
+  // Resolved before first paint so there's no light/dark flash.
+  (function () {
+    var pref = 'auto';
+    try { pref = localStorage.getItem('devPages.theme') || localStorage.getItem('loraRange.theme') || 'auto'; } catch (e) {}
+    var dark = pref === 'dark' || (pref === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
+    document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+  })();
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Scoutie+Sans:wght@200..800&family=JetBrains+Mono:wght@500;600&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js" integrity="sha512-CQBWl4fJHWbryGE+Pc7UAxWMUMNMWzWxF4SQo9CgkJIN1kx6djDQZjh3Y8SZ1d+6I+1zze6Z7kHXO7q3UyZAWw==" crossorigin="anonymous"></script>
+<style>
+/* =====================================================================
+   Same tokens and components as the RF page (tools/test-base-station/
+   range-app). Keep them in sync: a theme change happens in both.
+   ===================================================================== */
+:root {
+  --font-ui: "Scoutie Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --fs-xs: 11px; --fs-sm: 12px; --fs-md: 14px; --fs-lg: 15px;
+  --fw-body: 400; --fw-label: 500; --fw-strong: 600; --fw-title: 700;
+  --sp-1: 4px; --sp-2: 6px; --sp-3: 8px; --sp-4: 12px; --sp-5: 24px; --sp-section: 20px;
+  --r-sm: 4px; --r-md: 6px; --r-lg: 8px; --r-pill: 999px;
+  --dock-h: 56px;
+}
+[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0b0b0b; --surface: #141414; --surface-2: #1f1f1f; --border: #242424;
+  --grid: #1d1d1d; --track: #3a3a3a;
+  --text: #ededed; --text-2: #9b9b9b; --text-3: #666666;
+  --accent: #ff4230; --on-accent: #ffffff; --primary: #ededed; --on-primary: #0b0b0b;
+  --good: #3ddc84; --warn: #f5b83d; --bad: #ff5c5c;
+  --shadow: 0 10px 30px rgba(0, 0, 0, .6);
+}
+[data-theme="light"] {
+  color-scheme: light;
+  --bg: #f2f2f2; --surface: #ffffff; --surface-2: #e9e9e9; --border: #dedede;
+  --grid: #ededed; --track: #c4c4c4;
+  --text: #111111; --text-2: #555555; --text-3: #8a8a8a;
+  --accent: #e6362a; --on-accent: #ffffff; --primary: #111111; --on-primary: #ffffff;
+  --good: #15803d; --warn: #b45309; --bad: #dc2626;
+  --shadow: 0 8px 24px rgba(15, 17, 21, .14);
+}
+
+/* Base */
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--bg); color: var(--text);
+  font: var(--fw-body) var(--fs-md)/1.45 var(--font-ui);
+  -webkit-font-smoothing: antialiased; -webkit-text-size-adjust: 100%;
+}
+h1, h2, p { margin: 0; }
+button, input, select { font: inherit; color: inherit; }
+
+/* Layout */
+.app-header {
+  position: sticky; top: 0; z-index: 1000;
+  display: flex; align-items: center; gap: var(--sp-2);
+  padding: calc(env(safe-area-inset-top) + var(--sp-2)) var(--sp-4) var(--sp-2);
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+}
+main {
+  max-width: 1100px; margin: 0 auto;
+  padding: var(--sp-3) var(--sp-4) calc(env(safe-area-inset-bottom) + var(--dock-h) + var(--sp-3));
+}
+main > * + * { margin-top: var(--sp-section); }
+.hero { padding: var(--sp-2) 2px; }
+.home-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-section) var(--sp-4); }
+.span-all { grid-column: 1 / -1; }
+@media (min-width: 760px) { .home-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* Sections: title row on the page background, content below */
+.card > * + * { margin-top: var(--sp-3); }
+.card-title { font-size: var(--fs-md); font-weight: var(--fw-label); color: var(--text); display: flex; align-items: center; gap: var(--sp-1); }
+.card-head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); }
+
+/* Buttons */
+button {
+  border: 0; border-radius: var(--r-md); padding: 8px var(--sp-4);
+  background: var(--primary); color: var(--on-primary);
+  font-weight: var(--fw-strong); cursor: pointer; touch-action: manipulation;
+  transition: filter .15s, background .15s;
+}
+button:active { filter: brightness(.92); }
+button:disabled { opacity: .4; cursor: default; }
+button.secondary { background: var(--surface-2); color: var(--text); box-shadow: inset 0 0 0 1px var(--border); }
+button.ghost { background: none; color: var(--text-2); box-shadow: none; }
+button:focus-visible, select:focus-visible { outline: 2px solid color-mix(in srgb, var(--accent) 60%, transparent); outline-offset: 1px; }
+
+.icon {
+  width: 18px; height: 18px; flex: none; vertical-align: middle;
+  fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+}
+.icon.fill { fill: currentColor; }
+.icon.sm { width: 13px; height: 13px; }
+.icon-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--sp-1);
+  flex: 0 0 auto; padding: 7px; font-size: var(--fs-sm);
+}
+.icon-btn[hidden] { display: none; }
+.icon-btn span { padding-right: 2px; }
+#btnMenu { color: var(--text); padding-left: 2px; padding-right: 2px; }
+button.rec .icon { color: var(--bad); }
+select.compact {
+  width: auto; min-height: 28px; padding: 3px 22px 3px var(--sp-2); font-size: var(--fs-sm);
+  background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: var(--r-md);
+}
+
+/* Status pills (header) */
+.app-title { font-size: var(--fs-lg); font-weight: var(--fw-title); letter-spacing: -.01em; flex: none; }
+.pills { flex: 1 1 auto; min-width: 0; display: flex; gap: var(--sp-1); overflow: hidden; }
+.pill {
+  display: inline-flex; align-items: center; gap: var(--sp-1);
+  padding: 3px 8px; border-radius: var(--r-pill);
+  background: var(--surface-2); color: var(--text-2);
+  font-size: var(--fs-xs); font-weight: var(--fw-label); white-space: nowrap;
+}
+.pill.good { background: color-mix(in srgb, var(--good) 16%, transparent); color: var(--good); }
+.pill.warn { background: color-mix(in srgb, var(--warn) 18%, transparent); color: var(--warn); }
+.pill.bad  { background: color-mix(in srgb, var(--bad) 16%, transparent); color: var(--bad); }
+
+/* Value badges */
+.badge {
+  display: inline-block; padding: 2px 7px; border-radius: 4px;
+  background: var(--surface-2); color: var(--text);
+  font-size: var(--fs-sm); font-weight: var(--fw-strong); font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.badge.muted { color: var(--text-3); }
+.badge.warn { color: var(--warn); }
+.badge.bad { color: var(--accent); }
+
+/* Meters: a hairline track with ticks and a diamond marker */
+.meters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-4) var(--sp-5); }
+@media (min-width: 640px) { .meters { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.meter-head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); }
+.meter-head .label { display: flex; align-items: center; gap: var(--sp-1); font-size: var(--fs-sm); color: var(--text); }
+.meter {
+  position: relative; height: 14px; margin: var(--sp-2) 5px 2px;
+  background:
+    linear-gradient(var(--track), var(--track)) center / 100% 1px no-repeat,
+    repeating-linear-gradient(90deg, var(--track) 0 1px, transparent 1px 10%) center / 100% 7px no-repeat;
+}
+.meter .thumb {
+  position: absolute; top: 50%; left: var(--pos, 0%); width: 9px; height: 9px;
+  background: var(--text); border-radius: 1px; transform: translate(-50%, -50%) rotate(45deg);
+  transition: left .3s;
+}
+.meter.off .thumb { display: none; }
+.meter.warn .thumb { background: var(--warn); }
+.meter.bad .thumb { background: var(--accent); }
+.meter-foot { display: flex; justify-content: space-between; gap: var(--sp-2); font-size: 10px; color: var(--text-3); }
+.meter-foot .sub { font-size: 10px; color: var(--text-2); text-align: center; }
+
+.kv { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); }
+.kv .label { display: flex; align-items: center; gap: var(--sp-1); font-size: var(--fs-sm); color: var(--text-2); }
+.kv .label span { color: var(--text-3); font-size: var(--fs-xs); }
+.hint { font-size: var(--fs-sm); color: var(--text-2); }
+.log {
+  font: 500 var(--fs-xs)/1.5 var(--font-mono); color: var(--text-2);
+  background: var(--surface); border-radius: var(--r-lg); padding: var(--sp-2) var(--sp-3);
+  max-height: 160px; overflow-y: auto; white-space: pre-wrap; word-break: break-all;
+}
+.log:empty { display: none; }
+
+/* Charts */
+.chart-box { position: relative; height: 150px; }
+@media (min-width: 760px) { .chart-box { height: 180px; } }
+.toolbar { display: flex; align-items: center; gap: var(--sp-2); }
+.toolbar .hint { flex: 1 1 auto; }
+
+/* Bottom dock */
+.dock {
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 1000;
+  display: flex; align-items: center; justify-content: flex-end; gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-4) calc(env(safe-area-inset-bottom) + var(--sp-2));
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  border-top: 1px solid var(--border);
+}
+.dock.on { border-top-color: var(--good); }
+.dock .grow { flex: 1 1 auto; }
+.logctl-info { display: flex; flex-direction: column; line-height: 1.2; text-align: right; }
+.logctl-info b { font-size: var(--fs-sm); font-weight: var(--fw-title); white-space: nowrap; }
+.logctl-info span { font-size: var(--fs-xs); color: var(--text-2); white-space: nowrap; }
+.dock.on .logctl-info span { color: var(--good); }
+
+.toast {
+  position: fixed; left: var(--sp-4); right: var(--sp-4); z-index: 2000;
+  bottom: calc(env(safe-area-inset-bottom) + var(--dock-h));
+  padding: var(--sp-3) var(--sp-4); border-radius: var(--r-md);
+  background: var(--text); color: var(--bg); box-shadow: var(--shadow);
+  font-size: var(--fs-sm); font-weight: var(--fw-label);
+}
+
+/* Side menu: same markup in the RF, HR and Overview pages */
+.drawer {
+  position: fixed; top: 0; bottom: 0; left: 0; z-index: 4000; width: min(280px, 82vw);
+  display: flex; flex-direction: column; gap: 2px;
+  padding: calc(env(safe-area-inset-top) + 10px) 12px 16px;
+  background: var(--surface); border-right: 1px solid var(--border); box-shadow: var(--shadow);
+  transform: translateX(-100%); visibility: hidden; transition: transform .2s ease, visibility .2s;
+}
+.drawer.open { transform: none; visibility: visible; }
+.drawer-backdrop {
+  position: fixed; inset: 0; z-index: 3999; background: rgba(0, 0, 0, .45);
+  opacity: 0; pointer-events: none; transition: opacity .2s;
+}
+.drawer-backdrop.open { opacity: 1; pointer-events: auto; }
+.drawer-head { display: flex; align-items: center; justify-content: space-between; padding: 0 4px 8px; }
+.drawer-title { font-size: 15px; font-weight: 700; color: var(--text); }
+.drawer-close {
+  display: inline-flex; align-items: center; justify-content: center; padding: 6px; min-height: 0;
+  background: none; box-shadow: none; border: 0; color: var(--text-2); cursor: pointer;
+}
+.drawer-section { margin: 10px 4px 4px; font-size: 12px; font-weight: 500; color: var(--text-3); }
+.drawer-link {
+  position: relative; display: flex; align-items: center; gap: 10px; padding: 9px 10px;
+  border-radius: 6px; color: var(--text); text-decoration: none;
+}
+.drawer-link:hover, .drawer-link.current { background: var(--surface-2); }
+.drawer-link.current::after {
+  content: ""; position: absolute; right: 12px; top: 50%; width: 6px; height: 6px; margin-top: -3px;
+  border-radius: 50%; background: var(--accent);
+}
+.drawer-link .icon { width: 18px; height: 18px; color: var(--text-2); flex: none; }
+.drawer-link b { display: block; font-size: 14px; font-weight: 600; }
+.drawer-link small { display: block; font-size: 12px; color: var(--text-2); }
+</style>
+</head>
+<body>
+<!-- Icons: Lucide (https://lucide.dev), ISC license. Use as <svg class="icon"><use href="#i-NAME"/></svg>. -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+<symbol id="i-bluetooth" viewBox="0 0 24 24"><path d="m7 7 10 10-5 5V2l5 5L7 17" /></symbol>
+<symbol id="i-bluetooth-connected" viewBox="0 0 24 24"><path d="m7 7 10 10-5 5V2l5 5L7 17" /> <line x1="18" x2="21" y1="12" y2="12" /> <line x1="3" x2="6" y1="12" y2="12" /></symbol>
+<symbol id="i-circle" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /></symbol>
+<symbol id="i-square" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="2" /></symbol>
+<symbol id="i-download" viewBox="0 0 24 24"><path d="M12 15V3" /> <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /> <path d="m7 10 5 5 5-5" /></symbol>
+<symbol id="i-layout-dashboard" viewBox="0 0 24 24"><rect width="7" height="9" x="3" y="3" rx="1" /> <rect width="7" height="5" x="14" y="3" rx="1" /> <rect width="7" height="9" x="14" y="12" rx="1" /> <rect width="7" height="5" x="3" y="16" rx="1" /></symbol>
+<symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 5h16" /> <path d="M4 12h16" /> <path d="M4 19h16" /></symbol>
+<symbol id="i-heart-pulse" viewBox="0 0 24 24"><path d="M2 9.5a5.5 5.5 0 0 1 9.591-3.676.56.56 0 0 0 .818 0A5.49 5.49 0 0 1 22 9.5c0 2.29-1.5 4-3 5.5l-5.492 5.313a2 2 0 0 1-3 .019L5 15c-1.5-1.5-3-3.2-3-5.5" /> <path d="M3.22 13H9.5l.5-1 2 4.5 2-7 1.5 3.5h5.27" /></symbol>
+<symbol id="i-moon" viewBox="0 0 24 24"><path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401" /></symbol>
+<symbol id="i-play" viewBox="0 0 24 24"><path d="M5 5a2 2 0 0 1 3.008-1.728l11.997 6.998a2 2 0 0 1 .003 3.458l-12 7A2 2 0 0 1 5 19z" /></symbol>
+<symbol id="i-radio" viewBox="0 0 24 24"><path d="M16.247 7.761a6 6 0 0 1 0 8.478" /> <path d="M19.075 4.933a10 10 0 0 1 0 14.134" /> <path d="M4.925 19.067a10 10 0 0 1 0-14.134" /> <path d="M7.753 16.239a6 6 0 0 1 0-8.478" /> <circle cx="12" cy="12" r="2" /></symbol>
+<symbol id="i-wind" viewBox="0 0 24 24"><path d="M12.8 19.6A2 2 0 1 0 14 16H2" /> <path d="M17.5 8a2.5 2.5 0 1 1 2 4H2" /> <path d="M9.8 4.4A2 2 0 1 1 11 8H2" /></symbol>
+<symbol id="i-sun-moon" viewBox="0 0 24 24"><path d="M12 2v2" /> <path d="M14.837 16.385a6 6 0 1 1-7.223-7.222c.624-.147.97.66.715 1.248a4 4 0 0 0 5.26 5.259c.589-.255 1.396.09 1.248.715" /> <path d="M16 12a4 4 0 0 0-4-4" /> <path d="m19 5-1.256 1.256" /> <path d="M20 12h2" /></symbol>
+<symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4" /> <path d="M12 2v2" /> <path d="M12 20v2" /> <path d="m4.93 4.93 1.41 1.41" /> <path d="m17.66 17.66 1.41 1.41" /> <path d="M2 12h2" /> <path d="M20 12h2" /> <path d="m6.34 17.66-1.41 1.41" /> <path d="m19.07 4.93-1.41 1.41" /></symbol>
+<symbol id="i-thermometer" viewBox="0 0 24 24"><path d="M14 4v10.54a4 4 0 1 1-4 0V4a2 2 0 0 1 4 0Z" /></symbol>
+<symbol id="i-droplets" viewBox="0 0 24 24"><path d="M7 16.3c2.2 0 4-1.83 4-4.05 0-1.16-.57-2.26-1.71-3.19S7.29 6.75 7 5.3c-.29 1.45-1.14 2.84-2.29 3.76S3 11.1 3 12.25c0 2.22 1.8 4.05 4 4.05z" /> <path d="M12.56 6.6A10.97 10.97 0 0 0 14 3.02c.5 2.5 2 4.9 4 6.5s3 3.5 3 5.5a6.98 6.98 0 0 1-11.91 4.97" /></symbol>
+<symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18" /> <path d="m6 6 12 12" /></symbol>
+</svg>
+<header class="app-header">
+  <button class="icon-btn ghost" id="btnMenu" title="Menu" aria-label="Menu" aria-expanded="false" aria-controls="sideMenu"><svg class="icon" aria-hidden="true"><use href="#i-menu"/></svg></button>
+  <h1 class="app-title">Overview</h1>
+  <div class="pills">
+    <span class="pill" id="pill-hr" title="Heart rate"><svg class="icon sm" aria-hidden="true"><use href="#i-heart-pulse"/></svg><span>HR</span></span>
+    <span class="pill" id="pill-resp" title="Respiration"><svg class="icon sm" aria-hidden="true"><use href="#i-wind"/></svg><span>Resp</span></span>
+    <span class="pill" id="pill-temp" title="Skin temperature"><svg class="icon sm" aria-hidden="true"><use href="#i-thermometer"/></svg><span>Temp</span></span>
+    <span class="pill" id="pill-gsr" title="Skin conductance"><svg class="icon sm" aria-hidden="true"><use href="#i-droplets"/></svg><span>GSR</span></span>
+  </div>
+  <button class="icon-btn secondary" id="btnTheme" title="Theme: auto" aria-label="Theme: auto"><svg class="icon" aria-hidden="true"><use href="#i-sun-moon"/></svg></button>
+  <button class="icon-btn" id="btnConnect" title="Connect board" aria-label="Connect board"><svg class="icon" aria-hidden="true"><use href="#i-bluetooth"/></svg><span>Connect</span></button>
+</header>
+
+<main>
+  <!-- Current readings -->
+  <div class="meters hero" aria-label="Current readings">
+    <div class="meter-cell">
+      <div class="meter-head"><span class="label"><svg class="icon sm" aria-hidden="true"><use href="#i-heart-pulse"/></svg>Heart rate</span><span class="badge muted" id="v-hr">—</span></div>
+      <div class="meter off" id="m-hr"><i class="thumb"></i></div>
+      <div class="meter-foot"><span>30</span><span class="sub" id="s-hr"></span><span>200</span></div>
+    </div>
+    <div class="meter-cell">
+      <div class="meter-head"><span class="label"><svg class="icon sm" aria-hidden="true"><use href="#i-wind"/></svg>Respiration</span><span class="badge muted" id="v-resp">—</span></div>
+      <div class="meter off" id="m-resp"><i class="thumb"></i></div>
+      <div class="meter-foot"><span>4</span><span class="sub" id="s-resp"></span><span>40</span></div>
+    </div>
+    <div class="meter-cell">
+      <div class="meter-head"><span class="label"><svg class="icon sm" aria-hidden="true"><use href="#i-thermometer"/></svg>Skin temp</span><span class="badge muted" id="v-temp">—</span></div>
+      <div class="meter off" id="m-temp"><i class="thumb"></i></div>
+      <div class="meter-foot"><span>25 °C</span><span class="sub" id="s-temp"></span><span>40 °C</span></div>
+    </div>
+    <div class="meter-cell">
+      <div class="meter-head"><span class="label"><svg class="icon sm" aria-hidden="true"><use href="#i-droplets"/></svg>GSR</span><span class="badge muted" id="v-gsr">—</span></div>
+      <div class="meter off" id="m-gsr"><i class="thumb"></i></div>
+      <div class="meter-foot"><span>0 µS</span><span class="sub" id="s-gsr"></span><span>20 µS</span></div>
+    </div>
+  </div>
+
+  <div class="toolbar">
+    <span class="hint" id="vSummary">No board connected. Connect it (top right) or start the demo.</span>
+    <select class="compact" id="selSpan" aria-label="Chart time span">
+      <option value="60">1 min</option>
+      <option value="300">5 min</option>
+      <option value="600" selected>10 min</option>
+      <option value="1800">30 min</option>
+    </select>
+  </div>
+
+  <div class="home-grid">
+    <div class="card">
+      <div class="card-head"><h2 class="card-title">Heart rate</h2></div>
+      <div class="chart-box"><canvas id="ch-hr"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><h2 class="card-title">Respiration</h2></div>
+      <div class="chart-box"><canvas id="ch-resp"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><h2 class="card-title">Skin temperature</h2></div>
+      <div class="chart-box"><canvas id="ch-temp"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><h2 class="card-title">GSR (skin conductance)</h2></div>
+      <div class="chart-box"><canvas id="ch-gsr"></canvas></div>
+    </div>
+
+    <div class="card span-all">
+      <div class="card-head"><h2 class="card-title">Sensors</h2><span class="hint" id="vLinks">No board connected</span></div>
+      <div class="kv"><span class="label"><svg class="icon sm" aria-hidden="true"><use href="#i-heart-pulse"/></svg>Heart rate</span><span class="badge muted" id="a-hr">—</span></div>
+      <div class="kv"><span class="label"><svg class="icon sm" aria-hidden="true"><use href="#i-wind"/></svg>Respiration</span><span class="badge muted" id="a-resp">—</span></div>
+      <div class="kv"><span class="label"><svg class="icon sm" aria-hidden="true"><use href="#i-thermometer"/></svg>Skin temp</span><span class="badge muted" id="a-temp">—</span></div>
+      <div class="kv"><span class="label"><svg class="icon sm" aria-hidden="true"><use href="#i-droplets"/></svg>GSR</span><span class="badge muted" id="a-gsr">—</span></div>
+      <p class="hint">Time since each sensor last reported. Green: in the last 10 s. Amber: stale.</p>
+      <div class="log" id="log"></div>
+    </div>
+  </div>
+</main>
+
+<footer class="dock" id="dock">
+  <button class="icon-btn secondary" id="btnDemo" title="Start demo data" aria-label="Start demo data"><svg class="icon" aria-hidden="true"><use href="#i-play"/></svg><span>Demo</span></button>
+  <span class="grow"></span>
+  <div class="logctl-info"><b id="vRecState">Recording</b><span id="vRecHint">not recording</span></div>
+  <button class="icon-btn secondary" id="btnExport" title="Save recording as CSV" aria-label="Save recording as CSV"><svg class="icon" aria-hidden="true"><use href="#i-download"/></svg></button>
+  <button class="icon-btn secondary rec" id="btnRec" title="Start recording" aria-label="Start recording"><svg class="icon fill" aria-hidden="true"><use href="#i-circle"/></svg></button>
+</footer>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+'use strict';
+
+/* ---- Constants ---- */
+// Nordic UART Service, same UUIDs as the RF and HR bring-up firmware (lib/BleLink).
+const NUS_SERVICE = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
+const NUS_TX = '6e400003-b5a3-f393-e0a9-e50e24dcca9e'; // board -> phone (notify)
+
+/* Binary payload from the Zephyr wrist board (tools/bringup/zephyr-poc-app,
+   PAYLOAD_LEN and F_* in src/main.c). Bit offset / width, MSB-first,
+   bit 0 reserved, 120 bits -> 15 bytes. Keep the two in step. */
+const PAYLOAD_LEN = 15;
+const F = {
+  hr:    [1, 9],     // bpm, 0 = no pulse
+  resp:  [10, 8],    // breaths/min
+  res:   [18, 11],   // skin resistance kΩ, 0 = no reading
+  temp:  [29, 11],   // skin temp °F × 10
+  lat:   [40, 32],   // degrees × 1e7, signed
+  lon:   [72, 32],   // degrees × 1e7, signed
+  steps: [104, 9],
+};
+// Bits 113-118: "sensor active" flag per field (ACT_* in main.c); bit 119 spare.
+// A field whose flag is clear has no sensor behind it and is ignored.
+const ACTIVE_OFF = 113;
+const ACTIVE = { hr: 0, resp: 1, res: 2, temp: 3, gps: 4, steps: 5 };
+const STALE_MS = 10000;
+const KEEP_MS = 60 * 60 * 1000;
+
+// Line formats, matched against every line from every source.
+const HR_STATUS_RE = /status: ir=\d+ avgBpm=(\d+|--|warming\(\d+\/\d+s\))(?: led=\d+)?(?: acdc=([\d.]+)%)?(?: r=([\d.]+))?/;
+const RESP_RE = /^resp\s*[,=:]\s*(\d+(?:\.\d+)?)$/i;                    // resp,<breaths/min>
+const TEMP_RE = /^(-?\d{1,3}\.\d+),(-?\d{1,3}\.\d+)$/;                 // MAX30205 bring-up: temp_c,temp_f
+const GSR_RE = /^gsr\s*[,=:]\s*(-?\d+(?:\.\d+)?)(?:\s*u?s)?$/i;        // gsr,<µS>
+
+/* Per-metric display: meter range, status bands, chart axis.
+   cls(v) returns '' (fine), 'warn' or 'bad', same as the RF page badges. */
+const METRICS = {
+  hr:   { label: 'Heart rate', unit: 'bpm', min: 30, max: 200, dec: 0, axis: 'bpm',
+          cls: v => v < 40 || v > 160 ? 'bad' : v < 50 || v > 120 ? 'warn' : '' },
+  resp: { label: 'Respiration', unit: 'br/min', min: 4, max: 40, dec: 1, axis: 'br/min',
+          cls: v => v < 8 || v > 30 ? 'bad' : v < 10 || v > 24 ? 'warn' : '' },
+  temp: { label: 'Skin temp', unit: '°C', min: 25, max: 40, dec: 1, axis: '°C',
+          cls: v => v < 28 || v > 38.5 ? 'bad' : v < 30 || v > 37 ? 'warn' : '' },
+  gsr:  { label: 'GSR', unit: 'µS', min: 0, max: 20, dec: 2, axis: 'µS',
+          cls: () => '' },  // no thresholds until the sensor is characterised
+};
+const KEYS = Object.keys(METRICS);
+
+/* ---- State ---- */
+const S = {
+  series: { hr: [], resp: [], temp: [], gsr: [] },   // { t, v }
+  last: { hr: null, resp: null, temp: null, gsr: null }, // { t, v, ... }
+  dev: null, wantConnected: false, boardText: null,
+  demo: null,
+  rec: { on: false, rows: [], timer: null, started: null },
+};
+
+/* ---- Utilities ---- */
+const $ = (id) => document.getElementById(id);
+function setIcon(el, name, title, { fill = false, text = '' } = {}) {
+  el.innerHTML = `<svg class="icon${fill ? ' fill' : ''}" aria-hidden="true"><use href="#i-${name}"/></svg>` + (text ? '<span></span>' : '');
+  if (text) el.querySelector('span').textContent = text;
+  el.title = title; el.setAttribute('aria-label', title);
+}
+function toast(msg, ms = 3500) {
+  const t = $('toast'); t.textContent = msg; t.hidden = false;
+  clearTimeout(toast.timer); toast.timer = setTimeout(() => { t.hidden = true; }, ms);
+}
+function cssVar(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+function fmtAge(ms) {
+  if (ms == null) return '—';
+  if (ms < 1000) return 'just now';
+  if (ms < 60000) return `${(ms / 1000).toFixed(0)} s ago`;
+  const s = Math.floor(ms / 1000); return `${Math.floor(s / 60)}m ${s % 60}s ago`;
+}
+function addLog(text) {
+  const el = $('log'), d = new Date();
+  const ts = d.toTimeString().slice(0, 8);
+  el.textContent = (`${ts}  ${text}\n` + el.textContent).slice(0, 6000);
+}
+
+/* ---- Ingest ---- */
+function push(key, v, extra = {}) {
+  if (!Number.isFinite(v)) return;
+  const t = Date.now();
+  S.last[key] = { t, v, ...extra };
+  const s = S.series[key];
+  s.push({ t, v });
+  while (s.length && s[0].t < t - KEEP_MS) s.shift();
+  render(key);
+  charts.dirty = true;
+}
+// One parser for every source. Returns true if the line was recognised.
+function handleLine(line) {
+  line = line.replace(/\0+$/, '').trim();
+  if (!line) return false;
+  let m;
+  if ((m = HR_STATUS_RE.exec(line))) {
+    const bpm = /^\d+$/.test(m[1]) ? +m[1] : NaN;
+    const r = m[3] !== undefined ? +m[3] : null;
+    if (Number.isFinite(bpm)) push('hr', bpm, { r });
+    else S.last.hr = { t: Date.now(), v: null, state: m[1] === '--' ? 'no pulse' : 'warming up', r };
+    render('hr');
+    return true;
+  }
+  if ((m = RESP_RE.exec(line))) { push('resp', +m[1]); return true; }
+  if ((m = TEMP_RE.exec(line))) { push('temp', +m[1]); return true; }
+  if ((m = GSR_RE.exec(line))) { push('gsr', +m[1]); return true; }
+  return false;
+}
+function lineFeeder() {
+  let buf = '';
+  return (text) => {
+    buf += text;
+    let nl;
+    while ((nl = buf.indexOf('\n')) !== -1) { handleLine(buf.slice(0, nl)); buf = buf.slice(nl + 1); }
+    if (buf.length > 2000) buf = '';
+  };
+}
+
+/* ---- Binary payload: mirror of pack_bits() in the firmware ---- */
+// Read `width` bits starting at bit `off`; bit 0 is the top bit of byte 0.
+function unpackBits(bytes, off, width) {
+  let v = 0;
+  for (let i = 0; i < width; i++) {
+    const bit = off + i;
+    v = (v << 1) | ((bytes[bit >> 3] >> (7 - (bit & 7))) & 1);
+  }
+  return v >>> 0;
+}
+// Inverse, for the demo. Values must already fit their field.
+function packBits(bytes, off, width, value) {
+  for (let i = 0; i < width; i++) {
+    const bit = off + i;
+    if ((value >>> (width - 1 - i)) & 1) bytes[bit >> 3] |= 1 << (7 - (bit & 7));
+  }
+}
+function decodePayload(bytes) {
+  const get = (k) => unpackBits(bytes, F[k][0], F[k][1]);
+  const on = (k) => unpackBits(bytes, ACTIVE_OFF + ACTIVE[k], 1) === 1;
+  const blank = (key, state) => { S.last[key] = { t: Date.now(), v: null, state }; render(key); };
+  const hr = get('hr'), kohm = get('res'), tempX10 = get('temp');
+  if (!on('hr')) blank('hr', 'no sensor');
+  else if (hr) push('hr', hr);
+  else blank('hr', 'no pulse');
+  if (on('resp')) push('resp', get('resp')); else blank('resp', 'no sensor');
+  if (!on('temp')) blank('temp', 'no sensor');
+  else if (tempX10) push('temp', (tempX10 / 10 - 32) * 5 / 9);   // °F × 10 -> °C
+  if (!on('res')) blank('gsr', 'no sensor');
+  else if (kohm) push('gsr', 1000 / kohm);                        // kΩ -> µS
+  // Not shown on this page; log when they change (only if a sensor is behind them).
+  const extra = {
+    steps: on('steps') ? get('steps') : null,
+    gps: on('gps') ? `${((get('lat') | 0) / 1e7).toFixed(7)}, ${((get('lon') | 0) / 1e7).toFixed(7)}` : null,
+  };
+  const prev = S.extra || {};
+  if (extra.steps != null && prev.steps !== extra.steps) addLog(`steps ${extra.steps}`);
+  if (extra.gps != null && prev.gps !== extra.gps) addLog(`gps ${extra.gps}`);
+  S.extra = extra;
+}
+
+/* ---- BLE: one board (the nRF wrist board, later) sends every sensor over one NUS link ---- */
+async function connectBle() {
+  if (S.dev && S.dev.gatt.connected) { S.wantConnected = false; S.dev.gatt.disconnect(); return; }
+  if (!navigator.bluetooth) { toast('Web Bluetooth is not available. Use Chrome or Edge; on iPhone, open this page in Bluefy.', 6000); return; }
+  try {
+    const dev = await navigator.bluetooth.requestDevice({ filters: [{ services: [NUS_SERVICE] }], optionalServices: [NUS_SERVICE] });
+    if (S.dev && S.dev !== dev) S.dev.removeEventListener('gattserverdisconnected', onBleDisconnected);
+    S.dev = dev; S.wantConnected = true;
+    dev.addEventListener('gattserverdisconnected', onBleDisconnected);
+    await openGatt();
+  } catch (err) {
+    if (err && err.name === 'NotFoundError') return; // chooser dismissed
+    toast('Bluetooth: ' + (err && err.message ? err.message : err));
+    setBoard();
+  }
+}
+async function openGatt() {
+  setBoard('Connecting…');
+  const server = await S.dev.gatt.connect();
+  const svc = await server.getPrimaryService(NUS_SERVICE);
+  const tx = await svc.getCharacteristic(NUS_TX);
+  const dec = new TextDecoder(), feed = lineFeeder();
+  // A 15-byte notification is the wrist board's binary payload; anything
+  // else is text lines from the older bring-up boards.
+  let rx = 0;
+  tx.addEventListener('characteristicvaluechanged', (e) => {
+    const v = e.target.value;
+    if (rx++ === 0) addLog(`first notification: ${v.byteLength} bytes`);
+    if (v.byteLength === PAYLOAD_LEN) decodePayload(new Uint8Array(v.buffer, v.byteOffset, v.byteLength));
+    else feed(dec.decode(v, { stream: true }));
+  });
+  await tx.startNotifications();
+  setIcon($('btnConnect'), 'bluetooth-connected', 'Disconnect board', { text: 'Disconnect' });
+  addLog(`connected to ${S.dev.name || 'board'}`);
+  setBoard();
+}
+async function onBleDisconnected() {
+  addLog('disconnected');
+  // Unexpected drop: keep trying to reconnect to the same board.
+  for (let attempt = 1; S.wantConnected && attempt <= 20; attempt++) {
+    setBoard(`Reconnecting (${attempt})…`);
+    try { await openGatt(); return; } catch (e) { await new Promise(r => setTimeout(r, 1500)); }
+  }
+  setIcon($('btnConnect'), 'bluetooth', 'Connect board', { text: 'Connect' });
+  setBoard(S.wantConnected ? 'Lost connection' : null);
+}
+
+/* ---- Demo: plausible values for all four, packed into the board's binary
+   payload once a second so it runs through the same decoder ---- */
+function toggleDemo() {
+  if (S.demo) {
+    clearInterval(S.demo); S.demo = null;
+    setIcon($('btnDemo'), 'play', 'Start demo data', { text: 'Demo' });
+    addLog('demo stopped'); setBoard(); return;
+  }
+  let k = 0, gsr = 4;
+  S.demo = setInterval(() => {
+    k++;
+    const hr = 72 + 8 * Math.sin(k / 40) + (Math.random() - .5) * 3;
+    const resp = 15 + 2 * Math.sin(k / 70) + (Math.random() - .5);
+    const t = 33.6 + 0.6 * Math.sin(k / 120) + (Math.random() - .5) * .05;
+    gsr += (5 - gsr) * .02 + (Math.random() - .5) * .15 + (k % 90 === 0 ? 2.5 : 0); // tonic level + occasional phasic response
+    const p = new Uint8Array(PAYLOAD_LEN);
+    const put = (key, v) => packBits(p, F[key][0], F[key][1], v);
+    put('hr', Math.round(hr));
+    put('resp', Math.round(resp));
+    put('res', Math.min(2047, Math.round(1000 / Math.max(0.5, gsr))));   // µS -> kΩ
+    put('temp', Math.round((t * 9 / 5 + 32) * 10));                     // °C -> °F × 10
+    put('lat', 0); put('lon', 0);
+    put('steps', Math.min(511, Math.floor(k / 2)));
+    for (const i of Object.values(ACTIVE)) packBits(p, ACTIVE_OFF + i, 1, 1);
+    decodePayload(p);
+  }, 1000);
+  setIcon($('btnDemo'), 'square', 'Stop demo data', { text: 'Demo' });
+  addLog('demo started'); setBoard();
+}
+
+/* ---- Rendering ---- */
+function setMeter(id, frac, cls = '') {
+  const m = $(id);
+  m.className = 'meter ' + (frac == null ? 'off' : cls);
+  if (frac != null) m.style.setProperty('--pos', `${Math.min(1, Math.max(0, frac)) * 100}%`);
+}
+function render(key) {
+  const M = METRICS[key], L = S.last[key];
+  const badge = $('v-' + key), sub = $('s-' + key);
+  if (!L) { badge.textContent = '—'; badge.className = 'badge muted'; setMeter('m-' + key, null); sub.textContent = ''; return; }
+  const stale = Date.now() - L.t > STALE_MS;
+  if (L.v == null) {
+    badge.textContent = L.state || '—'; badge.className = 'badge muted'; setMeter('m-' + key, null);
+  } else {
+    const cls = M.cls(L.v);
+    badge.textContent = `${L.v.toFixed(M.dec)} ${M.unit}`;
+    badge.className = 'badge ' + (stale ? 'muted' : cls);
+    setMeter('m-' + key, stale ? null : (L.v - M.min) / (M.max - M.min), cls);
+  }
+  if (stale) sub.textContent = 'stale ' + fmtAge(Date.now() - L.t);
+  else if (key === 'hr') sub.textContent = L.r != null ? `r ${L.r.toFixed(2)}` : '';
+  else if (key === 'temp') sub.textContent = `${(L.v * 9 / 5 + 32).toFixed(1)} °F`;
+  else sub.textContent = '';
+}
+function renderStatus() {
+  const now = Date.now();
+  let live = 0;
+  for (const key of KEYS) {
+    const L = S.last[key], p = $('pill-' + key), a = $('a-' + key);
+    const age = L ? now - L.t : null;
+    const cls = age == null ? '' : age < STALE_MS ? 'good' : 'warn';
+    if (cls === 'good') live++;
+    p.className = 'pill ' + cls;
+    a.textContent = age == null ? 'no data' : fmtAge(age);
+    a.className = 'badge ' + (age == null ? 'muted' : cls === 'warn' ? 'warn' : '');
+    render(key);
+  }
+  $('vSummary').textContent = live ? `${live} of 4 sensors live.` + (S.demo ? ' Demo data.' : '')
+    : boardConnected() ? 'Connected, waiting for data…' : 'No board connected. Connect it (top right) or start the demo.';
+}
+function boardConnected() { return !!(S.dev && S.dev.gatt && S.dev.gatt.connected); }
+function setBoard(text) {
+  S.boardText = text || null;
+  const parts = [text || (boardConnected() ? S.dev.name || 'board' : 'No board connected')];
+  if (S.demo) parts.push('demo');
+  $('vLinks').textContent = parts.join(' · ');
+}
+
+/* ---- Charts: one accent line per metric over the last N minutes ---- */
+const charts = { list: null, dirty: true };
+function chartDefaults() {
+  Chart.defaults.color = cssVar('--text-3');
+  Chart.defaults.borderColor = cssVar('--grid');
+  Chart.defaults.font.family = cssVar('--font-ui');
+  Chart.defaults.font.size = 10;
+  Chart.defaults.animation = false;
+  Chart.defaults.maintainAspectRatio = false;
+}
+function axis(title, extra = {}) {
+  return { title: { display: true, text: title }, grid: { color: cssVar('--grid') }, border: { display: false }, ...extra };
+}
+function makeCharts() {
+  chartDefaults();
+  charts.list = {};
+  for (const key of KEYS) {
+    const M = METRICS[key];
+    charts.list[key] = new Chart($('ch-' + key), {
+      type: 'scatter',
+      data: { datasets: [{ data: [], showLine: true, pointRadius: 0, borderWidth: 1.5, borderColor: cssVar('--accent'), spanGaps: false }] },
+      options: {
+        plugins: { legend: { display: false }, tooltip: { callbacks: {
+          title: (c) => `${(-c[0].raw.x).toFixed(1)} min ago`,
+          label: (c) => `${c.raw.y.toFixed(M.dec)} ${M.unit}`,
+        } } },
+        scales: { x: axis('Minutes ago', { type: 'linear', max: 0, ticks: { callback: v => -v } }), y: axis(M.axis) },
+      },
+    });
+  }
+}
+function updateCharts() {
+  if (typeof Chart === 'undefined') return;
+  if (!charts.list) makeCharts();
+  const now = Date.now(), span = +$('selSpan').value * 1000;
+  for (const key of KEYS) {
+    const c = charts.list[key], pts = [];
+    let prev = null;
+    for (const p of S.series[key]) {
+      if (p.t < now - span) continue;
+      // Break the line across gaps longer than the stale limit.
+      if (prev && p.t - prev.t > STALE_MS) pts.push({ x: (prev.t + 1 - now) / 60000, y: null });
+      pts.push({ x: (p.t - now) / 60000, y: p.v });
+      prev = p;
+    }
+    c.data.datasets[0].data = pts;
+    c.options.scales.x.min = -span / 60000;
+    c.update('none');
+  }
+  charts.dirty = false;
+}
+function resetCharts() {
+  if (charts.list) Object.values(charts.list).forEach(c => c.destroy());
+  charts.list = null; charts.dirty = true;
+}
+
+/* ---- Recording: one row per second with the latest value of each sensor ---- */
+const CSV_COLUMNS = ['time_iso', 'epoch_ms', 'hr_bpm', 'hr_r', 'resp_brpm', 'skin_temp_c', 'gsr_us'];
+function fresh(key) { const L = S.last[key]; return L && L.v != null && Date.now() - L.t < STALE_MS ? L : null; }
+function snapshot() {
+  const hr = fresh('hr'), rs = fresh('resp'), t = fresh('temp'), g = fresh('gsr'), now = Date.now();
+  S.rec.rows.push({
+    time_iso: new Date(now).toISOString(), epoch_ms: now,
+    hr_bpm: hr ? hr.v : '', hr_r: hr && hr.r != null ? hr.r : '',
+    resp_brpm: rs ? rs.v : '',
+    skin_temp_c: t ? t.v : '', gsr_us: g ? g.v : '',
+  });
+}
+function toggleRec() {
+  const r = S.rec;
+  r.on = !r.on;
+  if (r.on) { r.rows = []; r.started = Date.now(); snapshot(); r.timer = setInterval(snapshot, 1000); }
+  else clearInterval(r.timer);
+  renderRec();
+}
+function renderRec() {
+  const r = S.rec;
+  $('dock').classList.toggle('on', r.on);
+  setIcon($('btnRec'), r.on ? 'square' : 'circle', r.on ? 'Stop recording' : 'Start recording', { fill: true });
+  $('vRecState').textContent = r.on ? 'Recording' : r.rows.length ? 'Recorded' : 'Recording';
+  $('vRecHint').textContent = r.on ? `${r.rows.length} rows · ${fmtAge(Date.now() - r.started).replace(' ago', '')}`
+    : r.rows.length ? `${r.rows.length} rows, not saved` : 'not recording';
+}
+function exportCsv() {
+  if (!S.rec.rows.length) { toast('Nothing recorded yet.'); return; }
+  const csv = [CSV_COLUMNS.join(',')].concat(S.rec.rows.map(row => CSV_COLUMNS.map(c => row[c]).join(','))).join('\n') + '\n';
+  const d = new Date(), p = n => String(n).padStart(2, '0');
+  const name = `overview_${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}.csv`;
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+  a.download = name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+}
+
+/* ---- Theme (shared with the RF and HR pages) ---- */
+const THEME_KEY = 'devPages.theme';
+const THEME_ICONS = { auto: 'sun-moon', dark: 'moon', light: 'sun' };
+const darkQuery = matchMedia('(prefers-color-scheme: dark)');
+function themePref() {
+  try { return localStorage.getItem(THEME_KEY) || localStorage.getItem('loraRange.theme') || 'auto'; } catch (e) { return 'auto'; }
+}
+function applyTheme() {
+  const pref = themePref();
+  const theme = pref === 'dark' || (pref === 'auto' && darkQuery.matches) ? 'dark' : 'light';
+  setIcon($('btnTheme'), THEME_ICONS[pref], `Theme: ${pref}`);
+  if (theme === document.documentElement.dataset.theme && applyTheme.done) return;
+  applyTheme.done = true;
+  document.documentElement.dataset.theme = theme;
+  resetCharts(); updateCharts();
+}
+function cycleTheme() {
+  const order = ['auto', 'dark', 'light'];
+  const next = order[(order.indexOf(themePref()) + 1) % order.length];
+  try { localStorage.setItem(THEME_KEY, next); } catch (e) { /* this visit only */ }
+  applyTheme();
+}
+darkQuery.addEventListener('change', () => { if (themePref() === 'auto') applyTheme(); });
+window.addEventListener('storage', (e) => { if (e.key === THEME_KEY) applyTheme(); });
+
+/* ---- Wiring ---- */
+function init() {
+  $('btnTheme').onclick = cycleTheme;
+  applyTheme();
+  $('btnConnect').onclick = connectBle;
+  $('btnDemo').onclick = toggleDemo;
+  $('btnRec').onclick = toggleRec;
+  $('btnExport').onclick = exportCsv;
+  $('selSpan').onchange = updateCharts;
+  KEYS.forEach(render);
+  renderStatus(); renderRec(); setBoard();
+  setInterval(() => { renderStatus(); if (S.rec.on) renderRec(); updateCharts(); }, 1000);
+  window.addEventListener('beforeunload', (e) => { if (S.rec.on) { e.preventDefault(); e.returnValue = ''; } });
+  window.__overview = { S, handleLine, decodePayload }; // for testing from the console
+}
+init();
+</script>
+<!-- Side menu (same in the RF, HR and Overview pages) -->
+<div class="drawer-backdrop" id="menuBackdrop"></div>
+<nav class="drawer" id="sideMenu" aria-label="Pages">
+  <div class="drawer-head">
+    <span class="drawer-title">Menu</span>
+    <button class="drawer-close" id="btnMenuClose" title="Close menu" aria-label="Close menu"><svg class="icon" aria-hidden="true"><use href="#i-x"/></svg></button>
+  </div>
+  <div class="drawer-section">Dev Pages</div>
+    <a class="drawer-link current" href="../overview/" aria-current="page"><svg class="icon" aria-hidden="true"><use href="#i-layout-dashboard"/></svg><span><b>Overview</b><small>HR, respiration, skin temp, GSR</small></span></a>
+    <a class="drawer-link" href="../lora-range/"><svg class="icon" aria-hidden="true"><use href="#i-radio"/></svg><span><b>RF</b><small>LoRa range test</small></span></a>
+    <a class="drawer-link" href="../hr-testing/"><svg class="icon" aria-hidden="true"><use href="#i-heart-pulse"/></svg><span><b>HR</b><small>PPG monitor</small></span></a>
+</nav>
+<script>
+(function () {
+  const menu = document.getElementById('sideMenu'), backdrop = document.getElementById('menuBackdrop');
+  const btn = document.getElementById('btnMenu');
+  function setMenu(open) {
+    menu.classList.toggle('open', open); backdrop.classList.toggle('open', open);
+    btn.setAttribute('aria-expanded', String(open));
+    menu.inert = !open;
+    if (open) setTimeout(() => menu.querySelector('.drawer-link.current, .drawer-link').focus(), 60); else btn.focus();
+  }
+  menu.inert = true;
+  btn.addEventListener('click', () => setMenu(!menu.classList.contains('open')));
+  backdrop.addEventListener('click', () => setMenu(false));
+  document.getElementById('btnMenuClose').addEventListener('click', () => setMenu(false));
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && menu.classList.contains('open')) setMenu(false); });
+})();
+</script>
+</body>
+</html>
