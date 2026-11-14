@@ -179,8 +179,10 @@ int main(void)
 
     /* Say which build this is, so a serial log shows it at a glance. */
 #ifdef CONFIG_LSM6DSL
+    /* hr_main.c turns its adaptive filter on from this same result
+     * (motion_available()), so the banner matches what actually runs. */
     LOG_INF("Board: XIAO Sense build, motion cancel %s",
-            motion_init() ? "ON" : "OFF (IMU not found)");
+            motion_init() ? "ON (adaptive filter)" : "OFF (IMU not found)");
 #else
     LOG_INF("Board: XIAO build, motion cancel OFF (no IMU)");
 #endif

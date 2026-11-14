@@ -223,7 +223,7 @@ input[type=checkbox]:checked { background: var(--s1); }
 .k-ring { width: 8px; height: 8px; border-radius: 50%; display: inline-block; border: 2px solid var(--ink2); }
 .k-wash { width: 14px; height: 8px; display: inline-block; background: var(--wash); border-radius: 2px; }
 canvas { display: block; width: 100%; touch-action: pan-y; }
-#cvWave, #cvHr { height: 240px; } #cvRaw { height: 180px; } #cvR, #cvA { height: 150px; }
+#cvWave, #cvHr { height: 240px; } #cvRaw { height: 180px; } #cvMc { height: 210px; } #cvR, #cvA { height: 150px; }
 .two { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
 
 table { width: 100%; border-collapse: collapse; font-size: 12px; font-variant-numeric: tabular-nums; }
@@ -420,6 +420,7 @@ th { color: var(--ink2); font-weight: 500; position: sticky; top: 0; background:
         <dt>Sample rate</dt><dd id="kFs">--</dd>
         <dt>Lost batches</dt><dd id="kLost">0</dd>
         <dt>LED current</dt><dd id="kLed">--</dd>
+        <dt>Motion</dt><dd id="kMot">--</dd>
         <dt>Estimate time</dt><dd id="kEst">--</dd>
         <dt>Samples</dt><dd id="kN">0</dd>
       </dl>
@@ -432,6 +433,12 @@ th { color: var(--ink2); font-weight: 500; position: sticky; top: 0; background:
           <option value="2" selected>IR</option>
           <option value="1">Red</option>
           <option value="3">Green</option>
+        </select>
+        <span></span>
+        <label for="mcSel">Motion cancel</label>
+        <select id="mcSel" disabled title="USB only, XIAO Sense build only (sends M / m). Off still streams both signals so you can compare.">
+          <option value="on" selected>On</option>
+          <option value="off">Off</option>
         </select>
         <span></span>
       </div>
@@ -478,6 +485,19 @@ th { color: var(--ink2); font-weight: 500; position: sticky; top: 0; background:
     <canvas id="cvWave" height="230" tabindex="0" role="img" aria-label="Filtered pulse waveform. Use left and right arrow keys to inspect values."></canvas>
   </section>
 
+  <section class="card" id="mcCard" style="display:none">
+    <div class="card-h">
+      <h2>Motion cancelling: before vs after</h2>
+      <div class="sub">The board's filtered IR before and after the adaptive filter subtracts wrist motion (from the accelerometer), flipped like the waveform above. With cancelling off the lines overlap. XIAO Sense over USB only.</div>
+      <div class="legend">
+        <span><i class="k-line" style="background:var(--s2)"></i>Uncorrected</span>
+        <span><i class="k-line" style="background:var(--s1)"></i>Corrected</span>
+        <span><i class="k-wash"></i>Artifact hold-off</span>
+      </div>
+    </div>
+    <canvas id="cvMc" height="200" tabindex="0" role="img" aria-label="Filtered pulse before and after motion cancelling"></canvas>
+  </section>
+
   <section class="card">
     <div class="card-h">
       <h2>Raw signal, DC removed</h2>
@@ -493,10 +513,10 @@ th { color: var(--ink2); font-weight: 500; position: sticky; top: 0; background:
   <section class="card">
     <div class="card-h">
       <h2>Heart rate over time</h2>
-      <div class="sub">Sliding 8 s window estimate, once per second. Dots are individual beat intervals.</div>
+      <div class="sub">Sliding 8 s window estimate, once per second. Dots are individual beat intervals. The browser never has motion data, so with motion cancel on, Device is the corrected estimate and Browser the uncorrected one.</div>
       <div class="legend">
-        <span data-dev><i class="k-line" style="background:var(--s1)"></i>Device estimate</span>
-        <span><i class="k-line" style="background:var(--s2)"></i>Browser estimate</span>
+        <span data-dev><i class="k-line" style="background:var(--s1)"></i>Device estimate<span id="lgDevMc"></span></span>
+        <span><i class="k-line" style="background:var(--s2)"></i>Browser estimate (uncorrected)</span>
         <span><i class="k-dot" style="background:var(--ink3);opacity:.6"></i>Beat interval</span>
         <button id="btnTable" aria-pressed="false" style="padding:2px 10px;min-height:26px">Table</button>
       </div>
@@ -787,6 +807,7 @@ function initState() {
     ir: new Float32Array(cap), red: new Float32Array(cap),
     fIr: new Float32Array(cap), fRed: new Float32Array(cap),
     acIr: new Float32Array(cap), acRed: new Float32Array(cap),
+    mcPre: new Float32Array(cap), mcPost: new Float32Array(cap), hasMc: false,
     ticks: [], dticks: [], beats: [], holds: [], marks: [], logs: [],
     lostBatches: 0, lastSeq: -1, packets: 0, pktWindow: [], dev: null,
     fs: 100, follow: true, viewEnd: 0, windowSec: 10, trendSec: 180,
@@ -811,7 +832,7 @@ const hooks = {
 };
 function grow() {
   const cap = S.cap * 2;
-  for (const k of ['ir', 'red', 'fIr', 'fRed', 'acIr', 'acRed']) {
+  for (const k of ['ir', 'red', 'fIr', 'fRed', 'acIr', 'acRed', 'mcPre', 'mcPost']) {
     const a = new Float32Array(cap); a.set(S[k]); S[k] = a;
   }
   S.cap = cap;
@@ -825,13 +846,14 @@ function pushSample(ir, red) {
   S.fIr[i] = o.f; S.fRed[i] = o.fr;
   S.dispIr += 0.01 * (ir - S.dispIr); S.dispRed += 0.01 * (red - S.dispRed);
   S.acIr[i] = ir - S.dispIr; S.acRed[i] = red - S.dispRed;
+  S.mcPre[i] = S.mcPost[i] = NaN;   // filled in by the board's "mc," line for this batch
   S.n = i + 1;
 }
 function pushGap(count) {
   for (let k = 0; k < count; k++) {
     if (S.n >= S.cap) grow();
     const i = S.n;
-    S.ir[i] = S.red[i] = S.fIr[i] = S.fRed[i] = S.acIr[i] = S.acRed[i] = NaN;
+    S.ir[i] = S.red[i] = S.fIr[i] = S.fRed[i] = S.acIr[i] = S.acRed[i] = S.mcPre[i] = S.mcPost[i] = NaN;
     S.n = i + 1;
   }
   P.markGap(); S.needDispInit = true;
@@ -875,7 +897,7 @@ function onRaw(dv) {
   for (let k = 0; k < cnt; k++) pushSample(dv.getUint32(2 + k * 8, true), dv.getUint32(6 + k * 8, true));
   S.dirty = true;
 }
-const STATUS_RE = /^status: ir=(\d+) avgBpm=(\d+|--|warming\((\d+)\/(\d+)s\)) led=(\d+) acdc=([\d.]+)% r=([\d.]+) fs=([\d.]+)(?: est=([\d.]+)ms)?/;
+const STATUS_RE = /^status: ir=(\d+) avgBpm=(\d+|--|warming\((\d+)\/(\d+)s\)) led=(\d+) acdc=([\d.]+)% r=([\d.]+) fs=([\d.]+)(?: est=([\d.]+)ms)?(?: mc=(on|off)(?: mot=([\d.]+) cut=(-?\d+)%)?)?/;
 function onText(text) {
   text = text.replace(/\0+$/, '').trim();
   if (!text) return;
@@ -886,8 +908,12 @@ function onText(text) {
       n: S.n, t: S.n / S.fs, ir: +m[1], led: +m[5], acdc: +m[6] / 100, r: +m[7], fs: +m[8], est: m[9] !== undefined ? +m[9] : NaN,
       hr: /^\d+$/.test(bp) ? +bp : NaN,
       state: /^\d+$/.test(bp) ? 'bpm' : bp === '--' ? '--' : 'warming',
-      warm: m[3] !== undefined ? +m[3] : NaN
+      warm: m[3] !== undefined ? +m[3] : NaN,
+      mc: m[10] || null,                          // Zephyr Sense build: motion cancel on/off
+      mot: m[11] !== undefined ? +m[11] : NaN,    // in-band wrist acceleration, m/s^2 rms
+      cut: m[12] !== undefined ? +m[12] : NaN     // % of PPG power the filter removed
     };
+    if (tk.mc) syncMc(tk.mc === 'on');
     S.dticks.push(tk);
     S.dev = Object.assign({ wall: performance.now() }, tk);
     if (tk.fs > 90 && tk.fs < 110) { S.fs = tk.fs; P.fs = tk.fs; }
@@ -1044,6 +1070,32 @@ const LED_SET_RE = /^LED set to (red|IR|green)\b/;
 function syncLedColor(line) {
   const m = LED_SET_RE.exec(line);
   if (m) ledColor.value = { red: '1', IR: '2', green: '3' }[m[1]];
+  const mc = /^motion cancel (ON|OFF)$/.exec(line);
+  if (mc) syncMc(mc[1] === 'ON');
+}
+
+/* ---- Motion cancel (USB, Zephyr XIAO Sense build only: sends "M" on / "m" off) ---- */
+const mcSel = document.getElementById('mcSel');
+mcSel.addEventListener('change', () => {
+  if (!usb) return;
+  usb.writer.write(new TextEncoder().encode(mcSel.value === 'on' ? 'M\n' : 'm\n')).catch(() => {});
+  addLog('ui', 'motion cancel ' + mcSel.value);
+});
+function syncMc(on) { mcSel.value = on ? 'on' : 'off'; }
+
+/* "mc,<seq>,<before>:<after>,..." follows the raw batch with the same seq: the board's
+   filtered IR before/after motion cancelling, in hundredths of an ADC count. */
+const MC_LINE_RE = /^mc,(\d+)((?:,-?\d+:-?\d+)+)$/;
+function onMcLine(line) {
+  const m = MC_LINE_RE.exec(line);
+  if (!m || +m[1] !== S.lastSeq) return;   // only for the batch just received
+  const pairs = m[2].slice(1).split(','), i0 = S.n - pairs.length;
+  if (i0 < 0) return;
+  for (let k = 0; k < pairs.length; k++) {
+    const c = pairs[k].split(':');
+    S.mcPre[i0 + k] = +c[0] / 100; S.mcPost[i0 + k] = +c[1] / 100;
+  }
+  S.hasMc = true; S.dirty = true;
 }
 
 /* ---- Web Serial (USB) ---- */
@@ -1065,7 +1117,7 @@ async function connectUsb() {
     // board may still be booting (opening the port can reset it).
     const ask = () => { if (usb && !usb.gotRaw) writer.write(enc.encode('R\n')).catch(() => {}); };
     ask(); usb.nagTimer = setInterval(ask, 1000);
-    ledSlider.disabled = false; ledColor.disabled = false;
+    ledSlider.disabled = false; ledColor.disabled = false; mcSel.disabled = false;
     setConn('Connected: USB serial', 'on');
     document.getElementById('btnUsb').textContent = 'Disconnect USB';
     addLog('ui', 'USB serial open; asking board for raw stream');
@@ -1108,10 +1160,11 @@ function onUsbLine(u, line) {
     for (let k = 0; k < BATCH; k++) { const c = pairs[k].split(':'); dv.setUint32(2 + k * 8, +c[0], true); dv.setUint32(6 + k * 8, +c[1], true); }
     u.gotRaw = true;
     onRaw(dv);
-  } else { syncLedColor(line); onText(line); }
+  } else if (line.startsWith('mc,')) onMcLine(line);
+  else { syncLedColor(line); onText(line); }
 }
 async function closeUsb(msg) {
-  const u = usb; usb = null; ledSlider.disabled = true; ledColor.disabled = true;
+  const u = usb; usb = null; ledSlider.disabled = true; ledColor.disabled = true; mcSel.disabled = true;
   if (!u) return;
   u.stop = true; clearInterval(u.nagTimer);
   try { await u.writer.write(new TextEncoder().encode('r\n')); } catch (e) {}
@@ -1461,6 +1514,13 @@ function makePanels() {
     emptyText: 'Connect to your board, or start the demo', minY: 60, beats: true,
     series: [{ arr: S.fIr, sign: -1, color: T.s1, name: 'IR, filtered (flipped)' }]
   })));
+  panels.push(new Panel('cvMc', p => drawSamples(p, {
+    emptyText: 'Waiting for data', minY: 60,
+    series: [
+      { arr: S.mcPre, sign: -1, color: T.s2, name: 'Uncorrected' },
+      { arr: S.mcPost, sign: -1, color: T.s1, name: 'Corrected' }
+    ]
+  })));
   panels.push(new Panel('cvRaw', p => drawSamples(p, {
     emptyText: 'Waiting for data', minY: 100,
     series: [{ arr: S.acIr, sign: 1, color: T.s1, name: 'IR' }, { arr: S.acRed, sign: 1, color: T.s2, name: 'Red' }]
@@ -1579,6 +1639,12 @@ function updateTiles() {
   document.getElementById('kFs').textContent = S.fs.toFixed(1) + ' Hz';
   document.getElementById('kLost').textContent = String(S.lostBatches);
   document.getElementById('kLed').textContent = rd && isFinite(rd.led) ? rd.led + ' (0x' + rd.led.toString(16).toUpperCase() + ')' : '--';
+  const dv = S.dev && performance.now() - S.dev.wall < 3500 ? S.dev : null;
+  document.getElementById('kMot').textContent = !dv || !dv.mc ? '--'
+    : dv.mc === 'off' ? 'cancel off'
+    : dv.mot.toFixed(2) + ' m/s² · cut ' + dv.cut + '%';
+  document.getElementById('mcCard').style.display = S.hasMc ? '' : 'none';
+  document.getElementById('lgDevMc').textContent = dv && dv.mc === 'on' ? ' (corrected)' : dv && dv.mc === 'off' ? ' (uncorrected)' : '';
   document.getElementById('kEst').textContent = rd && isFinite(rd.est) ? rd.est.toFixed(1) + ' ms' : '--';
   document.getElementById('kN').textContent = S.n.toLocaleString();
   document.querySelectorAll('[data-dev]').forEach(e => { e.style.display = S.dticks.length ? '' : 'none'; });

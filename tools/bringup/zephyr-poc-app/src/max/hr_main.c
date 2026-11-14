@@ -36,6 +36,8 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "../motion/motion.h"
+
 /* The FIFO fills at 100 samples/s and holds 32 (320 ms). Each poll drains it,
  * so this only needs to be comfortably shorter than 320 ms. */
 #define PPG_POLL_PERIOD_MS          50
@@ -84,7 +86,8 @@ static uint8_t ledCurrent =
  * lines go out over USB (status:, beat:, raw,...) and the normal Zephyr log
  * is muted. 'r', or the page closing the port, turns it off again.
  * 'L<0-255>' sets the LED current. 'C<1-3>' switches the LED (1 red, 2 IR,
- * 3 green) at the same current and restarts the session; the ESP32 ignores it.
+ * 3 green) at the same current and restarts the session. 'M' / 'm' turn motion
+ * cancelling on / off (Sense only). The ESP32 ignores 'C' and 'M'.
  * Bluetooth is not affected.
  * ========================================================================== */
 
@@ -185,6 +188,7 @@ static void sendRawSample(uint32_t irRaw, uint32_t redRaw)
 #define MAX3010X_REG_MULTI_LED1     0x11   /* SLOT1 in bits [2:0], SLOT2 in [6:4] */
 
 static void startSession(void);
+static void mc_set(bool on);
 
 /* Put a different LED in slot 1 at the current drive level. A new wavelength
  * changes the DC level and pulse shape completely, so start a fresh session. */
@@ -227,6 +231,8 @@ static void bench_poll_rx(void)
             }
         } else if (c == 'C') {
             colorParsing = true;
+        } else if (c == 'M' || c == 'm') {
+            mc_set(c == 'M');
         } else if (c == 'L') {
             ledParsing = true;
             ledVal = 0;
@@ -298,6 +304,145 @@ static void filter_reset(struct PpgFilter *f)
 
 static struct PpgFilter irFilter = PPG_FILTER_INIT;
 static struct PpgFilter redFilter = PPG_FILTER_INIT;
+
+/* --- Motion cancelling: NLMS adaptive filter, accelerometer as the noise reference ---
+ * Runs only when the IMU came up at boot (motion_available(): Sense build with a
+ * working IMU), which is what the boot banner's "motion cancel ON" reports.
+ * The accelerometer goes through the same 0.7-3.5 Hz bandpass as the PPG (which
+ * also strips gravity); the filter learns how that motion leaks into the PPG and
+ * subtracts it. Bench commands 'M' / 'm' switch it on/off for A/B testing. */
+#define MC_TAPS   8                     /* per axis: 80 ms of history at 100 sps */
+#define MC_AXES   3
+#define MC_N      (MC_TAPS * MC_AXES)
+#define MC_MU     0.05f                 /* step size: faster adaptation vs. more pulse distortion */
+#define MC_REST   0.05f                 /* m/s^2 rms per axis in-band with the wrist still */
+#define MC_EPS    (MC_N * MC_REST * MC_REST) /* below this motion level adaptation fades out, so
+                                          * the filter doesn't learn sensor noise or the
+                                          * wrist's own pulse-driven movement */
+#define MC_LEAK   0.9995f               /* weights decay over ~20 s when there's nothing to cancel */
+
+struct Nlms {
+    float w[MC_N];
+};
+static struct Nlms irNlms, redNlms;
+static struct PpgFilter accFilter[MC_AXES] = { PPG_FILTER_INIT, PPG_FILTER_INIT, PPG_FILTER_INIT };
+static float accDc[MC_AXES];
+static float mcRef[MC_N];       /* tap history, [axis * MC_TAPS + k], k = 0 newest */
+static float mcRefPow;          /* sum of squares of mcRef */
+static bool mcPrimed;
+static bool mcEnabled;          /* set in ppg_init() from motion_available() */
+static float mcInPow, mcOutPow; /* smoothed PPG power before/after, for the status line */
+static float mcMotPow;          /* smoothed in-band accel power, for the status line */
+
+static void mc_reset(void)
+{
+    memset(&irNlms, 0, sizeof(irNlms));
+    memset(&redNlms, 0, sizeof(redNlms));
+    for (int a = 0; a < MC_AXES; a++) {
+        filter_reset(&accFilter[a]);
+    }
+    memset(mcRef, 0, sizeof(mcRef));
+    mcRefPow = mcInPow = mcOutPow = mcMotPow = 0;
+    mcPrimed = false;
+}
+
+/* Push one accelerometer sample (m/s^2) into the reference taps. */
+static void mc_push_ref(const float acc[MC_AXES])
+{
+    float newest = 0;
+
+    if (!mcPrimed) { /* start the DC tracker on gravity so the bandpass doesn't ring */
+        for (int a = 0; a < MC_AXES; a++) {
+            accDc[a] = acc[a];
+        }
+        mcPrimed = true;
+    }
+    mcRefPow = 0;
+    for (int a = 0; a < MC_AXES; a++) {
+        float in = acc[a] - accDc[a];
+        float *h = &mcRef[a * MC_TAPS];
+
+        accDc[a] += 0.01f * in; /* same ~1 s tracker as the PPG's DC_ALPHA */
+        memmove(&h[1], &h[0], (MC_TAPS - 1) * sizeof(float));
+        h[0] = filter_process(&accFilter[a], in);
+        newest += h[0] * h[0];
+        for (int k = 0; k < MC_TAPS; k++) {
+            mcRefPow += h[k] * h[k];
+        }
+    }
+    mcMotPow += 0.01f * (newest - mcMotPow);
+}
+
+/* One NLMS step: returns x with the motion estimate removed. Adapts only if asked
+ * (not during a holdoff, when the PPG filters have just been reset). */
+static float mc_cancel(struct Nlms *f, float x, bool adapt)
+{
+    float y = 0;
+
+    for (int i = 0; i < MC_N; i++) {
+        y += f->w[i] * mcRef[i];
+    }
+    float e = x - y;
+
+    if (adapt) {
+        float g = MC_MU * e / (MC_EPS + mcRefPow);
+
+        for (int i = 0; i < MC_N; i++) {
+            f->w[i] = MC_LEAK * f->w[i] + g * mcRef[i];
+        }
+    }
+    return e;
+}
+
+static void mc_set(bool on)
+{
+    if (on && !motion_available()) {
+        logLine("motion cancel unavailable (no IMU on this build/board)");
+        return;
+    }
+    if (on != mcEnabled) {
+        mc_reset();
+        mcEnabled = on;
+    }
+    logLine("motion cancel %s", on ? "ON" : "OFF");
+}
+
+/* Bench stream of the filtered PPG before and after motion cancelling, so the
+ * HR testing page can overlay them: "mc,<seq>,<before>:<after>,..." in hundredths
+ * of an ADC count, one line per raw batch and sent right after it with the same
+ * <seq>. Sent whenever the IMU is present; with cancelling off, after == before. */
+static int16_t mcBatchPre[RAW_BATCH_SIZE], mcBatchPost[RAW_BATCH_SIZE];
+static uint8_t mcBatchCount;
+
+static int16_t mc_to_i16(float v)
+{
+    return (int16_t)CLAMP(v * 100.0f, -32767.0f, 32767.0f);
+}
+
+static void mc_record(float before, float after)
+{
+    mcBatchPre[mcBatchCount] = mc_to_i16(before);
+    mcBatchPost[mcBatchCount] = mc_to_i16(after);
+    if (++mcBatchCount < RAW_BATCH_SIZE) {
+        return;
+    }
+    mcBatchCount = 0;
+    if (!serialRawOn) {
+        return;
+    }
+
+    /* processSample() runs right after sendRawSample() for every sample, so this
+     * batch covers the same samples as the raw batch just sent. */
+    char line[16 + RAW_BATCH_SIZE * 14];
+    int n = snprintf(line, sizeof(line), "mc,%u", (unsigned)(uint16_t)(rawSeq - 1));
+
+    for (int i = 0; i < RAW_BATCH_SIZE && n < (int)sizeof(line) - 14; i++) {
+        n += snprintf(line + n, sizeof(line) - n, ",%d:%d", mcBatchPre[i], mcBatchPost[i]);
+    }
+    line[n++] = '\r';
+    line[n++] = '\n';
+    bench_write(line, n);
+}
 
 /* Slow DC estimates, subtracted BEFORE the bandpass so the filters never see the ~85k DC
  * as a giant startup step. Also used as the denominator of the AC/DC quality ratio. */
@@ -635,12 +780,25 @@ static void onTick(long irRaw)
         snprintf(bpmText, sizeof(bpmText), "--");
     }
 
-    LOG_INF("status: ir=%ld avgBpm=%s led=%u acdc=%.2f%% r=%.2f fs=%.1f est=%.1fms",
+    /* mc: motion cancel on/off; mot: in-band wrist acceleration (m/s^2 rms);
+     * cut: share of PPG power the filter removed (pulse + motion). Appended after
+     * est= so the HR testing page's status parser still matches. */
+    char mcText[48] = " mc=off";
+    if (mcEnabled) {
+        float cut = (mcInPow > 0) ? 1.0f - mcOutPow / mcInPow : 0;
+        snprintf(mcText, sizeof(mcText), " mc=on mot=%.2f cut=%d%%",
+                 (double)sqrtf(mcMotPow), (int)(CLAMP(cut, -9.99f, 1.0f) * 100.0f));
+    }
+
+    /* logLine, not LOG_INF: the testing page needs this in bench mode too (the
+     * ESP32 sends it there), to plot the device's own (motion-cancelled) estimate. */
+    logLine("status: ir=%ld avgBpm=%s led=%u acdc=%.2f%% r=%.2f fs=%.1f est=%.1fms%s",
             irRaw, bpmText, ledCurrent, (double)(acdc * 100.0f), (double)lastR,
-            (double)fsHz, (double)(acUs / 1000.0f));
+            (double)fsHz, (double)(acUs / 1000.0f), mcText);
 }
 
-static void processSample(long irRaw, long redRaw)
+/* acc: accelerometer (m/s^2) aligned to this sample, or NULL if there is none. */
+static void processSample(long irRaw, long redRaw, const float *acc)
 {
     float ir = (float)irRaw;
     float red = (float)redRaw;
@@ -676,6 +834,26 @@ static void processSample(long irRaw, long redRaw)
 
     float irF = filter_process(&irFilter, irIn);
     float redF = filter_process(&redFilter, redIn);
+
+    /* Motion cancelling: everything below (envelope, edges, autocorrelation)
+     * sees the cleaned signal. */
+    float irBefore = irF;
+
+    if (mcEnabled && acc != NULL) {
+        bool adapt = sampleIdx >= holdoffUntil;
+        float irC;
+
+        mc_push_ref(acc);
+        irC = mc_cancel(&irNlms, irF, adapt);
+        redF = mc_cancel(&redNlms, redF, adapt);
+        mcInPow += 0.01f * (irF * irF - mcInPow);
+        mcOutPow += 0.01f * (irC * irC - mcOutPow);
+        irF = irC;
+    }
+    if (motion_available()) {
+        mc_record(irBefore, irF);
+    }
+
     redSlopeAvg = 0.7f * redSlopeAvg + 0.3f * (redF - redPrevFiltered);
 
     if (sampleIdx >= holdoffUntil) {
@@ -734,6 +912,7 @@ static void startSession(void)
     beatsCollected = 0;
     rateSpot = 0;
     beatMedian = 0;
+    mc_reset(); /* a new LED/session means a different motion-to-PPG coupling */
     sessionStartMs = k_uptime_get();
     LOG_INF("SESSION START - warming up ~10s (2s settle + 8s window), keep finger still");
 }
@@ -766,6 +945,7 @@ static int ppg_init(void)
 
     LOG_INF("MAX30101 init succeeded (%s only, LED 0x%02X, falling-edge + sliding autocorrelation)",
             led_name(ppgLed), ledCurrent);
+    mcEnabled = motion_available(); /* the same check the boot banner reports */
     startSession();
     return 0;
 }
@@ -774,8 +954,16 @@ static int ppg_init(void)
  * one through the pipeline. */
 static void ppg_poll(void)
 {
+    static float accPrev[MC_AXES];
+    static bool accPrevOk;
+    float accNow[MC_AXES];
     uint8_t wr, rd;
     int pending;
+
+    /* One IMU reading per poll, taken just before the FIFO read so it lines up
+     * with the newest PPG sample; the samples in between are interpolated from
+     * the previous poll's reading (polls are 50 ms apart, motion is < 4 Hz). */
+    bool accOk = mcEnabled && motion_read_accel(accNow) == 0;
 
     if (i2c_reg_read_byte_dt(&ppg_i2c, MAX3010X_REG_FIFO_WR_PTR, &wr) < 0 ||
         i2c_reg_read_byte_dt(&ppg_i2c, MAX3010X_REG_FIFO_RD_PTR, &rd) < 0) {
@@ -801,9 +989,26 @@ static void ppg_poll(void)
         sensor_channel_get(ppg_sensor, ppg_chan, &sample);
 
         /* As on the ESP32: the single LED is fed in as both channels. */
+        float acc[MC_AXES];
+        const float *accp = NULL;
+
+        if (accOk) {
+            float t = (float)(i + 1) / (float)pending;
+
+            for (int a = 0; a < MC_AXES; a++) {
+                acc[a] = accPrevOk ? accPrev[a] + (accNow[a] - accPrev[a]) * t : accNow[a];
+            }
+            accp = acc;
+        }
+
         sendRawSample(sample.val1, sample.val1);
-        processSample(sample.val1, sample.val1);
+        processSample(sample.val1, sample.val1, accp);
     }
+
+    if (accOk) {
+        memcpy(accPrev, accNow, sizeof(accPrev));
+    }
+    accPrevOk = accOk;
 
     bench_poll_rx();
 
