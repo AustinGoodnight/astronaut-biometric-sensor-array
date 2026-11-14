@@ -1,0 +1,10 @@
+/* XIAO nRF52840 Sense: west build -b xiao_ble/nrf52840/sense
+ * Pins and sensors shared with the plain board live in the shared file;
+ * edit them there.
+ *
+ * The board files already enable the on-board LSM6DS3TR-C IMU
+ * (node label lsm6ds3tr_c, i2c0 @ 0x6a, internal pins) and its power switch,
+ * so nothing extra is needed here. It does not share a bus with the
+ * MAX30101, which is on i2c1. IMU-only Kconfig lives in
+ * boards/xiao_ble_nrf52840_sense.conf. */
+#include "xiao_ble_shared.dtsi"

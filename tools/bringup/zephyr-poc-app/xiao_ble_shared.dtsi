@@ -1,5 +1,13 @@
+/* Devicetree shared by every XIAO nRF52840 build (plain and Sense).
+ * Edit pins and sensors here. The per-board overlays only #include this
+ * file and add what is specific to that board:
+ *   xiao_ble_nrf52840.overlay        -> west build -b xiao_ble/nrf52840
+ *   xiao_ble_nrf52840_sense.overlay  -> west build -b xiao_ble/nrf52840/sense
+ */
+
 #include <zephyr/dt-bindings/adc/adc.h>
 #include <zephyr/dt-bindings/adc/nrf-saadc.h>
+#include <zephyr/dt-bindings/i2c/i2c.h>
 
 / {
     zephyr,user {
@@ -25,16 +33,34 @@
 
 &i2c1 {
     status = "okay";
+    clock-frequency = <I2C_BITRATE_FAST>;   /* 400 kHz, like I2C_SPEED_FAST on the ESP32 */
 
-    max30102: max30102@57 {
+    /* Same setup as the ESP32 firmware (hr-max30101-ble/src/hr_dual_channel_patched_6.cpp):
+     * setup(<current>, 4, 1, 400, 411, 4096), one LED in slot 1, multi-LED mode.
+     * 400 samples/s with 4x on-chip averaging = 100 samples/s into the FIFO.
+     *
+     * The heart-rate code reads whichever LED is in slot 1 (1 red, 2 IR, 3 green)
+     * and its current from led-pa, so switching LEDs is just these two lines.
+     * Green (ESP32 default: led-slot <3 0 0 0>, led-pa [00 00 7F]) gave too weak a
+     * pulse on this board (AC/DC ~0.1-0.4%), so this uses IR. */
+    ppg: max30101@57 {
         compatible = "maxim,max30101";
         reg = <0x57>;
-	acq-mode = "spo2";
+        acq-mode = "multi-led";
+        led-slot = <2 0 0 0>;     /* slot 1 = IR, others off */
+        led-pa = [00 2F 00];      /* red, IR, green: IR 0x2F ~9.4 mA (MAX30102 ESP32 build's value) */
+        smp-ave = <4>;
+        smp-sr = <400>;
+        led-pw = <411>;           /* 411 us, 18-bit */
+        adc-rge = <4096>;
+        fifo-rollover-en;
+    };
+};
 
-        led-pa = [3C 3C 3C];      /* 0x3C (~12mA) LED amplitude */
-        smp-ave = <4>;            /* 4-sample averaging */
-        smp-sr = <100>;           /* 100 samples per second */
-        led-pw = <411>;           /* 411us LED pulse width */
-        adc-rge = <4096>;         /* 4096nA ADC range */
+/* Internal pull-ups on SDA/SCL, like Arduino Wire on the ESP32 does.
+ * Needed if the sensor board has no (or weak) pull-ups of its own. */
+&i2c1_default {
+    group1 {
+        bias-pull-up;
     };
 };

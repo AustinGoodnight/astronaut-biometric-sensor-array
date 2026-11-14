@@ -12,6 +12,10 @@
 // (pegs at 262143) and flattens the pulse just as badly.
 byte ledBrightness = 0xFF;
 
+// Green LED drive current. Fixed for now (not auto-tuned like IR); green is read and
+// printed in the status line but beat detection still runs on IR.
+const byte greenBrightness = 0x7F; // ~25mA
+
 MAX30105 particleSensor;
 bool sensorReady = false;
 
@@ -43,7 +47,7 @@ void tryInitSensor() {
   // after, so the green slot really is driven here (unlike on the MAX30102, which has no
   // green LED and ignored it).
   particleSensor.setup(ledBrightness);
-  particleSensor.setPulseAmplitudeGreen(0); // unused - only the IR channel is read below
+  particleSensor.setPulseAmplitudeGreen(greenBrightness);
   particleSensor.setPulseAmplitudeRed(0); // unused - only the IR channel is read below
 
   Serial.println("MAX30101 init succeeded. Place a finger on the sensor.");
@@ -115,6 +119,7 @@ void loop() {
   }
 
   long irValue = particleSensor.getIR();
+  long greenValue = particleSensor.getGreen();
   autoAdjustLed(irValue);
 
   if (checkForBeat(irValue)) {
@@ -133,6 +138,8 @@ void loop() {
     } else {
       Serial.print("status: ir=");
       Serial.print(irValue);
+      Serial.print(" green=");
+      Serial.print(greenValue);
       Serial.print(" avgBpm=");
       Serial.print(beatsCollected > 0 ? String(beatAvg) : String("--"));
       Serial.print(" led=");

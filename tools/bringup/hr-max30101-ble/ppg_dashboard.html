@@ -427,6 +427,13 @@ th { color: var(--ink2); font-weight: 500; position: sticky; top: 0; background:
         <label for="ledSlider">Set LED</label>
         <input type="range" id="ledSlider" min="0" max="255" value="127" disabled title="USB only. ~0.2 mA per step">
         <span id="ledSliderVal" style="font-variant-numeric:tabular-nums">127</span>
+        <label for="ledColor">LED colour</label>
+        <select id="ledColor" disabled title="USB only, Zephyr board only (the ESP32 ignores it). Keeps the current LED current and restarts the session.">
+          <option value="2" selected>IR</option>
+          <option value="1">Red</option>
+          <option value="3">Green</option>
+        </select>
+        <span></span>
       </div>
     </div>
   </section>
@@ -1025,6 +1032,20 @@ ledSlider.addEventListener('input', () => {
   }, 250);
 });
 
+/* ---- LED colour (USB, Zephyr board only: sends "C<1-3>"; 1 red, 2 IR, 3 green) ---- */
+const ledColor = document.getElementById('ledColor');
+ledColor.addEventListener('change', () => {
+  if (!usb) return;
+  usb.writer.write(new TextEncoder().encode('C' + ledColor.value + '\n')).catch(() => {});
+  addLog('ui', 'LED colour set to ' + ledColor.options[ledColor.selectedIndex].text + ' (board restarts its session)');
+});
+/* The board confirms with "LED set to <red|IR|green>..."; follow it so the menu shows what is really lit. */
+const LED_SET_RE = /^LED set to (red|IR|green)\b/;
+function syncLedColor(line) {
+  const m = LED_SET_RE.exec(line);
+  if (m) ledColor.value = { red: '1', IR: '2', green: '3' }[m[1]];
+}
+
 /* ---- Web Serial (USB) ---- */
 let usb = null;   // { port, reader, writer, stop, nagTimer }
 async function connectUsb() {
@@ -1044,7 +1065,7 @@ async function connectUsb() {
     // board may still be booting (opening the port can reset it).
     const ask = () => { if (usb && !usb.gotRaw) writer.write(enc.encode('R\n')).catch(() => {}); };
     ask(); usb.nagTimer = setInterval(ask, 1000);
-    ledSlider.disabled = false;
+    ledSlider.disabled = false; ledColor.disabled = false;
     setConn('Connected: USB serial', 'on');
     document.getElementById('btnUsb').textContent = 'Disconnect USB';
     addLog('ui', 'USB serial open; asking board for raw stream');
@@ -1087,10 +1108,10 @@ function onUsbLine(u, line) {
     for (let k = 0; k < BATCH; k++) { const c = pairs[k].split(':'); dv.setUint32(2 + k * 8, +c[0], true); dv.setUint32(6 + k * 8, +c[1], true); }
     u.gotRaw = true;
     onRaw(dv);
-  } else onText(line);
+  } else { syncLedColor(line); onText(line); }
 }
 async function closeUsb(msg) {
-  const u = usb; usb = null; ledSlider.disabled = true;
+  const u = usb; usb = null; ledSlider.disabled = true; ledColor.disabled = true;
   if (!u) return;
   u.stop = true; clearInterval(u.nagTimer);
   try { await u.writer.write(new TextEncoder().encode('r\n')); } catch (e) {}

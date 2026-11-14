@@ -1,0 +1,3 @@
+/* Plain XIAO nRF52840 (no IMU): west build -b xiao_ble/nrf52840
+ * Everything lives in the shared file; edit pins and sensors there. */
+#include "xiao_ble_shared.dtsi"
