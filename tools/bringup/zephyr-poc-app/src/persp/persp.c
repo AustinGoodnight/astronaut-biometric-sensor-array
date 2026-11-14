@@ -95,19 +95,28 @@ int persp_init(void)
 	int ret;
 
 	if (!adc_is_ready_dt(&adc_channel)) {
+		LOG_ERR("Perspiration ADC device is not ready");
 		return -ENODEV;
 	}
 
 	ret = adc_channel_setup_dt(&adc_channel);
 	if (ret < 0) {
+		LOG_ERR("Perspiration ADC channel setup failed: %d", ret);
 		return ret;
 	}
 
 	if (!gpio_is_ready_dt(&alarm_led)) {
+		LOG_ERR("Perspiration alarm LED is not ready");
 		return -ENODEV;
 	}
-
-	return gpio_pin_configure_dt(&alarm_led, GPIO_OUTPUT_INACTIVE);
+	
+	ret = gpio_pin_configure_dt(&alarm_led, GPIO_OUTPUT_INACTIVE);
+	if (ret < 0) {
+		LOG_ERR("Failed to configure perspiration alarm LED GPIO: %d", ret);
+		return ret;
+	}
+	
+	return 0;
 }
 
 int persp_read_resistance_kohms(uint16_t *resistance_kohms)

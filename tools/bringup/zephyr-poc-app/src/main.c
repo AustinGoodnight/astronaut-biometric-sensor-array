@@ -194,8 +194,8 @@ int main(void)
     int ret = persp_init();
 
     if (ret < 0) {
-        LOG_ERR("Failed to initialize skin-resistance sensor: %d", ret);
-        return ret;
+        LOG_WRN("Failed to initialize skin-resistance sensor: %d; continuing without it",
+                ret);
     }
 
     /* No heart-rate sensor shouldn't stop telemetry; HR is sent as 0. */
