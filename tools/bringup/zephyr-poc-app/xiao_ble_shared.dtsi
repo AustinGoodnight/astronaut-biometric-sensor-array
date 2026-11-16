@@ -58,6 +58,11 @@
         adc-rge = <4096>;
         fifo-rollover-en;
     };
+
+    skin_temp: max30205@48 {
+        compatible = "maxim,max30205";
+        reg = <0x48>;
+    };
 };
 
 /* Internal pull-ups on SDA/SCL, like Arduino Wire on the ESP32 does.

@@ -13,6 +13,7 @@
 LOG_MODULE_REGISTER(blinky_main, LOG_LEVEL_INF);
 
 #include "max/hr_main.c"
+#include "skin-temp/max30205.h"
 
 struct sensor_data {
     int hr;
@@ -30,7 +31,6 @@ struct k_work_delayable sensor_poll;
 static struct k_work_delayable ppg_poll_work;
 
 int respiration_handler(){return 20;}
-float stemp_handler(){return 95.4;}
 int32_t gps_lat_e7_handler(){return 0;}   /* degrees x 10^7, signed */
 int32_t gps_lon_e7_handler(){return 0;}
 int steps_handler(){return 145;}
@@ -59,6 +59,8 @@ int steps_handler(){return 145;}
 enum { ACT_HR, ACT_RESP, ACT_RES, ACT_TEMP, ACT_GPS, ACT_STEPS, ACT_COUNT };
 
 static bool hr_sensor_ok;
+static bool persp_sensor_ok;
+static bool temp_sensor_ok;
 
 /* Clamp an unsigned field to [0, 2^width - 1] so an out-of-range value is
  * sent as the field maximum instead of being rejected by pack_bits() (which
@@ -123,6 +125,7 @@ static void ppg_poll_handler(struct k_work *work)
 static void sensor_polling_handler(struct k_work *work)
 {
     uint16_t resistance_kohms;
+    int32_t temperature_millicelsius = 0;
     int ret;
 
     ARG_UNUSED(work);
@@ -134,18 +137,30 @@ static void sensor_polling_handler(struct k_work *work)
         sd1.active |= BIT(ACT_HR);
     }
 
-    ret = persp_read_resistance_kohms(&resistance_kohms);
-    if (ret < 0) {
-        LOG_ERR("Failed to read skin resistance: %d", ret);
-        resistance_kohms = 0;
-    } else {
-        sd1.active |= BIT(ACT_RES);
+    resistance_kohms = 0;
+    if (persp_sensor_ok) {
+        ret = persp_read_resistance_kohms(&resistance_kohms);
+        if (ret < 0) {
+            LOG_ERR("Failed to read skin resistance: %d", ret);
+        } else {
+            sd1.active |= BIT(ACT_RES);
+        }
     }
+
+    if (temp_sensor_ok) {
+        ret = max30205_read_temp_millicelsius(&temperature_millicelsius);
+        if (ret < 0) {
+            LOG_ERR("Failed to read skin temperature: %d", ret);
+        } else {
+            sd1.active |= BIT(ACT_TEMP);
+        }
+    }
+
 
     sd1.hr = heart_rate_valid ? latest_heart_rate : 0;
     sd1.resp_rate = respiration_handler();
     sd1.skin_resistance_kohms = resistance_kohms;
-    sd1.skin_temp = stemp_handler();
+    sd1.skin_temp = (temperature_millicelsius / 1000.0f) * 9.0f / 5.0f + 32.0f;
     sd1.lat_e7 = gps_lat_e7_handler();
     sd1.lon_e7 = gps_lon_e7_handler();
     sd1.steps = steps_handler();
@@ -194,8 +209,9 @@ int main(void)
     }
 
     int ret = persp_init();
+    persp_sensor_ok = (ret == 0);
 
-    if (ret < 0) {
+    if (!persp_sensor_ok) {
         LOG_WRN("Failed to initialize skin-resistance sensor: %d; continuing without it",
                 ret);
     }
@@ -207,6 +223,12 @@ int main(void)
         k_work_schedule(&ppg_poll_work, K_MSEC(PPG_POLL_PERIOD_MS));
     } else {
         LOG_ERR("Continuing without heart rate");
+    }
+
+    /* Initialize the skin temperature sensor. */
+    temp_sensor_ok = (max30205_init() == 0);
+    if (!temp_sensor_ok) {
+        LOG_WRN("Failed to initialize skin temperature sensor");
     }
 
     k_work_init_delayable(&sensor_poll, sensor_polling_handler);
