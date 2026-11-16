@@ -4,3 +4,8 @@
 
 # build
 /build*/
+
+# python
+__pycache__/
+spectral_hr_viz.png
+classic_hr_viz.png

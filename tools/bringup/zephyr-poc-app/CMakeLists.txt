@@ -8,6 +8,7 @@ target_sources(app PRIVATE
     src/main.c
     src/persp/persp.c
     src/ble/ble.c
+    src/max/spectral_hr.c
 )
 
 # IMU / motion cancelling: Sense board only (xiao_ble/nrf52840/sense).

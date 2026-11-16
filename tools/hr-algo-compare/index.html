@@ -1,0 +1,1259 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HR Algorithm Compare</title>
+<script>
+  // Theme shared with the other dev pages: "auto", "dark" or "light", resolved before first paint.
+  (function () {
+    var pref = 'auto';
+    try { pref = localStorage.getItem('devPages.theme') || 'auto'; } catch (e) {}
+    var dark = pref === 'dark' || (pref === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
+    document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+  })();
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Scoutie+Sans:wght@200..800&family=JetBrains+Mono:wght@500;600&display=swap">
+<style>
+/* Same tokens as the HR testing page (tools/bringup/hr-max30102-ble/ppg_dashboard.html).
+   --spec / --classic are the two algorithm colours (validated as a categorical pair,
+   light and dark). Solid line = computed in this page, dashed = what the board reports. */
+:root {
+  --font-ui: "Scoutie Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --r-md: 6px; --r-lg: 8px; --gap: 20px;
+  color-scheme: light;
+  --page: #f2f2f2; --surface: #ffffff; --hover: #e9e9e9;
+  --ink: #111111; --ink2: #555555; --ink3: #8a8a8a;
+  --grid: #e4e4e4; --rule: #dedede; --track: #c4c4c4;
+  --spec: #e6362a; --classic: #2a78d6; --neutral: #6b6b6b;
+  --good: #15803d; --warning: #b45309;
+  --shadow: 0 8px 24px rgba(0, 0, 0, .14);
+}
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme="light"])) {
+    color-scheme: dark;
+    --page: #0b0b0b; --surface: #141414; --hover: #1f1f1f;
+    --ink: #ededed; --ink2: #9b9b9b; --ink3: #666666;
+    --grid: #1d1d1d; --rule: #242424; --track: #3a3a3a;
+    --spec: #ff4230; --classic: #3987e5; --neutral: #a8a8a8;
+    --good: #3ddc84; --warning: #f5b83d;
+    --shadow: 0 10px 30px rgba(0, 0, 0, .6);
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #0b0b0b; --surface: #141414; --hover: #1f1f1f;
+  --ink: #ededed; --ink2: #9b9b9b; --ink3: #666666;
+  --grid: #1d1d1d; --rule: #242424; --track: #3a3a3a;
+  --spec: #ff4230; --classic: #3987e5; --neutral: #a8a8a8;
+  --good: #3ddc84; --warning: #f5b83d;
+  --shadow: 0 10px 30px rgba(0, 0, 0, .6);
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--page); color: var(--ink); font: 400 14px/1.45 var(--font-ui); -webkit-font-smoothing: antialiased; }
+.wrap { max-width: 1200px; margin: 0 auto; padding: var(--gap) 16px 60px; }
+.app-header {
+  position: sticky; top: 0; z-index: 10; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px;
+  padding: 8px 16px; border-bottom: 1px solid var(--rule);
+  background: color-mix(in srgb, var(--surface) 88%, transparent); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+}
+.app-title { font-size: 15px; font-weight: 700; margin: 0 8px 0 0; }
+.pill { display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px; border-radius: 999px; background: var(--hover); color: var(--ink2); font-size: 12px; white-space: nowrap; }
+.pill.good { background: color-mix(in srgb, var(--good) 16%, transparent); color: var(--good); }
+.pill.warn { background: color-mix(in srgb, var(--warning) 18%, transparent); color: var(--warning); }
+.grow { flex: 1 1 auto; }
+button, .btn, select {
+  font: inherit; font-size: 13px; font-weight: 600; color: var(--ink); background: var(--hover);
+  border: 0; box-shadow: inset 0 0 0 1px var(--rule); border-radius: var(--r-md); padding: 6px 12px; min-height: 32px; cursor: pointer;
+}
+button.primary { background: var(--ink); color: var(--page); box-shadow: none; }
+button:disabled { opacity: .45; cursor: default; }
+button:focus-visible, .btn:focus-within, select:focus-visible, input:focus-visible, canvas:focus-visible { outline: 2px solid var(--spec); outline-offset: 2px; }
+.btn { position: relative; display: inline-flex; align-items: center; }
+.btn input { position: absolute; opacity: 0; width: 0; height: 0; }
+input[type=range] { accent-color: var(--ink2); }
+.intro { color: var(--ink2); font-size: 13px; max-width: 900px; margin: 0 0 var(--gap); }
+.tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px 24px; margin-bottom: var(--gap); }
+.tile .label { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 500; }
+.tile .val { font-size: 34px; font-weight: 650; line-height: 1.1; font-variant-numeric: tabular-nums; margin: 4px 0 2px; }
+.tile .val small { font-size: 13px; font-weight: 500; color: var(--ink2); }
+.tile .val.empty { color: var(--ink3); }
+.tile .note { color: var(--ink2); font-size: 12px; min-height: 18px; font-variant-numeric: tabular-nums; }
+.swatch { width: 16px; height: 3px; border-radius: 2px; display: inline-block; flex: none; }
+.swatch.dash { background: repeating-linear-gradient(90deg, currentColor 0 4px, transparent 4px 7px) !important; height: 2px; }
+.controls { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; padding: 0 0 var(--gap); border-bottom: 1px solid var(--rule); margin-bottom: var(--gap); }
+.controls label { display: inline-flex; align-items: center; gap: 8px; color: var(--ink2); font-size: 12px; }
+.controls output { color: var(--ink); font-variant-numeric: tabular-nums; min-width: 3.5em; }
+.card { margin-bottom: 28px; min-width: 0; }
+.card-h { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 4px 16px; margin-bottom: 6px; }
+.card-h h2 { font-size: 15px; font-weight: 600; margin: 0; }
+.card-h h3 { font-size: 13px; font-weight: 500; margin: 0; color: var(--ink2); }
+.sub { color: var(--ink2); font-size: 12px; margin: 0 0 8px; }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--ink2); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.k-box { width: 12px; height: 10px; border-radius: 2px; display: inline-block; }
+.k-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+canvas { display: block; width: 100%; touch-action: pan-y; }
+.cv-hr { height: 260px; } .cv-spec { height: 230px; } .cv-acc { height: 110px; } .cv-heat { height: 170px; }
+.cv-ac { height: 230px; } .cv-pub { height: 170px; } .cv-sig { height: 200px; }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; }
+.col-h { display: flex; align-items: center; gap: 8px; font-size: 17px; font-weight: 650; margin: 0 0 12px; padding-bottom: 6px; border-bottom: 2px solid currentColor; }
+.col-h .swatch { width: 22px; height: 4px; }
+.col-h span.t { color: var(--ink); }
+.readout { font-size: 12px; color: var(--ink2); font-variant-numeric: tabular-nums; min-height: 18px; margin-top: 4px; }
+.readout b { color: var(--ink); font-weight: 600; }
+table { width: 100%; border-collapse: collapse; font-size: 12px; font-variant-numeric: tabular-nums; }
+th, td { text-align: right; padding: 4px 8px; border-bottom: 1px solid var(--grid); }
+th:first-child, td:first-child { text-align: left; }
+th { color: var(--ink2); font-weight: 500; position: sticky; top: 0; background: var(--page); }
+.scroll { max-height: 260px; overflow: auto; }
+.log { font: 500 12px/1.5 var(--font-mono); max-height: 200px; overflow: auto; background: var(--surface); border-radius: var(--r-lg); padding: 8px 12px; }
+.log:empty { display: none; }
+.log .t { color: var(--ink3); margin-right: 8px; }
+.log .warn { color: var(--spec); font-weight: 600; }
+#tip {
+  position: fixed; z-index: 20; pointer-events: none; display: none; background: var(--surface); color: var(--ink);
+  border: 1px solid var(--rule); border-radius: var(--r-lg); box-shadow: var(--shadow); padding: 8px 10px; font-size: 12px; min-width: 150px;
+}
+#tip .tt-title { color: var(--ink2); margin-bottom: 4px; font-variant-numeric: tabular-nums; }
+#tip .tt-row { display: flex; align-items: center; gap: 8px; line-height: 1.6; }
+#tip .tt-val { font-weight: 600; font-variant-numeric: tabular-nums; margin-left: auto; padding-left: 12px; }
+#toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 30; background: var(--ink); color: var(--page);
+  padding: 8px 14px; border-radius: var(--r-md); font-size: 13px; font-weight: 500; display: none; max-width: min(560px, 92vw); }
+@media (max-width: 900px) {
+  .two { grid-template-columns: 1fr; }
+  .tiles { grid-template-columns: 1fr 1fr; }
+}
+</style>
+</head>
+<body>
+<header class="app-header">
+  <h1 class="app-title">HR algorithm compare</h1>
+  <span class="pill" id="conn">Not connected</span>
+  <span class="pill" id="pillTime">0:00</span>
+  <span class="pill" id="pillMotion">IMU: --</span>
+  <span class="grow"></span>
+  <button class="primary" id="btnUsb">Connect USB</button>
+  <label class="btn" title="Replay a recording: needs an ir column at 100 Hz; ax,ay,az (m/s²) optional">Load CSV<input type="file" id="fileIn" accept=".csv,.txt"></label>
+  <button id="btnSave" disabled title="Save everything received as ir,red,ax,ay,az (works with scripts/*_viz.py)">Save CSV</button>
+  <button id="btnTheme" title="Theme: auto / dark / light">Theme</button>
+</header>
+
+<main class="wrap">
+  <p class="intro">
+    Runs both heart-rate algorithms from <code>zephyr-poc-app</code> in this page, on the same samples the board uses,
+    and shows what each one sees every second. Connect the board over USB (Chrome or Edge), or load a recording.
+    The board's own numbers from its status line are drawn dashed. The page starts fresh when it connects, so allow
+    about 15&nbsp;s before comparing page and board.
+  </p>
+
+  <section class="tiles" aria-label="Current readings">
+    <div class="tile" style="color:var(--spec)">
+      <div class="label"><span class="swatch" style="background:var(--spec)"></span><span style="color:var(--ink)">Spectral</span></div>
+      <div class="val empty" id="vSpec">--</div>
+      <div class="note" id="nSpec">&nbsp;</div>
+    </div>
+    <div class="tile" style="color:var(--classic)">
+      <div class="label"><span class="swatch" style="background:var(--classic)"></span><span style="color:var(--ink)">Classic</span></div>
+      <div class="val empty" id="vClassic">--</div>
+      <div class="note" id="nClassic">&nbsp;</div>
+    </div>
+    <div class="tile">
+      <div class="label">Board reports</div>
+      <div class="val empty" id="vDev">--</div>
+      <div class="note" id="nDev">connect USB to see the board's own numbers</div>
+    </div>
+    <div class="tile">
+      <div class="label">Wrist motion</div>
+      <div class="val empty" id="vMot">--</div>
+      <div class="note" id="nMot">&nbsp;</div>
+    </div>
+  </section>
+
+  <section class="controls" aria-label="Settings">
+    <label><input type="checkbox" id="follow" checked> Follow live</label>
+    <label>Inspect second <input type="range" id="selSlider" min="0" max="0" value="0" style="width:240px"> <output id="selOut">--</output></label>
+    <span class="grow"></span>
+    <label title="Motion cancelling in the page's classic path (the board has its own M/m setting)"><input type="checkbox" id="optMc" checked> Classic: motion cancel</label>
+    <label title="Firmware: SPEC_NOTCH_K = 2">Spectral notch ±<input type="range" id="optNotch" min="0" max="15" value="2"><output id="outNotch">2 bins</output></label>
+    <label title="Firmware: SPEC_SIGMA_BPM = 2">Spectral max change <input type="range" id="optSigma" min="0.5" max="10" step="0.5" value="2"><output id="outSigma">2 bpm/s</output></label>
+    <button id="btnDefaults" title="Back to the firmware's values">Firmware values</button>
+    <span class="pill warn" id="pillTuned" style="display:none">tuned: page differs from firmware</span>
+  </section>
+
+  <section class="card">
+    <div class="card-h">
+      <h2>Heart rate over time</h2>
+      <div class="legend">
+        <span style="color:var(--spec)"><i class="swatch" style="background:var(--spec)"></i><span style="color:var(--ink2)">spectral (page)</span></span>
+        <span style="color:var(--spec)"><i class="swatch dash"></i><span style="color:var(--ink2)">spectral (board)</span></span>
+        <span style="color:var(--classic)"><i class="swatch" style="background:var(--classic)"></i><span style="color:var(--ink2)">classic (page)</span></span>
+        <span style="color:var(--classic)"><i class="swatch dash"></i><span style="color:var(--ink2)">classic (board)</span></span>
+        <button id="btnTable" aria-pressed="false" style="min-height:24px;padding:2px 10px;font-size:12px">Table</button>
+      </div>
+    </div>
+    <p class="sub">Click the chart to inspect that second below. Gaps in classic are where it shows "--". Grey ticks on the axis mark lost serial lines.</p>
+    <canvas id="cvHr" class="cv-hr" tabindex="0" role="img" aria-label="Heart rate over time from both algorithms, page and board. A table view is available."></canvas>
+    <div class="scroll" id="tableWrap" style="display:none"><table><thead><tr><th>time</th><th>spectral (page)</th><th>classic (page)</th><th>spectral (board)</th><th>classic (board)</th><th>motion m/s²</th></tr></thead><tbody id="tbody"></tbody></table></div>
+  </section>
+
+  <div class="two">
+    <section aria-label="Spectral algorithm">
+      <h2 class="col-h" style="color:var(--spec)"><span class="swatch" style="background:var(--spec)"></span><span class="t">Spectral: frequencies, motion removed, tracked</span></h2>
+
+      <div class="card">
+        <div class="card-h"><h3>PPG spectrum of the last 8 s</h3>
+          <div class="legend">
+            <span><i class="k-box" style="background:var(--neutral);opacity:.35"></i>before notching</span>
+            <span><i class="k-box" style="background:var(--spec);opacity:.55"></i>after</span>
+            <span><i class="k-box" style="background:repeating-linear-gradient(135deg,var(--ink3) 0 2px,transparent 2px 5px)"></i>removed (motion)</span>
+          </div>
+        </div>
+        <canvas id="cvSpec" class="cv-spec" tabindex="0" role="img" aria-label="Power spectrum of the PPG before and after motion notches, with the chosen heart rate"></canvas>
+        <div class="readout" id="roSpec"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-h"><h3>Accelerometer spectrum (what gets notched)</h3></div>
+        <canvas id="cvAcc" class="cv-acc" tabindex="0" role="img" aria-label="Accelerometer power spectrum with detected motion peaks"></canvas>
+        <div class="readout" id="roAcc"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-h"><h3>Last 60 s: share of power at each bpm, and the tracked path</h3>
+          <div class="legend"><span><i class="k-dot" style="background:var(--ink)"></i>biggest bin</span><span><i class="swatch" style="background:var(--spec)"></i>tracker</span></div>
+        </div>
+        <canvas id="cvSpecHeat" class="cv-heat" tabindex="0" role="img" aria-label="Spectral power share over time with tracked heart rate"></canvas>
+      </div>
+    </section>
+
+    <section aria-label="Classic algorithm">
+      <h2 class="col-h" style="color:var(--classic)"><span class="swatch" style="background:var(--classic)"></span><span class="t">Classic: motion cancelled, autocorrelation, rules</span></h2>
+
+      <div class="card">
+        <div class="card-h"><h3>Autocorrelation of the last 8 s (x: beat period as bpm)</h3>
+          <div class="legend"><span><i class="swatch dash" style="color:var(--ink2)"></i>0.5 floor</span><span><i class="swatch dash" style="color:var(--ink3)"></i>85% of best</span></div>
+        </div>
+        <canvas id="cvAc" class="cv-ac" tabindex="0" role="img" aria-label="Autocorrelation against beat period, with thresholds and the chosen lag"></canvas>
+        <div class="readout" id="roAc"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-h"><h3>Pulse signal, last 8 s (classic path)</h3>
+          <div class="legend">
+            <span><i class="swatch" style="background:var(--neutral)"></i>before motion cancel</span>
+            <span><i class="swatch" style="background:var(--classic)"></i>after</span>
+            <span><i class="k-box" style="background:var(--ink3);opacity:.25"></i>holdoff</span>
+          </div>
+        </div>
+        <canvas id="cvSig" class="cv-sig" tabindex="0" role="img" aria-label="Filtered pulse before and after motion cancelling for the inspected window"></canvas>
+        <div class="readout" id="roSig"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-h"><h3>Last 60 s: each second's estimate and what got published</h3>
+          <div class="legend">
+            <span><i class="k-dot" style="background:var(--classic)"></i>accepted</span>
+            <span><i class="k-dot" style="border:2px solid var(--classic);width:9px;height:9px"></i>held back (jump)</span>
+            <span style="color:var(--ink2)">× failed</span>
+            <span><i class="swatch" style="background:var(--classic)"></i>published</span>
+          </div>
+        </div>
+        <canvas id="cvPub" class="cv-pub" tabindex="0" role="img" aria-label="Classic per-second estimates, held-back jumps, failures and the published value"></canvas>
+      </div>
+    </section>
+  </div>
+
+  <section class="card">
+    <div class="card-h"><h2>Log</h2></div>
+    <div class="log" id="log" aria-live="polite"></div>
+  </section>
+</main>
+<div id="tip" role="tooltip"></div>
+<div id="toast" role="status"></div>
+
+<script>
+'use strict';
+/* =========================================================================
+ * ALGORITHMS — ports of the firmware. Keep in sync with:
+ *   spectral: tools/bringup/zephyr-poc-app/src/max/spectral_hr.c
+ *   classic:  tools/bringup/zephyr-poc-app/src/max/hr_main.c (processSample/onTick)
+ * Checked sample-for-sample against the Python ports in zephyr-poc-app/scripts/,
+ * which are checked against the C. Plain JS, no DOM (runs in node too).
+ * ===================================================================== BEGIN-ALGO */
+const FS_IN = 100;
+const BP_COEF = [[0.006867866, 0.013735731, 0.006867866, -1.786023501, 0.820363944],
+                 [1.0, -2.0, 1.0, -1.948065846, 0.950479924]];
+function makeBandpass() {
+  const z = new Float64Array(4);
+  return {
+    reset() { z.fill(0); },
+    step(x) {
+      for (let s = 0; s < 2; s++) {
+        const c = BP_COEF[s], y = c[0] * x + z[2 * s];
+        z[2 * s] = c[1] * x - c[3] * y + z[2 * s + 1];
+        z[2 * s + 1] = c[2] * x - c[4] * y;
+        x = y;
+      }
+      return x;
+    },
+  };
+}
+function fftInPlace(re, im) {
+  const n = re.length;
+  for (let i = 1, j = 0; i < n; i++) {
+    let bit = n >> 1;
+    for (; j & bit; bit >>= 1) j ^= bit;
+    j ^= bit;
+    if (i < j) { let t = re[i]; re[i] = re[j]; re[j] = t; t = im[i]; im[i] = im[j]; im[j] = t; }
+  }
+  for (let len = 2; len <= n; len <<= 1) {
+    const ang = -2 * Math.PI / len, wr = Math.cos(ang), wi = Math.sin(ang);
+    for (let i = 0; i < n; i += len) {
+      let cr = 1, ci = 0;
+      for (let j = 0; j < len / 2; j++) {
+        const a = i + j, b = a + len / 2;
+        const tr = re[b] * cr - im[b] * ci, ti = re[b] * ci + im[b] * cr;
+        re[b] = re[a] - tr; im[b] = im[a] - ti; re[a] += tr; im[a] += ti;
+        const ncr = cr * wr - ci * wi; ci = cr * wi + ci * wr; cr = ncr;
+      }
+    }
+  }
+}
+
+/* ---- Spectral tracker (spectral_hr.c) ---- */
+const SPEC = { DECIM: 4, FS: 25, WIN: 200, NFFT: 1024, K_LO: 28, K_HI: 122, KM_LO: 21, KM_HI: 163,
+               MOT_RMS: 0.2, MOT_FRAC: 0.2, MOT_PEAKS: 3, HARM: [0.5, 1, 2, 3] };
+SPEC.BIN_BPM = SPEC.FS / SPEC.NFFT * 60;
+SPEC.NSTATE = SPEC.K_HI - SPEC.K_LO + 1;
+const SPEC_DEFAULTS = { notchK: 2, sigmaBpm: 2 };
+
+function makeSpectral(cfg) {
+  const W = SPEC.WIN, hann = new Float64Array(W);
+  for (let i = 0; i < W; i++) hann[i] = 0.5 - 0.5 * Math.cos(2 * Math.PI * i / (W - 1));
+  const re = new Float64Array(SPEC.NFFT), im = new Float64Array(SPEC.NFFT);
+  let ppgF, accF, ppgDc0, accDc0, primed, ppgAcc, accAcc, decN, decHasAcc;
+  let ppgRing, accRing, accValid, head, count, score, haveScore;
+  function reset() {
+    ppgF = makeBandpass(); accF = [makeBandpass(), makeBandpass(), makeBandpass()];
+    ppgDc0 = 0; accDc0 = [0, 0, 0]; primed = false; ppgAcc = 0; accAcc = [0, 0, 0]; decN = 0; decHasAcc = true;
+    ppgRing = new Float64Array(W); accRing = [new Float64Array(W), new Float64Array(W), new Float64Array(W)];
+    accValid = new Uint8Array(W); head = 0; count = 0; score = new Float64Array(SPEC.NSTATE); haveScore = false;
+  }
+  function power(ring, out) {
+    let mean = 0;
+    for (let i = 0; i < W; i++) mean += ring[i];
+    mean /= W;
+    re.fill(0); im.fill(0);
+    for (let i = 0; i < W; i++) re[i] = (ring[(head + i) % W] - mean) * hann[i];
+    fftInPlace(re, im);
+    for (let k = 0; k <= SPEC.KM_HI; k++) out[k] = re[k] * re[k] + im[k] * im[k];
+  }
+  function push(ppg, acc) {
+    if (!primed) { ppgDc0 = ppg; for (let a = 0; a < 3; a++) accDc0[a] = acc ? acc[a] : 0; primed = true; }
+    ppgAcc += ppgF.step(ppg - ppgDc0);
+    if (acc) for (let a = 0; a < 3; a++) accAcc[a] += accF[a].step(acc[a] - accDc0[a]);
+    else decHasAcc = false;
+    if (++decN < SPEC.DECIM) return;
+    ppgRing[head] = ppgAcc / SPEC.DECIM;
+    for (let a = 0; a < 3; a++) accRing[a][head] = accAcc[a] / SPEC.DECIM;
+    accValid[head] = decHasAcc ? 1 : 0;
+    head = (head + 1) % W;
+    if (count < W) count++;
+    ppgAcc = 0; accAcc = [0, 0, 0]; decN = 0; decHasAcc = true;
+  }
+  /* Once a second. Returns null while warming, else a snapshot of everything drawn. */
+  function tick() {
+    if (count < W) return { warm: true, filled: count / W };
+    const before = new Float64Array(SPEC.KM_HI + 1);
+    power(ppgRing, before);
+    const after = Float64Array.from(before);
+    let accOk = true, mot = 0;
+    for (let i = 0; i < W; i++) { accOk = accOk && !!accValid[i]; for (let a = 0; a < 3; a++) mot += accRing[a][i] * accRing[a][i]; }
+    mot = accOk ? Math.sqrt(mot / W) : 0;
+    let aspec = null; const peaks = [], notched = [];
+    if (accOk && mot > SPEC.MOT_RMS) {
+      aspec = new Float64Array(SPEC.KM_HI + 1);
+      const tmp = new Float64Array(SPEC.KM_HI + 1);
+      for (let a = 0; a < 3; a++) { power(accRing[a], tmp); for (let k = 0; k <= SPEC.KM_HI; k++) aspec[k] += tmp[k]; }
+      let amax = 0;
+      for (let k = SPEC.KM_LO; k <= SPEC.KM_HI; k++) amax = Math.max(amax, aspec[k]);
+      for (let n = 0; n < SPEC.MOT_PEAKS; n++) {
+        let best = -1;
+        for (let k = SPEC.KM_LO + 1; k < SPEC.KM_HI; k++) {
+          if (!peaks.includes(k) && aspec[k] > SPEC.MOT_FRAC * amax && aspec[k] >= aspec[k - 1] && aspec[k] >= aspec[k + 1] &&
+              (best < 0 || aspec[k] > aspec[best])) best = k;
+        }
+        if (best < 0) break;
+        peaks.push(best);
+      }
+      for (const p of peaks) for (const h of SPEC.HARM) {
+        const kc = Math.round(p * h), lo = Math.max(0, kc - cfg.notchK), hi = Math.min(SPEC.KM_HI, kc + cfg.notchK);
+        for (let k = lo; k <= hi; k++) after[k] = 0;
+        notched.push([lo, hi]);
+      }
+    }
+    let total = 0;
+    for (let k = SPEC.K_LO; k <= SPEC.K_HI; k++) total += after[k];
+    total += 1e-12;
+    const share = new Float32Array(SPEC.NSTATE), next = new Float64Array(SPEC.NSTATE);
+    let best = -Infinity, besti = 0, naivei = 0;
+    for (let i = 0; i < SPEC.NSTATE; i++) {
+      share[i] = after[SPEC.K_LO + i] / total;
+      if (after[SPEC.K_LO + i] > after[SPEC.K_LO + naivei]) naivei = i;
+      const le = Math.log(after[SPEC.K_LO + i] / total + 1e-6);
+      let prev = 0;
+      if (haveScore) {
+        prev = -Infinity;
+        for (let j = 0; j < SPEC.NSTATE; j++) {
+          const d = (i - j) * SPEC.BIN_BPM / cfg.sigmaBpm;
+          prev = Math.max(prev, score[j] - 0.5 * d * d);
+        }
+      }
+      next[i] = le + prev;
+      if (next[i] > best) { best = next[i]; besti = i; }
+    }
+    for (let i = 0; i < SPEC.NSTATE; i++) score[i] = next[i] - best;
+    haveScore = true;
+    return { warm: false, before: Float32Array.from(before), after: Float32Array.from(after),
+             aspec: aspec && Float32Array.from(aspec), peaks, notched, mot, share,
+             bpm: (SPEC.K_LO + besti) * SPEC.BIN_BPM, naive: (SPEC.K_LO + naivei) * SPEC.BIN_BPM,
+             conf: after[SPEC.K_LO + besti] / total, hasAcc: accOk };
+  }
+  reset();
+  return { push, tick, reset };
+}
+
+/* ---- Classic path (hr_main.c): holdoff, DC, bandpass, NLMS, autocorrelation, publish rules ---- */
+const CL = { WIN_DECIM: 4, WIN_LEN: 200, MAX_LAG: 40, FS_WIN: 25, AC_MIN: 0.5, PEAK_FRAC: 0.85,
+             JUMP: 15, JUMP_CONFIRM: 3, FAIL_TICKS: 5, HIST: 5, STALE_SEC: 15, DC_ALPHA: 0.01,
+             STEP_FRAC: 0.03, HOLDOFF_SEC: 1.5, SETTLE_SEC: 2,
+             TAPS: 8, MU: 0.05, REST: 0.05, LEAK: 0.9995, BYP_ON: 1.0, BYP_OFF: 0.9 };
+CL.LAG_MIN = Math.max(2, Math.trunc(CL.FS_WIN * 60 / 220));
+CL.LAG_MAX = Math.min(CL.MAX_LAG - 1, Math.trunc(CL.FS_WIN * 60 / 42 + 0.5));
+CL.N = CL.TAPS * 3;
+CL.EPS = CL.N * CL.REST * CL.REST;
+const SIG_LEN = 800;   // 8 s of per-sample trace kept for the signal chart
+
+function estimateHr(win) {
+  const n = win.length, x = new Float64Array(n);
+  let mean = 0;
+  for (let i = 0; i < n; i++) mean += win[i];
+  mean /= n;
+  let r0 = 0;
+  for (let i = 0; i < n; i++) { x[i] = win[i] - mean; r0 += x[i] * x[i]; }
+  r0 /= n;
+  const ac = new Float32Array(CL.MAX_LAG + 2).fill(NaN);
+  if (r0 <= 0) return { ok: false, rmax: 0, ac, lag: null, bpm: null };
+  for (let lag = CL.LAG_MIN - 1; lag <= CL.LAG_MAX + 1; lag++) {
+    let s = 0;
+    for (let i = 0; i + lag < n; i++) s += x[i] * x[i + lag];
+    ac[lag] = (s / (n - lag)) / r0;
+  }
+  let rmax = 0;
+  for (let lag = CL.LAG_MIN; lag <= CL.LAG_MAX; lag++) rmax = Math.max(rmax, ac[lag]);
+  if (rmax < CL.AC_MIN) return { ok: false, rmax, ac, lag: null, bpm: null };
+  let best = -1;
+  for (let lag = CL.LAG_MIN; lag <= CL.LAG_MAX; lag++) {
+    if (ac[lag] >= ac[lag - 1] && ac[lag] >= ac[lag + 1] && ac[lag] >= CL.PEAK_FRAC * rmax) { best = lag; break; }
+  }
+  if (best < 0) return { ok: false, rmax, ac, lag: null, bpm: null };
+  const a = ac[best - 1], b = ac[best], c = ac[best + 1], d = a - 2 * b + c;
+  let delta = d !== 0 ? 0.5 * (a - c) / d : 0;
+  delta = Math.min(1, Math.max(-1, delta));
+  return { ok: true, rmax, ac, lag: best, bpm: 60 * CL.FS_WIN / (best + delta) };
+}
+
+function makeClassic(cfg) {
+  let filt, accF, accDc, ref, w, mcPrimed, inPow, outPow, bypass;
+  let idx, needInit, irDc, prev, holdUntil, win, decAcc, decN, lastTick;
+  let hist, pendBpm, pendN, valid, est, lastHr, fail, mot;
+  let sigBefore, sigAfter, sigHold, sigHead;
+  function reset() {
+    filt = makeBandpass(); accF = [makeBandpass(), makeBandpass(), makeBandpass()];
+    accDc = [0, 0, 0]; ref = new Float64Array(CL.N); w = new Float64Array(CL.N);
+    mcPrimed = false; inPow = outPow = 0; bypass = false;
+    idx = 0; needInit = true; irDc = prev = 0; holdUntil = 0; win = []; decAcc = 0; decN = 0; lastTick = 0;
+    hist = []; pendBpm = 0; pendN = 0; valid = false; est = 0; lastHr = 0; fail = 0; mot = 0;
+    sigBefore = new Float32Array(SIG_LEN); sigAfter = new Float32Array(SIG_LEN); sigHold = new Uint8Array(SIG_LEN); sigHead = 0;
+  }
+  function clear() { valid = false; hist = []; pendN = 0; }
+  /* One sample. Returns a snapshot on the once-a-second tick, else null. */
+  function push(ir, acc) {
+    idx++;
+    if (needInit) { needInit = false; irDc = prev = ir; holdUntil = CL.SETTLE_SEC * FS_IN; }
+    if (Math.abs(ir - prev) > CL.STEP_FRAC * irDc) {
+      if (Math.abs(ir - prev) > 0.10 * irDc && valid) clear();
+      filt.reset(); irDc = ir; win = []; decAcc = 0; decN = 0;
+      holdUntil = idx + CL.HOLDOFF_SEC * FS_IN;
+    }
+    prev = ir;
+    const x = ir - irDc;
+    irDc += CL.DC_ALPHA * x;
+    let f = filt.step(x);
+    const before = f;
+    if (cfg.mc && acc) {
+      const live = idx >= holdUntil;
+      if (!mcPrimed) { for (let a = 0; a < 3; a++) accDc[a] = acc[a]; mcPrimed = true; }
+      let refPow = 0, newest = 0;
+      for (let a = 0; a < 3; a++) {
+        const d = acc[a] - accDc[a];
+        accDc[a] += 0.01 * d;
+        const o = a * CL.TAPS;
+        for (let k = CL.TAPS - 1; k > 0; k--) ref[o + k] = ref[o + k - 1];
+        ref[o] = accF[a].step(d);
+        newest += ref[o] * ref[o];
+      }
+      for (let i = 0; i < CL.N; i++) refPow += ref[i] * ref[i];
+      mot += 0.01 * (newest - mot);
+      let y = 0;
+      for (let i = 0; i < CL.N; i++) y += w[i] * ref[i];
+      const e = f - y;
+      if (live) {
+        const g = CL.MU * e / (CL.EPS + refPow);
+        for (let i = 0; i < CL.N; i++) w[i] = CL.LEAK * w[i] + g * ref[i];
+        inPow += 0.01 * (f * f - inPow);
+        outPow += 0.01 * (e * e - outPow);
+        if (outPow > CL.BYP_ON * inPow) bypass = true;
+        else if (outPow < CL.BYP_OFF * inPow) bypass = false;
+        if (!bypass) f = e;
+      }
+    }
+    sigBefore[sigHead] = before; sigAfter[sigHead] = f; sigHold[sigHead] = idx < holdUntil ? 1 : 0;
+    sigHead = (sigHead + 1) % SIG_LEN;
+    if (idx >= holdUntil) {
+      decAcc += f;
+      if (++decN >= CL.WIN_DECIM) {
+        win.push(decAcc / CL.WIN_DECIM);
+        if (win.length > CL.WIN_LEN) win.shift();
+        decAcc = 0; decN = 0;
+      }
+    }
+    if (idx - lastTick < FS_IN) return null;
+    lastTick = idx;
+    if (valid && idx - lastHr > CL.STALE_SEC * FS_IN) clear();
+    const T = { warm: win.length < CL.WIN_LEN, filled: win.length / CL.WIN_LEN, ok: false, raw: null, held: false,
+                rmax: 0, ac: null, lag: null, failed: false };
+    if (!T.warm) {
+      const r = estimateHr(win);
+      Object.assign(T, { ok: r.ok, raw: r.bpm, rmax: r.rmax, ac: r.ac, lag: r.lag, failed: !r.ok });
+      if (r.ok) {
+        fail = 0;
+        let adopt = true;
+        if (valid && Math.abs(r.bpm - est) > CL.JUMP) {
+          pendN = (pendN > 0 && Math.abs(r.bpm - pendBpm) <= 10) ? pendN + 1 : 1;
+          pendBpm = r.bpm;
+          if (pendN < CL.JUMP_CONFIRM) { adopt = false; T.held = true; } else hist = [];
+        }
+        if (adopt) {
+          pendN = 0;
+          hist.push(r.bpm); if (hist.length > CL.HIST) hist.shift();
+          const s = hist.slice().sort((p, q) => p - q);
+          est = s[Math.floor(s.length / 2)]; valid = true; lastHr = idx;
+        }
+      } else {
+        fail = Math.min(fail + 1, 255);
+        if (fail >= CL.FAIL_TICKS && valid) clear();
+      }
+    }
+    T.out = valid ? est : null;
+    T.bypass = bypass; T.mot = Math.sqrt(Math.max(0, mot)); T.mcActive = !!(cfg.mc && acc);
+    // signal trace, oldest first
+    T.sigBefore = new Float32Array(SIG_LEN); T.sigAfter = new Float32Array(SIG_LEN); T.sigHold = new Uint8Array(SIG_LEN);
+    for (let i = 0; i < SIG_LEN; i++) {
+      const j = (sigHead + i) % SIG_LEN;
+      T.sigBefore[i] = sigBefore[j]; T.sigAfter[i] = sigAfter[j]; T.sigHold[i] = sigHold[j];
+    }
+    return T;
+  }
+  reset();
+  return { push, reset };
+}
+/* ===================================================================== END-ALGO */
+</script>
+
+<script>
+'use strict';
+/* ---------------- state ---------------- */
+const MAX_SNAPS = 900;          // detailed per-second snapshots kept (15 min)
+const HR_VIEW_SEC = 180;        // live view width of the HR chart
+const cfg = { mc: true, notchK: SPEC_DEFAULTS.notchK, sigmaBpm: SPEC_DEFAULTS.sigmaBpm };
+let spec = makeSpectral(cfg), classic = makeClassic(cfg);
+const S = {
+  source: 'none', n: 0,                          // samples processed
+  rec: { ir: [], red: [], ax: [], ay: [], az: [] },
+  ticks: [],                                     // {t, spec, cl} — spec/cl snapshots (heavy fields dropped when old)
+  dev: [],                                       // {t, spec, classic} from the board's status line
+  gaps: [], sel: -1, follow: true, dirty: true, hasAcc: false,
+};
+
+function resetAlgos() { spec = makeSpectral(cfg); classic = makeClassic(cfg); }
+function resetAll() {
+  resetAlgos();
+  S.n = 0; S.rec = { ir: [], red: [], ax: [], ay: [], az: [] }; S.ticks = []; S.dev = []; S.gaps = []; S.sel = -1; S.hasAcc = false;
+  S.dirty = true;
+}
+
+/* One 100 Hz sample into both algorithms (and the recording). */
+function processSample(ir, red, acc) {
+  S.rec.ir.push(ir); S.rec.red.push(red);
+  S.rec.ax.push(acc ? acc[0] : null); S.rec.ay.push(acc ? acc[1] : null); S.rec.az.push(acc ? acc[2] : null);
+  if (acc) S.hasAcc = true;
+  S.n++;
+  spec.push(ir, acc);
+  const cl = classic.push(ir, acc);
+  if (cl) {
+    const sp = spec.tick();
+    S.ticks.push({ t: S.n / FS_IN, spec: sp, cl });
+    const old = S.ticks.length - 1 - MAX_SNAPS;
+    if (old >= 0) slim(S.ticks[old]);
+    S.dirty = true;
+  }
+}
+function slim(T) {   // keep only what the HR chart / table need
+  if (!T.spec.warm) T.spec = { warm: false, bpm: T.spec.bpm, naive: T.spec.naive, conf: T.spec.conf, mot: T.spec.mot, slim: true };
+  T.cl = { warm: T.cl.warm, ok: T.cl.ok, raw: T.cl.raw, held: T.cl.held, failed: T.cl.failed, out: T.cl.out, rmax: T.cl.rmax, slim: true };
+}
+/* Re-run everything received with the current settings (settings change on a recording/after the fact). */
+function rerun() {
+  const r = S.rec, dev = S.dev, gaps = S.gaps;
+  const keepSel = S.follow ? -1 : S.sel;
+  resetAll();
+  for (let i = 0; i < r.ir.length; i++) processSample(r.ir[i], r.red[i], r.ax[i] == null ? null : [r.ax[i], r.ay[i], r.az[i]]);
+  S.dev = dev; S.gaps = gaps; S.sel = keepSel;
+  S.dirty = true;
+}
+
+/* ---------------- serial (same protocol as the HR testing page) ---------------- */
+const BATCH = 24;
+let usb = null, pending = null, pendingTimer = null;
+function flushPending(accRows) {
+  if (!pending) return;
+  const p = pending; pending = null; clearTimeout(pendingTimer);
+  for (let k = 0; k < p.ir.length; k++) processSample(p.ir[k], p.red[k], accRows ? accRows[k] : null);
+}
+const RAW_RE = /^raw,(\d+)((?:,\d+:\d+)+)$/;
+const MC_RE = /^mc,(\d+)((?:,-?\d+(?::-?\d+)+)+)$/;
+const STATUS_BPM_RE = /avgBpm=(\S+)/, STATUS_ALG_RE = / hr=(spec|classic) alt=(\S+)/, STATUS_MC_RE = / mc=(on|off)/;
+function onLine(line) {
+  if (line.startsWith('raw,')) {
+    const m = RAW_RE.exec(line);
+    if (!m) { log('malformed raw line dropped', true); return; }
+    const seq = +m[1], pairs = m[2].slice(1).split(',');
+    flushPending(null);                                   // previous batch had no mc line: no accelerometer
+    if (usb.lastSeq >= 0) {
+      const gap = (seq - usb.lastSeq - 1 + 65536) % 65536;
+      if (gap > 0 && gap < 1000) { S.gaps.push(S.n / FS_IN); log(`lost ${gap} batch(es) (${(gap * BATCH / FS_IN).toFixed(2)} s): page and board will differ a little`, true); }
+    }
+    usb.lastSeq = seq; usb.gotRaw = true;
+    pending = { seq, ir: [], red: [] };
+    for (const p of pairs) { const c = p.split(':'); pending.ir.push(+c[0]); pending.red.push(+c[1]); }
+    pendingTimer = setTimeout(() => flushPending(null), 120);
+  } else if (line.startsWith('mc,')) {
+    const m = MC_RE.exec(line);
+    if (!m || !pending || +m[1] !== pending.seq) return;
+    const rows = m[2].slice(1).split(',').map(s => {
+      const c = s.split(':').map(Number);
+      if (c.length < 5 || (c[2] === 0 && c[3] === 0 && c[4] === 0)) return null;   // board had no IMU reading
+      return [c[2] / 100, c[3] / 100, c[4] / 100];
+    });
+    flushPending(rows.length === pending.ir.length ? rows : null);
+  } else if (line.startsWith('status:')) {
+    const b = STATUS_BPM_RE.exec(line), a = STATUS_ALG_RE.exec(line), mc = STATUS_MC_RE.exec(line);
+    if (!b || !a) return;
+    const num = v => /^\d+$/.test(v) ? +v : null;
+    const cur = num(b[1]), alt = num(a[2]), isSpec = a[1] === 'spec';
+    S.dev.push({ t: S.n / FS_IN, spec: isSpec ? cur : alt, classic: isSpec ? alt : cur, mcOn: !!mc && mc[1] === 'on', alg: a[1] });
+    S.dirty = true;
+  } else if (line.trim()) {
+    if (/restarting session|SESSION START/.test(line)) {
+      log('board restarted its session: restarting the page algorithms to match', true);
+      flushPending(null); resetAlgos();
+    }
+    log('board: ' + line);
+  }
+}
+async function connectUsb() {
+  if (usb) { await closeUsb('Disconnected'); return; }
+  if (!navigator.serial) { toast('Web Serial needs Chrome or Edge, from https or localhost.'); return; }
+  try {
+    const port = await navigator.serial.requestPort();
+    await port.open({ baudRate: 115200, bufferSize: 65536 });
+    resetAll(); S.source = 'usb';
+    const enc = new TextEncoder(), writer = port.writable.getWriter();
+    usb = { port, writer, stop: false, gotRaw: false, lastSeq: -1, reader: null, nag: null };
+    const ask = () => { if (usb && !usb.gotRaw) writer.write(enc.encode('R\n')).catch(() => {}); };
+    ask(); usb.nag = setInterval(ask, 1000);
+    setConn('USB: waiting for samples', '');
+    document.getElementById('btnUsb').textContent = 'Disconnect';
+    log('USB open, asking the board for its raw stream');
+    readUsb(usb);
+  } catch (err) {
+    if (err && err.name === 'NotFoundError') return;
+    toast('USB: ' + (err && err.message ? err.message : err));
+  }
+}
+async function readUsb(u) {
+  const dec = new TextDecoder(); let buf = '';
+  try {
+    while (!u.stop && u.port.readable) {
+      u.reader = u.port.readable.getReader();
+      try {
+        for (;;) {
+          const { value, done } = await u.reader.read();
+          if (done) break;
+          buf += dec.decode(value, { stream: true });
+          let nl;
+          while ((nl = buf.indexOf('\n')) >= 0) { const line = buf.slice(0, nl).replace(/\r$/, ''); buf = buf.slice(nl + 1); onLine(line); }
+          if (buf.length > 8000) buf = '';
+        }
+      } finally { u.reader.releaseLock(); }
+    }
+  } catch (err) { if (!u.stop) log('USB read error: ' + (err && err.message), true); }
+  if (usb === u) await closeUsb('USB disconnected');
+}
+async function closeUsb(msg) {
+  const u = usb; usb = null; if (!u) return;
+  u.stop = true; clearInterval(u.nag); flushPending(null);
+  try { await u.writer.write(new TextEncoder().encode('r\n')); } catch (e) {}
+  try { u.writer.releaseLock(); } catch (e) {}
+  try { if (u.reader) await u.reader.cancel(); } catch (e) {}
+  try { await u.port.close(); } catch (e) {}
+  document.getElementById('btnUsb').textContent = 'Connect USB';
+  setConn(msg || 'Not connected', '');
+  log(msg || 'disconnected');
+}
+
+/* ---------------- CSV in/out ---------------- */
+function loadCsvText(text, name) {
+  const lines = text.split(/\r?\n/).filter(l => l.trim());
+  const head = lines[0].split(',').map(s => s.trim().toLowerCase());
+  const ci = n => head.indexOf(n);
+  const iIr = ci('ir'), iRed = ci('red'), iAx = ci('ax'), iAy = ci('ay'), iAz = ci('az');
+  if (iIr < 0) { toast('That file has no "ir" column.'); return; }
+  if (usb) closeUsb();
+  resetAll(); S.source = 'file';
+  for (let i = 1; i < lines.length; i++) {
+    const c = lines[i].split(',');
+    const ir = +c[iIr]; if (!isFinite(ir)) continue;
+    const red = iRed >= 0 ? +c[iRed] : ir;
+    let acc = null;
+    if (iAx >= 0 && c[iAx] !== '' && c[iAx] !== undefined && isFinite(+c[iAx])) acc = [+c[iAx], +c[iAy], +c[iAz]];
+    processSample(ir, red, acc);
+  }
+  S.follow = true; document.getElementById('follow').checked = true;
+  setConn('File: ' + name, 'good');
+  log(`loaded ${name}: ${S.n} samples (${(S.n / FS_IN).toFixed(1)} s)` + (S.hasAcc ? ', with accelerometer' : ', no accelerometer'));
+  S.dirty = true;
+}
+document.getElementById('fileIn').addEventListener('change', async e => {
+  const f = e.target.files[0]; if (!f) return;
+  loadCsvText(await f.text(), f.name); e.target.value = '';
+});
+document.getElementById('btnSave').addEventListener('click', () => {
+  const r = S.rec, out = ['ir,red,ax,ay,az'];
+  const v = x => x == null ? '' : (+x).toFixed(3);
+  for (let i = 0; i < r.ir.length; i++) out.push(r.ir[i] + ',' + r.red[i] + ',' + v(r.ax[i]) + ',' + v(r.ay[i]) + ',' + v(r.az[i]));
+  const d = new Date(), p = n => String(n).padStart(2, '0');
+  const name = `hr_compare_${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}.csv`;
+  const url = URL.createObjectURL(new Blob([out.join('\n') + '\n'], { type: 'text/csv' }));
+  const a = document.createElement('a'); a.href = url; a.download = name; document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
+  toast(`Saved ${name} (${r.ir.length.toLocaleString()} samples).`);
+});
+
+/* ---------------- UI bits ---------------- */
+const $ = id => document.getElementById(id);
+function setConn(text, cls) { const el = $('conn'); el.textContent = text; el.className = 'pill' + (cls ? ' ' + cls : ''); }
+function log(text, warn) {
+  const el = $('log'), row = document.createElement('div');
+  const t = document.createElement('span'); t.className = 't'; t.textContent = fmtTime(S.n / FS_IN);
+  const m = document.createElement('span'); if (warn) m.className = 'warn'; m.textContent = text;
+  row.append(t, m); el.append(row);
+  while (el.childNodes.length > 300) el.firstChild.remove();
+  el.scrollTop = el.scrollHeight;
+}
+let toastTimer = null;
+function toast(msg) { const el = $('toast'); el.textContent = msg; el.style.display = 'block'; clearTimeout(toastTimer); toastTimer = setTimeout(() => el.style.display = 'none', 4000); }
+function fmtTime(sec) { sec = Math.max(0, sec); const m = Math.floor(sec / 60), s = Math.floor(sec - m * 60); return m + ':' + String(s).padStart(2, '0'); }
+$('btnUsb').addEventListener('click', connectUsb);
+$('btnTheme').addEventListener('click', () => {
+  let pref = 'auto'; try { pref = localStorage.getItem('devPages.theme') || 'auto'; } catch (e) {}
+  pref = pref === 'auto' ? 'dark' : pref === 'dark' ? 'light' : 'auto';
+  try { localStorage.setItem('devPages.theme', pref); } catch (e) {}
+  const dark = pref === 'dark' || (pref === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
+  document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+  toast('Theme: ' + pref); readTheme(); S.dirty = true;
+});
+$('follow').addEventListener('change', e => { S.follow = e.target.checked; if (S.follow) S.sel = -1; S.dirty = true; });
+$('selSlider').addEventListener('input', e => { S.follow = false; $('follow').checked = false; S.sel = +e.target.value; S.dirty = true; });
+function settingsChanged() {
+  cfg.mc = $('optMc').checked; cfg.notchK = +$('optNotch').value; cfg.sigmaBpm = +$('optSigma').value;
+  $('outNotch').textContent = cfg.notchK + ' bins';
+  $('outSigma').textContent = cfg.sigmaBpm + ' bpm/s';
+  const tuned = !cfg.mc || cfg.notchK !== SPEC_DEFAULTS.notchK || cfg.sigmaBpm !== SPEC_DEFAULTS.sigmaBpm;
+  $('pillTuned').style.display = tuned ? '' : 'none';
+  rerun();   // replay everything received so far with the new settings
+}
+['optMc', 'optNotch', 'optSigma'].forEach(id => $(id).addEventListener('change', settingsChanged));
+['optNotch', 'optSigma'].forEach(id => $(id).addEventListener('input', () => {
+  $('outNotch').textContent = $('optNotch').value + ' bins'; $('outSigma').textContent = $('optSigma').value + ' bpm/s';
+}));
+$('btnDefaults').addEventListener('click', () => {
+  $('optMc').checked = true; $('optNotch').value = SPEC_DEFAULTS.notchK; $('optSigma').value = SPEC_DEFAULTS.sigmaBpm; settingsChanged();
+});
+$('btnTable').addEventListener('click', e => {
+  const on = e.currentTarget.getAttribute('aria-pressed') !== 'true';
+  e.currentTarget.setAttribute('aria-pressed', on); $('tableWrap').style.display = on ? '' : 'none'; S.dirty = true;
+});
+
+/* ---------------- drawing ---------------- */
+let TH = {};
+function readTheme() {
+  const cs = getComputedStyle(document.documentElement), g = n => cs.getPropertyValue(n).trim();
+  TH = { page: g('--page'), ink: g('--ink'), ink2: g('--ink2'), ink3: g('--ink3'), grid: g('--grid'), rule: g('--rule'),
+         spec: g('--spec'), classic: g('--classic'), neutral: g('--neutral'), warning: g('--warning') };
+}
+readTheme();
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { readTheme(); S.dirty = true; });
+const FONT = '11px "Scoutie Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+
+function niceStep(range, count) {
+  const raw = range / count, e = Math.pow(10, Math.floor(Math.log10(raw))), f = raw / e;
+  return (f < 1.5 ? 1 : f < 3 ? 2 : f < 7 ? 5 : 10) * e;
+}
+function ticks(lo, hi, count) {
+  if (!(hi > lo)) return [lo];
+  const st = niceStep(hi - lo, count), out = [];
+  for (let v = Math.ceil(lo / st - 1e-9) * st; v <= hi + 1e-9; v += st) out.push(Math.abs(v) < 1e-9 ? 0 : v);
+  return out;
+}
+function fmtTick(v) { const a = Math.abs(v); return a >= 1e6 ? (v / 1e6).toFixed(a >= 1e7 ? 0 : 1) + 'M' : a >= 1e3 ? (v / 1e3).toFixed(a >= 1e4 ? 0 : 1) + 'k' : a >= 10 || v === 0 ? v.toFixed(0) : v.toFixed(1); }
+
+/* Sets up a canvas and an x/y frame with recessive grid. Returns mapping helpers. */
+function chart(cv, x0, x1, y0, y1, o = {}) {
+  const dpr = window.devicePixelRatio || 1, w = cv.clientWidth, h = cv.clientHeight;
+  if (cv.width !== Math.round(w * dpr) || cv.height !== Math.round(h * dpr)) { cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr); }
+  const g = cv.getContext('2d');
+  g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, w, h);
+  const L = o.left ?? 42, R = w - (o.right ?? 8), T = o.top ?? 8, B = h - (o.bottom ?? 22);
+  const X = v => L + (v - x0) / (x1 - x0) * (R - L), Y = v => B - (v - y0) / (y1 - y0) * (B - T);
+  g.font = FONT; g.lineWidth = 1;
+  if (!o.noYGrid) {
+    g.textAlign = 'right'; g.textBaseline = 'middle';
+    for (const v of (o.yTicks || ticks(y0, y1, o.yCount || 4))) {
+      const y = Math.round(Y(v)) + 0.5; g.strokeStyle = TH.grid; g.beginPath(); g.moveTo(L, y); g.lineTo(R, y); g.stroke();
+      g.fillStyle = TH.ink3; g.fillText(o.yFmt ? o.yFmt(v) : fmtTick(v), L - 6, y);
+    }
+  }
+  g.textAlign = 'center'; g.textBaseline = 'top'; g.fillStyle = TH.ink3;
+  for (const v of (o.xTicks || ticks(x0, x1, o.xCount || 6))) {
+    const x = X(v); if (x < L - 1 || x > R + 1 || (o.xLabel && x > R - 34)) continue;
+    g.fillText(o.xFmt ? o.xFmt(v) : fmtTick(v), x, B + 6);
+  }
+  g.strokeStyle = TH.rule; g.beginPath(); g.moveTo(L, B + 0.5); g.lineTo(R, B + 0.5); g.stroke();
+  if (o.xLabel) { g.textAlign = 'right'; g.fillText(o.xLabel, R, B + 6); }
+  return { g, w, h, L, R, T, B, X, Y, x0, x1, y0, y1 };
+}
+function noData(cv, msg) {
+  const c = chart(cv, 0, 1, 0, 1, { noYGrid: true, xTicks: [] });
+  c.g.fillStyle = TH.ink3; c.g.textAlign = 'center'; c.g.textBaseline = 'middle'; c.g.font = '13px ' + FONT.split(' ').slice(1).join(' ');
+  c.g.fillText(msg, c.w / 2, c.h / 2);
+  cv._hover = null;
+}
+function line(c, xs, ys, color, width = 2, dash = null) {
+  const g = c.g; g.strokeStyle = color; g.lineWidth = width; g.setLineDash(dash || []); g.lineJoin = 'round';
+  g.beginPath(); let on = false;
+  for (let i = 0; i < xs.length; i++) {
+    const y = ys[i];
+    if (y == null || !isFinite(y)) { on = false; continue; }
+    const px = c.X(xs[i]), py = c.Y(Math.max(c.y0, Math.min(c.y1, y)));
+    if (on) g.lineTo(px, py); else { g.moveTo(px, py); on = true; }
+  }
+  g.stroke(); g.setLineDash([]); g.lineWidth = 1;
+}
+function vline(c, x, color, width = 1, dash = null) {
+  if (x < c.x0 || x > c.x1) return;
+  const g = c.g; g.strokeStyle = color; g.lineWidth = width; g.setLineDash(dash || []);
+  const px = Math.round(c.X(x)) + 0.5; g.beginPath(); g.moveTo(px, c.T); g.lineTo(px, c.B); g.stroke(); g.setLineDash([]); g.lineWidth = 1;
+}
+function hline(c, y, color, dash = null) {
+  const g = c.g; g.strokeStyle = color; g.setLineDash(dash || []);
+  const py = Math.round(c.Y(y)) + 0.5; g.beginPath(); g.moveTo(c.L, py); g.lineTo(c.R, py); g.stroke(); g.setLineDash([]);
+}
+function band(c, xa, xb, fill) {
+  const a = Math.max(c.L, c.X(xa)), b = Math.min(c.R, c.X(xb)); if (b <= a) return;
+  c.g.fillStyle = fill; c.g.fillRect(a, c.T, b - a, c.B - c.T);
+}
+let hatchCache = null;
+function hatch(g) {
+  if (hatchCache && hatchCache.color === TH.ink3) return hatchCache.pat;
+  const p = document.createElement('canvas'); p.width = p.height = 6;
+  const q = p.getContext('2d'); q.strokeStyle = TH.ink3; q.globalAlpha = 0.55; q.lineWidth = 1;
+  q.beginPath(); q.moveTo(0, 6); q.lineTo(6, 0); q.moveTo(-1, 1); q.lineTo(1, -1); q.moveTo(5, 7); q.lineTo(7, 5); q.stroke();
+  hatchCache = { color: TH.ink3, pat: g.createPattern(p, 'repeat') };
+  return hatchCache.pat;
+}
+function bars(c, xs, ys, width, color, alpha) {
+  const g = c.g; g.fillStyle = color; g.globalAlpha = alpha;
+  const pw = Math.max(1, (c.X(width) - c.X(0)) - 1);
+  for (let i = 0; i < xs.length; i++) {
+    if (!(ys[i] > 0)) continue;
+    const px = c.X(xs[i]) - pw / 2, py = c.Y(Math.min(ys[i], c.y1));
+    g.fillRect(px, py, pw, c.B - py);
+  }
+  g.globalAlpha = 1;
+}
+function label(c, text, x, y, color, align = 'left') {
+  const g = c.g; g.font = '600 11px ' + FONT.split(' ').slice(1).join(' ');
+  g.textAlign = align; g.textBaseline = 'bottom';
+  const tw = g.measureText(text).width, px = align === 'left' ? x : align === 'right' ? x - tw : x - tw / 2;
+  g.fillStyle = TH.page; g.globalAlpha = 0.85; g.fillRect(px - 3, y - 14, tw + 6, 14); g.globalAlpha = 1;
+  g.fillStyle = color; g.fillText(text, x, y - 1); g.font = FONT;
+}
+/* Sequential heatmap in one hue: alpha follows value. rows: [{y0,y1}] in data units. */
+function heat(c, xs, rows, values, color, vmax) {
+  const g = c.g; g.fillStyle = color;
+  const cw = xs.length > 1 ? Math.abs(c.X(xs[1]) - c.X(xs[0])) : 6;
+  for (let i = 0; i < xs.length; i++) {
+    const v = values[i]; if (!v) continue;
+    for (let r = 0; r < rows.length; r++) {
+      const a = Math.min(1, Math.max(0, v[r] / vmax)); if (a < 0.02) continue;
+      const ya = c.Y(Math.min(c.y1, rows[r].y1)), yb = c.Y(Math.max(c.y0, rows[r].y0)); if (yb <= ya) continue;
+      g.globalAlpha = a; g.fillRect(c.X(xs[i]) - cw / 2, ya, cw + 0.5, yb - ya + 0.5);
+    }
+  }
+  g.globalAlpha = 1;
+}
+function dot(c, x, y, color, r = 4, ring = false) {
+  const g = c.g; g.beginPath(); g.arc(c.X(x), c.Y(y), r, 0, 2 * Math.PI);
+  g.lineWidth = 2;
+  if (ring) { g.strokeStyle = color; g.fillStyle = TH.page; g.fill(); g.stroke(); }
+  else { g.fillStyle = color; g.fill(); g.strokeStyle = TH.page; g.stroke(); }
+  g.lineWidth = 1;
+}
+function cross(c, x, y, color) {
+  const g = c.g, px = c.X(x), py = c.Y(y); g.strokeStyle = color; g.lineWidth = 1.5;
+  g.beginPath(); g.moveTo(px - 4, py - 4); g.lineTo(px + 4, py + 4); g.moveTo(px + 4, py - 4); g.lineTo(px - 4, py + 4); g.stroke(); g.lineWidth = 1;
+}
+
+/* ---- tooltip ---- */
+const tip = $('tip');
+function showTip(ev, title, rows) {
+  tip.innerHTML = '';
+  const t = document.createElement('div'); t.className = 'tt-title'; t.textContent = title; tip.append(t);
+  for (const r of rows) {
+    const row = document.createElement('div'); row.className = 'tt-row';
+    const k = document.createElement('span'); k.className = 'swatch' + (r.dash ? ' dash' : '');
+    if (r.dash) k.style.color = r.color; else k.style.background = r.color || 'transparent';
+    const l = document.createElement('span'); l.textContent = r.label; l.style.color = 'var(--ink2)';
+    const v = document.createElement('span'); v.className = 'tt-val'; v.textContent = r.value;
+    row.append(k, l, v); tip.append(row);
+  }
+  tip.style.display = 'block';
+  const bw = tip.offsetWidth, bh = tip.offsetHeight;
+  let x = ev.clientX + 14, y = ev.clientY + 14;
+  if (x + bw > innerWidth - 8) x = ev.clientX - bw - 14;
+  if (y + bh > innerHeight - 8) y = ev.clientY - bh - 14;
+  tip.style.left = x + 'px'; tip.style.top = y + 'px';
+}
+document.querySelectorAll('canvas').forEach(cv => {
+  cv.addEventListener('mousemove', ev => {
+    if (!cv._hover) { tip.style.display = 'none'; return; }
+    const r = cv.getBoundingClientRect(), res = cv._hover(ev.clientX - r.left, ev.clientY - r.top);
+    if (res) showTip(ev, res.title, res.rows); else tip.style.display = 'none';
+  });
+  cv.addEventListener('mouseleave', () => { tip.style.display = 'none'; });
+});
+const fb = v => v == null || !isFinite(v) ? '--' : v.toFixed(0) + ' bpm';
+
+/* ---- which tick is being inspected ---- */
+function selIndex() {
+  const n = S.ticks.length; if (!n) return -1;
+  if (S.follow || S.sel < 0) return n - 1;
+  return Math.min(S.sel, n - 1);
+}
+/* nearest detailed (non-slim, non-warm) tick at or before i */
+function detailed(i, which) {
+  for (let k = i; k >= 0 && k > i - 30; k--) {
+    const T = S.ticks[k], s = T[which];
+    if (s && !s.slim && !s.warm) return k;
+  }
+  return -1;
+}
+
+/* ---- HR chart ---- */
+function drawHr() {
+  const cv = $('cvHr'), n = S.ticks.length;
+  if (!n) { noData(cv, S.source === 'usb' ? 'Waiting for samples from the board…' : 'Connect USB or load a recording'); return; }
+  const tEnd = S.ticks[n - 1].t, live = S.source === 'usb';
+  const t0 = live ? Math.max(0, tEnd - HR_VIEW_SEC) : 0, t1 = live ? Math.max(tEnd, HR_VIEW_SEC) : Math.max(tEnd, 10);
+  const vis = S.ticks.filter(T => T.t >= t0);
+  const devVis = S.dev.filter(d => d.t >= t0);
+  let lo = Infinity, hi = -Infinity;
+  const acc = v => { if (v != null && isFinite(v)) { lo = Math.min(lo, v); hi = Math.max(hi, v); } };
+  vis.forEach(T => { if (!T.spec.warm) acc(T.spec.bpm); acc(T.cl.out); });
+  devVis.forEach(d => { acc(d.spec); acc(d.classic); });
+  if (!isFinite(lo)) { lo = 50; hi = 110; }
+  lo = Math.max(30, Math.floor((lo - 8) / 10) * 10); hi = Math.min(220, Math.ceil((hi + 8) / 10) * 10);
+  const c = chart(cv, t0, t1, lo, hi, { xFmt: fmtTime, yCount: 5 });
+  const si = selIndex();
+  if (si >= 0) {
+    const tS = S.ticks[si].t;
+    band(c, tS - 8, tS, 'color-mix(in srgb, ' + TH.ink3 + ' 12%, transparent)');
+    vline(c, tS, TH.ink3, 1);
+  }
+  for (const gt of S.gaps) if (gt >= t0) { const px = c.X(gt); c.g.fillStyle = TH.ink3; c.g.fillRect(px - 1, c.B - 6, 2, 6); }
+  const tx = vis.map(T => T.t);
+  line(c, devVis.map(d => d.t), devVis.map(d => d.classic), TH.classic, 1.5, [5, 4]);
+  line(c, devVis.map(d => d.t), devVis.map(d => d.spec), TH.spec, 1.5, [5, 4]);
+  line(c, tx, vis.map(T => T.cl.out), TH.classic, 2);
+  line(c, tx, vis.map(T => T.spec.warm ? null : T.spec.bpm), TH.spec, 2);
+  // direct labels at the right end of the page lines
+  const lastSpec = [...vis].reverse().find(T => !T.spec.warm), lastCl = [...vis].reverse().find(T => T.cl.out != null);
+  const ys = [];
+  if (lastSpec) ys.push({ x: c.X(lastSpec.t), y: c.Y(lastSpec.spec.bpm), text: 'spectral ' + lastSpec.spec.bpm.toFixed(0) });
+  if (lastCl) ys.push({ x: c.X(lastCl.t), y: c.Y(lastCl.cl.out), text: 'classic ' + lastCl.cl.out.toFixed(0) });
+  if (ys.length === 2 && Math.abs(ys[0].x - ys[1].x) < 90 && Math.abs(ys[0].y - ys[1].y) < 15) {
+    const m = (ys[0].y + ys[1].y) / 2, up = ys[0].y <= ys[1].y ? 0 : 1; ys[up].y = m - 8; ys[1 - up].y = m + 8;
+  }
+  ys.forEach(l => { const right = l.x > c.R - 90; label(c, l.text, right ? l.x - 6 : l.x + 6, l.y + 6, TH.ink, right ? 'right' : 'left'); });
+  cv._hover = (mx, my) => {
+    if (mx < c.L || mx > c.R) return null;
+    const t = t0 + (mx - c.L) / (c.R - c.L) * (t1 - t0);
+    let best = null; for (const T of vis) if (!best || Math.abs(T.t - t) < Math.abs(best.t - t)) best = T;
+    if (!best) return null;
+    let dv = null; for (const d of devVis) if (!dv || Math.abs(d.t - best.t) < Math.abs(dv.t - best.t)) dv = d;
+    if (dv && Math.abs(dv.t - best.t) > 1.5) dv = null;
+    return { title: fmtTime(best.t) + '  (click to inspect)', rows: [
+      { color: TH.spec, label: 'spectral (page)', value: best.spec.warm ? 'warming' : fb(best.spec.bpm) },
+      { color: TH.spec, dash: true, label: 'spectral (board)', value: dv ? fb(dv.spec) : '--' },
+      { color: TH.classic, label: 'classic (page)', value: best.cl.warm ? 'warming' : fb(best.cl.out) },
+      { color: TH.classic, dash: true, label: 'classic (board)', value: dv ? fb(dv.classic) : '--' },
+    ] };
+  };
+  cv.onclick = ev => {
+    const r = cv.getBoundingClientRect(), mx = ev.clientX - r.left;
+    const t = t0 + (mx - c.L) / (c.R - c.L) * (t1 - t0);
+    let bi = 0; S.ticks.forEach((T, i) => { if (Math.abs(T.t - t) < Math.abs(S.ticks[bi].t - t)) bi = i; });
+    S.sel = bi; S.follow = false; $('follow').checked = false; S.dirty = true;
+  };
+}
+
+/* ---- spectral panels ---- */
+const BIN_X = Array.from({ length: SPEC.KM_HI + 1 }, (_, k) => k * SPEC.BIN_BPM);
+const X_MAX = SPEC.KM_HI * SPEC.BIN_BPM;
+function drawSpectral(si) {
+  const k = si < 0 ? -1 : detailed(si, 'spec');
+  const cvS = $('cvSpec'), cvA = $('cvAcc'), cvH = $('cvSpecHeat');
+  if (k < 0) {
+    const T = si >= 0 ? S.ticks[si] : null;
+    const msg = T && T.spec.warm ? `Filling the 8 s window… ${Math.round(T.spec.filled * 8)} / 8 s` : 'No data yet';
+    noData(cvS, msg); noData(cvA, ''); noData(cvH, ''); $('roSpec').textContent = ''; $('roAcc').textContent = ''; return;
+  }
+  const T = S.ticks[k], sp = T.spec;
+  let ymax = 0; for (let i = 0; i < sp.before.length; i++) ymax = Math.max(ymax, sp.before[i]);
+  ymax = ymax * 1.08 || 1;
+  const c = chart(cvS, 0, X_MAX, 0, ymax, { yFmt: () => '', xLabel: 'bpm', left: 12 });
+  band(c, SPEC.K_LO * SPEC.BIN_BPM, SPEC.K_HI * SPEC.BIN_BPM, 'color-mix(in srgb, ' + TH.ink3 + ' 7%, transparent)');
+  for (const [lo, hi] of sp.notched) { c.g.fillStyle = hatch(c.g); const a = c.X((lo - 0.5) * SPEC.BIN_BPM), b = c.X((hi + 0.5) * SPEC.BIN_BPM); c.g.fillRect(a, c.T, b - a, c.B - c.T); }
+  bars(c, BIN_X, sp.before, SPEC.BIN_BPM, TH.neutral, 0.3);
+  bars(c, BIN_X, sp.after, SPEC.BIN_BPM, TH.spec, 0.45);
+  line(c, BIN_X, Array.from(sp.after), TH.spec, 1.5);
+  vline(c, sp.naive, TH.ink2, 1, [4, 3]);
+  vline(c, sp.bpm, TH.spec, 2);
+  label(c, 'tracker ' + sp.bpm.toFixed(0), c.X(sp.bpm) + 5, c.T + 16, TH.ink);
+  if (Math.abs(sp.naive - sp.bpm) > 3) label(c, 'biggest ' + sp.naive.toFixed(0), c.X(sp.naive) + 5, c.T + 32, TH.ink2);
+  c.g.fillStyle = TH.ink3; c.g.textAlign = 'right'; c.g.textBaseline = 'top'; c.g.fillText('candidates 41–179', c.X(SPEC.K_HI * SPEC.BIN_BPM) - 4, c.T + 2);
+  cvS._hover = mx => {
+    if (mx < c.L || mx > c.R) return null;
+    const b = Math.round((mx - c.L) / (c.R - c.L) * X_MAX / SPEC.BIN_BPM);
+    if (b < 0 || b > SPEC.KM_HI) return null;
+    const tot = sp.after.slice(SPEC.K_LO, SPEC.K_HI + 1).reduce((p, q) => p + q, 0) || 1;
+    return { title: `bin ${b} = ${(b * SPEC.BIN_BPM).toFixed(1)} bpm (${(b * SPEC.BIN_BPM / 60).toFixed(2)} Hz)`, rows: [
+      { color: TH.neutral, label: 'power before', value: fmtTick(sp.before[b]) },
+      { color: TH.spec, label: 'after notching', value: fmtTick(sp.after[b]) },
+      { label: 'share of band', value: b >= SPEC.K_LO && b <= SPEC.K_HI ? (100 * sp.after[b] / tot).toFixed(1) + '%' : 'outside' },
+    ] };
+  };
+  $('roSpec').innerHTML = `At <b>${fmtTime(T.t)}</b>: tracker <b>${sp.bpm.toFixed(1)} bpm</b>, biggest bin ${sp.naive.toFixed(1)} bpm, `
+    + `confidence ${(sp.conf * 100).toFixed(0)}% of the band's power` + (sp.notched.length ? `, ${sp.peaks.length} motion rhythm(s) removed` : '');
+
+  // accelerometer
+  if (sp.aspec) {
+    let am = 0; for (const v of sp.aspec) am = Math.max(am, v);
+    const a = chart(cvA, 0, X_MAX, 0, am * 1.15 || 1, { yFmt: () => '', xLabel: 'bpm', left: 12 });
+    bars(a, BIN_X, sp.aspec, SPEC.BIN_BPM, TH.neutral, 0.45);
+    line(a, BIN_X, Array.from(sp.aspec), TH.ink2, 1.5);
+    hline(a, SPEC.MOT_FRAC * am, TH.ink3, [3, 3]);
+    for (const p of sp.peaks) { vline(a, p * SPEC.BIN_BPM, TH.ink, 1, [2, 2]); label(a, (p * SPEC.BIN_BPM).toFixed(0) + '/min', a.X(p * SPEC.BIN_BPM) + 4, a.T + 14, TH.ink); }
+    cvA._hover = mx => {
+      const b = Math.round((mx - a.L) / (a.R - a.L) * X_MAX / SPEC.BIN_BPM); if (b < 0 || b > SPEC.KM_HI) return null;
+      return { title: `${(b * SPEC.BIN_BPM).toFixed(1)} per min`, rows: [{ color: TH.ink2, label: 'accel power', value: fmtTick(sp.aspec[b]) }] };
+    };
+    $('roAcc').innerHTML = `Wrist moving: <b>${sp.mot.toFixed(2)} m/s²</b> in band (threshold ${SPEC.MOT_RMS}). Peaks above the dotted 20% line are notched at ½×, 1×, 2× and 3×.`;
+  } else {
+    noData(cvA, !sp.hasAcc ? 'No accelerometer data: motion removal off' : `Wrist still (${sp.mot.toFixed(2)} ≤ ${SPEC.MOT_RMS} m/s²): nothing removed`);
+    $('roAcc').textContent = '';
+  }
+
+  // heatmap: last 60 s ending at k
+  const from = Math.max(0, k - 59), hx = [], hv = [], path = [], naive = [];
+  for (let i = from; i <= k; i++) {
+    const s = S.ticks[i].spec; hx.push(S.ticks[i].t);
+    hv.push(s.share || null); path.push(s.warm ? null : s.bpm); naive.push(s.warm ? null : s.naive);
+  }
+  const rows = Array.from({ length: SPEC.NSTATE }, (_, r) => ({ y0: (SPEC.K_LO + r - 0.5) * SPEC.BIN_BPM, y1: (SPEC.K_LO + r + 0.5) * SPEC.BIN_BPM }));
+  const h = chart(cvH, Math.min(...hx) - 0.5, Math.max(Math.max(...hx), Math.min(...hx) + 59) + 0.5, 40, 180, { xFmt: fmtTime, yTicks: [60, 90, 120, 150] });
+  heat(h, hx, rows, hv, TH.spec, 0.25);
+  naive.forEach((v, i) => { if (v != null) dot(h, hx[i], v, TH.ink, 2.5); });
+  line(h, hx, path, TH.spec, 2);
+  cvH._hover = mx => {
+    const t = h.x0 + (mx - h.L) / (h.R - h.L) * (h.x1 - h.x0); let bi = -1;
+    hx.forEach((x, i) => { if (bi < 0 || Math.abs(x - t) < Math.abs(hx[bi] - t)) bi = i; });
+    if (bi < 0) return null;
+    return { title: fmtTime(hx[bi]), rows: [{ color: TH.spec, label: 'tracker', value: fb(path[bi]) }, { color: TH.ink, label: 'biggest bin', value: fb(naive[bi]) }] };
+  };
+}
+
+/* ---- classic panels ---- */
+function drawClassic(si) {
+  const cvAc = $('cvAc'), cvSig = $('cvSig'), cvPub = $('cvPub');
+  const k = si < 0 ? -1 : detailed(si, 'cl');
+  if (k < 0) {
+    const T = si >= 0 ? S.ticks[si] : null;
+    const msg = T && T.cl.warm ? `Filling the 8 s window… ${Math.round(T.cl.filled * 8)} / 8 s (it restarts after any jump)` : 'No data yet';
+    noData(cvAc, msg); noData(cvSig, ''); noData(cvPub, ''); $('roAc').textContent = ''; $('roSig').textContent = ''; return;
+  }
+  const T = S.ticks[k], cl = T.cl;
+  // autocorrelation, x = lag but labelled in bpm
+  const c = chart(cvAc, CL.LAG_MIN - 0.5, CL.LAG_MAX + 0.5, -1, 1.05, {
+    yTicks: [-1, -0.5, 0, 0.5, 1], yFmt: v => v.toFixed(1),
+    xTicks: [8, 10, 12, 15, 20, 25, 30, 36], xFmt: L => (60 * CL.FS_WIN / L).toFixed(0) });
+  hline(c, CL.AC_MIN, TH.ink2, [5, 4]);
+  if (cl.rmax > 0) hline(c, CL.PEAK_FRAC * cl.rmax, TH.ink3, [2, 3]);
+  const lags = []; for (let L = CL.LAG_MIN; L <= CL.LAG_MAX; L++) lags.push(L);
+  line(c, lags, lags.map(L => cl.ac[L]), TH.classic, 2);
+  lags.forEach(L => dot(c, L, cl.ac[L], TH.classic, 2.5));
+  let gl = lags[0]; lags.forEach(L => { if (cl.ac[L] > cl.ac[gl]) gl = L; });
+  if (cl.lag != null) {
+    vline(c, cl.lag, TH.classic, 2);
+    dot(c, cl.lag, cl.ac[cl.lag], TH.classic, 5);
+    label(c, `chosen ${cl.raw.toFixed(0)} bpm`, c.X(cl.lag) + 7, c.T + 16, TH.ink);
+  }
+  if (gl !== cl.lag) dot(c, gl, cl.ac[gl], TH.ink2, 5, true);
+  cvAc._hover = mx => {
+    const L = Math.round(c.x0 + (mx - c.L) / (c.R - c.L) * (c.x1 - c.x0)); if (L < CL.LAG_MIN || L > CL.LAG_MAX) return null;
+    return { title: `shift ${L} samples = ${(L / CL.FS_WIN).toFixed(2)} s = ${(60 * CL.FS_WIN / L).toFixed(0)} bpm`, rows: [
+      { color: TH.classic, label: 'correlation', value: cl.ac[L].toFixed(2) },
+      { label: 'needs', value: '≥ ' + Math.max(CL.AC_MIN, CL.PEAK_FRAC * cl.rmax).toFixed(2) } ] };
+  };
+  const why = cl.ok ? (cl.held ? ` → <b>held back</b> (more than ${CL.JUMP} bpm from the published value, must repeat ${CL.JUMP_CONFIRM}×)` : ' → accepted')
+    : cl.rmax < CL.AC_MIN ? ` → <b>failed</b>: nothing reaches ${CL.AC_MIN}` : ' → <b>failed</b>: no clean peak';
+  $('roAc').innerHTML = `At <b>${fmtTime(T.t)}</b>: best correlation ${cl.rmax.toFixed(2)} at ${(60 * CL.FS_WIN / gl).toFixed(0)} bpm`
+    + (cl.lag != null ? `; first peak above 85% of it: <b>${cl.raw.toFixed(1)} bpm</b>` : '') + why
+    + `. Published: <b>${cl.out == null ? '--' : cl.out.toFixed(0)}</b>`;
+
+  // signal
+  const n = cl.sigAfter.length, xs = Array.from({ length: n }, (_, i) => T.t - (n - i) / FS_IN);
+  let m = 1; for (let i = 0; i < n; i++) m = Math.max(m, Math.abs(cl.sigBefore[i]), Math.abs(cl.sigAfter[i]));
+  const s = chart(cvSig, xs[0], T.t, -m * 1.08, m * 1.08, { xFmt: v => fmtTime(v), yCount: 4 });
+  for (let i = 0; i < n; i++) if (cl.sigHold[i]) { let j = i; while (j < n && cl.sigHold[j]) j++; band(s, xs[i], xs[Math.min(j, n - 1)], 'color-mix(in srgb, ' + TH.ink3 + ' 22%, transparent)'); i = j; }
+  if (cl.mcActive) line(s, xs, Array.from(cl.sigBefore), TH.neutral, 1.2);
+  line(s, xs, Array.from(cl.sigAfter), TH.classic, 1.6);
+  cvSig._hover = mx => {
+    const i = Math.round((mx - s.L) / (s.R - s.L) * (n - 1)); if (i < 0 || i >= n) return null;
+    return { title: fmtTime(xs[i]) + '.' + String(Math.round((xs[i] % 1) * 100)).padStart(2, '0'), rows: [
+      { color: TH.neutral, label: 'before', value: cl.sigBefore[i].toFixed(0) }, { color: TH.classic, label: 'after', value: cl.sigAfter[i].toFixed(0) } ] };
+  };
+  $('roSig').innerHTML = !cl.mcActive ? (S.hasAcc ? 'Motion cancelling is off in the page settings.' : 'No accelerometer data: nothing to cancel.')
+    : `Motion cancel: wrist ${cl.mot.toFixed(2)} m/s²` + (cl.bypass ? ', <b>bypassed</b> (cancelling was making the signal bigger, so its output is ignored)' : ', active');
+
+  // publish strip: last 60 s ending at k
+  const from = Math.max(0, k - 59), seg = S.ticks.slice(from, k + 1);
+  let lo = Infinity, hi = -Infinity;
+  seg.forEach(Q => { for (const v of [Q.cl.raw, Q.cl.out]) if (v != null) { lo = Math.min(lo, v); hi = Math.max(hi, v); } });
+  if (!isFinite(lo)) { lo = 60; hi = 100; }
+  lo = Math.max(30, Math.floor((lo - 10) / 10) * 10); hi = Math.min(230, Math.ceil((hi + 5) / 10) * 10);
+  const p = chart(cvPub, seg[0].t - 0.5, Math.max(seg[seg.length - 1].t, seg[0].t + 59) + 0.5, lo, hi, { xFmt: fmtTime, yCount: 3 });
+  line(p, seg.map(Q => Q.t), seg.map(Q => Q.cl.out), TH.classic, 2);
+  seg.forEach(Q => {
+    if (Q.cl.failed) cross(p, Q.t, lo + (hi - lo) * 0.06, TH.ink2);
+    else if (Q.cl.held) dot(p, Q.t, Q.cl.raw, TH.classic, 4, true);
+    else if (Q.cl.ok) dot(p, Q.t, Q.cl.raw, TH.classic, 3);
+  });
+  cvPub._hover = mx => {
+    const t = p.x0 + (mx - p.L) / (p.R - p.L) * (p.x1 - p.x0); let b = null;
+    seg.forEach(Q => { if (!b || Math.abs(Q.t - t) < Math.abs(b.t - t)) b = Q; });
+    if (!b) return null;
+    const st = b.cl.warm ? 'warming' : b.cl.failed ? 'failed' : b.cl.held ? 'held back' : 'accepted';
+    return { title: fmtTime(b.t), rows: [{ color: TH.classic, label: 'estimate (' + st + ')', value: fb(b.cl.raw) }, { color: TH.classic, label: 'published', value: fb(b.cl.out) }] };
+  };
+}
+
+/* ---- tiles, table, pills ---- */
+function setVal(id, v, unit) { const el = $(id); el.classList.toggle('empty', v == null); el.innerHTML = v == null ? '--' : `${v}<small> ${unit}</small>`; }
+function drawTiles(si) {
+  const T = si >= 0 ? S.ticks[si] : null;
+  if (!T) { ['vSpec', 'vClassic', 'vMot'].forEach(id => setVal(id, null)); return; }
+  setVal('vSpec', T.spec.warm ? null : T.spec.bpm.toFixed(0), 'bpm');
+  $('nSpec').textContent = T.spec.warm ? `warming ${Math.round(T.spec.filled * 8)}/8 s` : `biggest bin ${T.spec.naive.toFixed(0)} · confidence ${(T.spec.conf * 100).toFixed(0)}%`;
+  setVal('vClassic', T.cl.out == null ? null : T.cl.out.toFixed(0), 'bpm');
+  $('nClassic').textContent = T.cl.warm ? `warming ${Math.round(T.cl.filled * 8)}/8 s` : T.cl.failed ? `this second failed (r ${T.cl.rmax.toFixed(2)})` :
+    T.cl.held ? `held back a jump to ${T.cl.raw.toFixed(0)}` : `this second ${T.cl.raw.toFixed(0)} (r ${T.cl.rmax.toFixed(2)})`;
+  let dv = null; for (let i = S.dev.length - 1; i >= 0; i--) if (S.dev[i].t <= T.t + 1) { dv = S.dev[i]; break; }
+  if (dv) {
+    $('vDev').classList.remove('empty');
+    $('vDev').innerHTML = `<span style="color:var(--ink)">${dv.spec ?? '--'}</span><small> spec</small> <span>${dv.classic ?? '--'}</span><small> classic</small>`;
+    const ds = dv.spec != null && !T.spec.warm ? (T.spec.bpm - dv.spec) : null, dc = dv.classic != null && T.cl.out != null ? (T.cl.out - dv.classic) : null;
+    const f = d => d == null ? '--' : (d >= 0 ? '+' : '') + d.toFixed(0);
+    $('nDev').textContent = `page − board: spectral ${f(ds)}, classic ${f(dc)} · board publishes ${dv.alg === 'spec' ? 'spectral' : 'classic'}, motion cancel ${dv.mcOn ? 'on' : 'off'}`;
+  } else { $('vDev').classList.add('empty'); $('vDev').textContent = '--'; }
+  const mot = T.spec.mot;
+  setVal('vMot', S.hasAcc ? mot.toFixed(2) : null, 'm/s²');
+  $('nMot').textContent = !S.hasAcc ? 'no accelerometer data' : mot > SPEC.MOT_RMS ? 'moving: spectral is notching' : 'still';
+}
+function drawTable() {
+  if ($('tableWrap').style.display === 'none') return;
+  const body = $('tbody'), rows = [];
+  const f = v => v == null || !isFinite(v) ? '--' : v.toFixed(0);
+  for (let i = S.ticks.length - 1; i >= Math.max(0, S.ticks.length - 300); i--) {
+    const T = S.ticks[i]; let dv = null;
+    for (let j = S.dev.length - 1; j >= 0; j--) if (Math.abs(S.dev[j].t - T.t) <= 1) { dv = S.dev[j]; break; }
+    rows.push(`<tr><td>${fmtTime(T.t)}</td><td>${T.spec.warm ? '--' : f(T.spec.bpm)}</td><td>${f(T.cl.out)}</td><td>${dv ? f(dv.spec) : '--'}</td><td>${dv ? f(dv.classic) : '--'}</td><td>${T.spec.warm ? '--' : T.spec.mot.toFixed(2)}</td></tr>`);
+  }
+  body.innerHTML = rows.join('');
+}
+function drawHeader(si) {
+  $('pillTime').textContent = fmtTime(S.n / FS_IN) + (si >= 0 && !S.follow ? ` · inspecting ${fmtTime(S.ticks[si].t)}` : '');
+  const pm = $('pillMotion');
+  pm.textContent = S.n === 0 ? 'IMU: --' : S.hasAcc ? 'IMU: yes' : 'IMU: none';
+  pm.className = 'pill' + (S.n && !S.hasAcc ? ' warn' : S.hasAcc ? ' good' : '');
+  if (usb && usb.gotRaw) setConn('USB: streaming', 'good');
+  $('btnSave').disabled = S.rec.ir.length === 0;
+  const sl = $('selSlider'); sl.max = Math.max(0, S.ticks.length - 1); sl.value = si < 0 ? 0 : si;
+  $('selOut').textContent = si >= 0 ? fmtTime(S.ticks[si].t) : '--';
+}
+
+function render() {
+  if (S.dirty) {
+    S.dirty = false;
+    const si = selIndex();
+    drawHeader(si); drawTiles(si); drawHr(); drawSpectral(si); drawClassic(si); drawTable();
+  }
+  requestAnimationFrame(render);
+}
+addEventListener('resize', () => { S.dirty = true; });
+requestAnimationFrame(render);
+
+// ?csv=<url> loads a recording on open (handy for sharing a test case).
+const qs = new URLSearchParams(location.search);
+if (qs.get('csv')) fetch(qs.get('csv')).then(r => r.ok ? r.text() : Promise.reject(r.status)).then(t => loadCsvText(t, qs.get('csv').split('/').pop()))
+  .catch(e => toast('Could not load ' + qs.get('csv') + ': ' + e));
+if (!navigator.serial) setConn('USB needs Chrome or Edge', 'warn');
+</script>
+</body>
+</html>

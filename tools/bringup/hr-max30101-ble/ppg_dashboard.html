@@ -430,15 +430,21 @@ th { color: var(--ink2); font-weight: 500; position: sticky; top: 0; background:
         <span id="ledSliderVal" style="font-variant-numeric:tabular-nums">127</span>
         <label for="ledColor">LED colour</label>
         <select id="ledColor" disabled title="USB only, Zephyr board only (the ESP32 ignores it). Keeps the current LED current and restarts the session.">
-          <option value="2" selected>IR</option>
+          <option value="2">IR</option>
           <option value="1">Red</option>
-          <option value="3">Green</option>
+          <option value="3" selected>Green</option>
         </select>
         <span></span>
         <label for="mcSel">Motion cancel</label>
         <select id="mcSel" disabled title="USB only, XIAO Sense build only (sends M / m). Off still streams both signals so you can compare.">
           <option value="on" selected>On</option>
           <option value="off">Off</option>
+        </select>
+        <span></span>
+        <label for="algSel">HR algorithm</label>
+        <select id="algSel" disabled title="USB only, Zephyr board only (sends S / s). Picks which device estimate is published; the other is drawn as a grey line on the heart-rate chart.">
+          <option value="spec" selected>Spectral</option>
+          <option value="classic">Classic</option>
         </select>
         <span></span>
       </div>
@@ -516,6 +522,7 @@ th { color: var(--ink2); font-weight: 500; position: sticky; top: 0; background:
       <div class="sub">Sliding 8 s window estimate, once per second. Dots are individual beat intervals. The browser never has motion data, so with motion cancel on, Device is the corrected estimate and Browser the uncorrected one.</div>
       <div class="legend">
         <span data-dev><i class="k-line" style="background:var(--s1)"></i>Device estimate<span id="lgDevMc"></span></span>
+        <span id="lgAlt" style="display:none"><i class="k-line" style="background:var(--ink2)"></i>Device, <span id="lgAltName">other algorithm</span></span>
         <span><i class="k-line" style="background:var(--s2)"></i>Browser estimate (uncorrected)</span>
         <span><i class="k-dot" style="background:var(--ink3);opacity:.6"></i>Beat interval</span>
         <button id="btnTable" aria-pressed="false" style="padding:2px 10px;min-height:26px">Table</button>
@@ -897,7 +904,7 @@ function onRaw(dv) {
   for (let k = 0; k < cnt; k++) pushSample(dv.getUint32(2 + k * 8, true), dv.getUint32(6 + k * 8, true));
   S.dirty = true;
 }
-const STATUS_RE = /^status: ir=(\d+) avgBpm=(\d+|--|warming\((\d+)\/(\d+)s\)) led=(\d+) acdc=([\d.]+)% r=([\d.]+) fs=([\d.]+)(?: est=([\d.]+)ms)?(?: mc=(on|off)(?: mot=([\d.]+) cut=(-?\d+)%)?)?/;
+const STATUS_RE = /^status: ir=(\d+) avgBpm=(\d+|--|warming\((\d+)\/(\d+)s\)) led=(\d+) acdc=([\d.]+)% r=([\d.]+) fs=([\d.]+)(?: est=([\d.]+)ms)?(?: mc=(on|off)(?: mot=([\d.]+) cut=(-?\d+)%( bypass)?)?)?(?: hr=(spec|classic) alt=(\d+|--|warming\(\d+\/\d+s\)))?/;
 function onText(text) {
   text = text.replace(/\0+$/, '').trim();
   if (!text) return;
@@ -911,9 +918,13 @@ function onText(text) {
       warm: m[3] !== undefined ? +m[3] : NaN,
       mc: m[10] || null,                          // Zephyr Sense build: motion cancel on/off
       mot: m[11] !== undefined ? +m[11] : NaN,    // in-band wrist acceleration, m/s^2 rms
-      cut: m[12] !== undefined ? +m[12] : NaN     // % of PPG power the filter removed
+      cut: m[12] !== undefined ? +m[12] : NaN,    // % of PPG power the filter would remove
+      bypass: !!m[13],                            // filter output unused (it was adding noise)
+      alg: m[14] || null,                         // published algorithm: spec / classic
+      alt: m[15] && /^\d+$/.test(m[15]) ? +m[15] : NaN  // the other algorithm's estimate
     };
     if (tk.mc) syncMc(tk.mc === 'on');
+    if (tk.alg) algSel.value = tk.alg;
     S.dticks.push(tk);
     S.dev = Object.assign({ wall: performance.now() }, tk);
     if (tk.fs > 90 && tk.fs < 110) { S.fs = tk.fs; P.fs = tk.fs; }
@@ -1083,9 +1094,18 @@ mcSel.addEventListener('change', () => {
 });
 function syncMc(on) { mcSel.value = on ? 'on' : 'off'; }
 
-/* "mc,<seq>,<before>:<after>,..." follows the raw batch with the same seq: the board's
-   filtered IR before/after motion cancelling, in hundredths of an ADC count. */
-const MC_LINE_RE = /^mc,(\d+)((?:,-?\d+:-?\d+)+)$/;
+/* ---- HR algorithm (USB, Zephyr board only: sends "S" spectral / "s" classic) ---- */
+const algSel = document.getElementById('algSel');
+algSel.addEventListener('change', () => {
+  if (!usb) return;
+  usb.writer.write(new TextEncoder().encode(algSel.value === 'spec' ? 'S\n' : 's\n')).catch(() => {});
+  addLog('ui', 'HR algorithm ' + algSel.options[algSel.selectedIndex].text.toLowerCase());
+});
+
+/* "mc,<seq>,<before>:<after>[:<ax>:<ay>:<az>],..." follows the raw batch with the same seq:
+   the board's filtered IR before/after motion cancelling (hundredths of an ADC count), then
+   the raw accelerometer (hundredths of m/s^2, kept in the log for offline tuning). */
+const MC_LINE_RE = /^mc,(\d+)((?:,-?\d+(?::-?\d+)+)+)$/;
 function onMcLine(line) {
   const m = MC_LINE_RE.exec(line);
   if (!m || +m[1] !== S.lastSeq) return;   // only for the batch just received
@@ -1117,7 +1137,7 @@ async function connectUsb() {
     // board may still be booting (opening the port can reset it).
     const ask = () => { if (usb && !usb.gotRaw) writer.write(enc.encode('R\n')).catch(() => {}); };
     ask(); usb.nagTimer = setInterval(ask, 1000);
-    ledSlider.disabled = false; ledColor.disabled = false; mcSel.disabled = false;
+    ledSlider.disabled = false; ledColor.disabled = false; mcSel.disabled = false; algSel.disabled = false;
     setConn('Connected: USB serial', 'on');
     document.getElementById('btnUsb').textContent = 'Disconnect USB';
     addLog('ui', 'USB serial open; asking board for raw stream');
@@ -1164,7 +1184,7 @@ function onUsbLine(u, line) {
   else { syncLedColor(line); onText(line); }
 }
 async function closeUsb(msg) {
-  const u = usb; usb = null; ledSlider.disabled = true; ledColor.disabled = true; mcSel.disabled = true;
+  const u = usb; usb = null; ledSlider.disabled = true; ledColor.disabled = true; mcSel.disabled = true; algSel.disabled = true;
   if (!u) return;
   u.stop = true; clearInterval(u.nagTimer);
   try { await u.writer.write(new TextEncoder().encode('r\n')); } catch (e) {}
@@ -1530,6 +1550,7 @@ function makePanels() {
     series: [
       { kind: 'dots', color: T.ink3, name: 'Beat interval', data: dataBeats, nearest: nearestBeatT },
       { kind: 'line', color: T.s2, name: 'Browser estimate', data: dataBrowser('hr'), nearest: nearestIn(() => S.ticks, 'hr'), label: !S.dticks.length },
+      { kind: 'line', color: T.ink2, name: 'Device, other algorithm', data: dataDevice('alt'), nearest: nearestIn(() => S.dticks, 'alt') },
       { kind: 'line', color: T.s1, name: 'Device estimate', data: dataDevice('hr'), nearest: nearestIn(() => S.dticks, 'hr'), label: true }
     ]
   })));
@@ -1642,9 +1663,12 @@ function updateTiles() {
   const dv = S.dev && performance.now() - S.dev.wall < 3500 ? S.dev : null;
   document.getElementById('kMot').textContent = !dv || !dv.mc ? '--'
     : dv.mc === 'off' ? 'cancel off'
-    : dv.mot.toFixed(2) + ' m/s² · cut ' + dv.cut + '%';
+    : dv.mot.toFixed(2) + ' m/s² · ' + (dv.bypass ? 'bypassed (would add noise)' : 'cut ' + dv.cut + '%');
   document.getElementById('mcCard').style.display = S.hasMc ? '' : 'none';
-  document.getElementById('lgDevMc').textContent = dv && dv.mc === 'on' ? ' (corrected)' : dv && dv.mc === 'off' ? ' (uncorrected)' : '';
+  document.getElementById('lgDevMc').textContent = !dv || !dv.alg ? ''
+    : ' (' + (dv.alg === 'spec' ? 'spectral' : 'classic') + (dv.mc === 'on' && dv.alg === 'classic' ? ', motion-corrected' : '') + ')';
+  document.getElementById('lgAlt').style.display = dv && dv.alg ? '' : 'none';
+  document.getElementById('lgAltName').textContent = dv && dv.alg === 'spec' ? 'classic' : 'spectral';
   document.getElementById('kEst').textContent = rd && isFinite(rd.est) ? rd.est.toFixed(1) + ' ms' : '--';
   document.getElementById('kN').textContent = S.n.toLocaleString();
   document.querySelectorAll('[data-dev]').forEach(e => { e.style.display = S.dticks.length ? '' : 'none'; });

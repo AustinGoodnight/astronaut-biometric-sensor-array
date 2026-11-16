@@ -37,6 +37,7 @@
 #include <string.h>
 
 #include "../motion/motion.h"
+#include "spectral_hr.h"
 
 /* The FIFO fills at 100 samples/s and holds 32 (320 ms). Each poll drains it,
  * so this only needs to be comfortably shorter than 320 ms. */
@@ -62,9 +63,19 @@ static int8_t heart_rate_valid = 0;
 BUILD_ASSERT(PPG_SLOT1_LED >= 1 && PPG_SLOT1_LED <= 3, "ppg led-slot[0] must be 1, 2 or 3");
 static const enum sensor_channel ppg_chan =
     PPG_SLOT1_LED == 1 ? SENSOR_CHAN_RED : PPG_SLOT1_LED == 2 ? SENSOR_CHAN_IR : SENSOR_CHAN_GREEN;
+/* Optional second LED in slot 2 (0 = none). It doesn't feed the heart-rate pipeline,
+ * which runs on slot 1 only; it's streamed as the raw line's second value so
+ * recordings carry two wavelengths for offline work (e.g. combining green + IR
+ * against motion). */
+#define PPG_SLOT2_LED DT_PROP_BY_IDX(PPG_NODE, led_slot, 1)
+BUILD_ASSERT(PPG_SLOT2_LED >= 0 && PPG_SLOT2_LED <= 3, "ppg led-slot[1] must be 0-3");
+BUILD_ASSERT(PPG_SLOT2_LED != PPG_SLOT1_LED, "ppg led-slot[1] must differ from slot 1");
+static const enum sensor_channel ppg_chan2 =
+    PPG_SLOT2_LED == 1 ? SENSOR_CHAN_RED : PPG_SLOT2_LED == 2 ? SENSOR_CHAN_IR : SENSOR_CHAN_GREEN;
 /* The LED currently in slot 1. Starts as the overlay's choice; the bench "C<n>"
- * command swaps it at runtime. The driver still reads it as ppg_chan: only slot 1
- * is active, so it returns slot 1's data whichever LED is lit. */
+ * command swaps it at runtime. The driver keeps reading it as ppg_chan: it maps
+ * channels to FIFO slots once at boot, so it returns slot 1's data whichever LED
+ * is lit there. */
 static uint8_t ppgLed = PPG_SLOT1_LED;
 static const char *led_name(uint8_t led)
 {
@@ -189,6 +200,7 @@ static void sendRawSample(uint32_t irRaw, uint32_t redRaw)
 
 static void startSession(void);
 static void mc_set(bool on);
+static void hr_set_spectral(bool on);
 
 /* Put a different LED in slot 1 at the current drive level. A new wavelength
  * changes the DC level and pulse shape completely, so start a fresh session. */
@@ -200,12 +212,17 @@ static void ppg_set_led(uint8_t led)
         logLine("LED set to %s (unchanged)", led_name(led));
         return;
     }
-    err = i2c_reg_write_byte_dt(&ppg_i2c, MAX3010X_REG_LED1_PA + ppgLed - 1, 0);
+    /* Turn the old LED off unless slot 2 still uses it. */
+    err = (ppgLed == PPG_SLOT2_LED) ? 0 :
+          i2c_reg_write_byte_dt(&ppg_i2c, MAX3010X_REG_LED1_PA + ppgLed - 1, 0);
     if (err == 0) {
         err = i2c_reg_write_byte_dt(&ppg_i2c, MAX3010X_REG_LED1_PA + led - 1, ledCurrent);
     }
     if (err == 0) {
-        err = i2c_reg_write_byte_dt(&ppg_i2c, MAX3010X_REG_MULTI_LED1, led); /* slot 2 off */
+        /* Keep slot 2 as configured: the driver reads a fixed number of slots per
+         * sample, so dropping it would misalign the FIFO. */
+        err = i2c_reg_write_byte_dt(&ppg_i2c, MAX3010X_REG_MULTI_LED1,
+                                    led | (PPG_SLOT2_LED << 4));
     }
     if (err < 0) {
         logLine("LED switch to %s failed (I2C err %d)", led_name(led), err);
@@ -233,6 +250,8 @@ static void bench_poll_rx(void)
             colorParsing = true;
         } else if (c == 'M' || c == 'm') {
             mc_set(c == 'M');
+        } else if (c == 'S' || c == 's') {
+            hr_set_spectral(c == 'S');
         } else if (c == 'L') {
             ledParsing = true;
             ledVal = 0;
@@ -320,6 +339,8 @@ static struct PpgFilter redFilter = PPG_FILTER_INIT;
                                           * the filter doesn't learn sensor noise or the
                                           * wrist's own pulse-driven movement */
 #define MC_LEAK   0.9995f               /* weights decay over ~20 s when there's nothing to cancel */
+#define MC_BYPASS_ON  1.0f              /* bypass once output power exceeds input power... */
+#define MC_BYPASS_OFF 0.9f              /* ...and resume once it's 10% below again */
 
 struct Nlms {
     float w[MC_N];
@@ -333,6 +354,7 @@ static bool mcPrimed;
 static bool mcEnabled;          /* set in ppg_init() from motion_available() */
 static float mcInPow, mcOutPow; /* smoothed PPG power before/after, for the status line */
 static float mcMotPow;          /* smoothed in-band accel power, for the status line */
+static bool mcBypass;           /* filter running but its output unused (it was making things worse) */
 
 static void mc_reset(void)
 {
@@ -344,6 +366,7 @@ static void mc_reset(void)
     memset(mcRef, 0, sizeof(mcRef));
     mcRefPow = mcInPow = mcOutPow = mcMotPow = 0;
     mcPrimed = false;
+    mcBypass = false;
 }
 
 /* Push one accelerometer sample (m/s^2) into the reference taps. */
@@ -407,11 +430,29 @@ static void mc_set(bool on)
     logLine("motion cancel %s", on ? "ON" : "OFF");
 }
 
-/* Bench stream of the filtered PPG before and after motion cancelling, so the
- * HR testing page can overlay them: "mc,<seq>,<before>:<after>,..." in hundredths
- * of an ADC count, one line per raw batch and sent right after it with the same
- * <seq>. Sent whenever the IMU is present; with cancelling off, after == before. */
+/* --- Heart-rate algorithm: spectral tracker (default) or classic ---
+ * Both always run; this picks which one is published (BLE packet, status avgBpm).
+ * The status line carries the other one as alt= for A/B on the testing page.
+ * Bench commands 'S' (spectral) / 's' (classic). */
+static bool hrSpectral = true;
+static float specBpm;
+static bool specValid, specWarm;
+
+static void hr_set_spectral(bool on)
+{
+    hrSpectral = on;
+    logLine("HR algorithm %s", on ? "spectral" : "classic");
+}
+
+/* Bench stream of the filtered PPG before and after motion cancelling, plus the raw
+ * accelerometer, so the HR testing page can overlay them and recordings can be
+ * replayed offline to tune the filter:
+ *   "mc,<seq>,<before>:<after>:<ax>:<ay>:<az>,..."
+ * PPG in hundredths of an ADC count, accel in hundredths of m/s^2 (0 if no reading).
+ * One line per raw batch, sent right after it with the same <seq>. Sent whenever
+ * the IMU is present; with cancelling off (or bypassed), after == before. */
 static int16_t mcBatchPre[RAW_BATCH_SIZE], mcBatchPost[RAW_BATCH_SIZE];
+static int16_t mcBatchAcc[RAW_BATCH_SIZE][MC_AXES];
 static uint8_t mcBatchCount;
 
 static int16_t mc_to_i16(float v)
@@ -419,10 +460,13 @@ static int16_t mc_to_i16(float v)
     return (int16_t)CLAMP(v * 100.0f, -32767.0f, 32767.0f);
 }
 
-static void mc_record(float before, float after)
+static void mc_record(float before, float after, const float *acc)
 {
     mcBatchPre[mcBatchCount] = mc_to_i16(before);
     mcBatchPost[mcBatchCount] = mc_to_i16(after);
+    for (int a = 0; a < MC_AXES; a++) {
+        mcBatchAcc[mcBatchCount][a] = acc != NULL ? mc_to_i16(acc[a]) : 0;
+    }
     if (++mcBatchCount < RAW_BATCH_SIZE) {
         return;
     }
@@ -433,11 +477,12 @@ static void mc_record(float before, float after)
 
     /* processSample() runs right after sendRawSample() for every sample, so this
      * batch covers the same samples as the raw batch just sent. */
-    char line[16 + RAW_BATCH_SIZE * 14];
+    static char line[16 + RAW_BATCH_SIZE * 34]; /* static: too big for the work queue stack */
     int n = snprintf(line, sizeof(line), "mc,%u", (unsigned)(uint16_t)(rawSeq - 1));
 
-    for (int i = 0; i < RAW_BATCH_SIZE && n < (int)sizeof(line) - 14; i++) {
-        n += snprintf(line + n, sizeof(line) - n, ",%d:%d", mcBatchPre[i], mcBatchPost[i]);
+    for (int i = 0; i < RAW_BATCH_SIZE && n < (int)sizeof(line) - 34; i++) {
+        n += snprintf(line + n, sizeof(line) - n, ",%d:%d:%d:%d:%d", mcBatchPre[i], mcBatchPost[i],
+                      mcBatchAcc[i][0], mcBatchAcc[i][1], mcBatchAcc[i][2]);
     }
     line[n++] = '\r';
     line[n++] = '\n';
@@ -770,15 +815,36 @@ static void onTick(long irRaw)
     }
 
     float acdc = (irDc > 0) ? envAbs / irDc : 0;
-    char bpmText[24];
+
+    /* Spectral tracker: one step per second. Only reported while there is a pulse
+     * signal at all (same floor as the classic edge detector), so it doesn't invent
+     * a heart rate with the sensor off the skin. */
+    float sConf, sMot;
+    specWarm = !spectral_hr_update(&specBpm, &sConf, &sMot);
+    specValid = !specWarm && acdc >= MIN_ACDC && irRaw < SAT_LEVEL;
+
+    char classicText[24], specText[24];
     if (hrValid) {
-        snprintf(bpmText, sizeof(bpmText), "%d", (int)(hrEstimate + 0.5f));
+        snprintf(classicText, sizeof(classicText), "%d", (int)(hrEstimate + 0.5f));
     } else if (winCount < WIN_LEN) {
-        snprintf(bpmText, sizeof(bpmText), "warming(%d/%ds)",
+        snprintf(classicText, sizeof(classicText), "warming(%d/%ds)",
                  (int)(winCount * WIN_DECIM / fsHz), (int)(WIN_LEN * WIN_DECIM / fsHz));
     } else {
-        snprintf(bpmText, sizeof(bpmText), "--");
+        snprintf(classicText, sizeof(classicText), "--");
     }
+    if (specValid) {
+        snprintf(specText, sizeof(specText), "%d", (int)(specBpm + 0.5f));
+    } else if (specWarm) {
+        snprintf(specText, sizeof(specText), "warming(%d/8s)",
+                 (int)MIN((k_uptime_get() - sessionStartMs) / 1000, 8));
+    } else {
+        snprintf(specText, sizeof(specText), "--");
+    }
+    /* avgBpm is whichever algorithm is published; alt= is the other one. */
+    const char *bpmText = hrSpectral ? specText : classicText;
+    char hrText[48];
+    snprintf(hrText, sizeof(hrText), " hr=%s alt=%s",
+             hrSpectral ? "spec" : "classic", hrSpectral ? classicText : specText);
 
     /* mc: motion cancel on/off; mot: in-band wrist acceleration (m/s^2 rms);
      * cut: share of PPG power the filter removed (pulse + motion). Appended after
@@ -786,15 +852,17 @@ static void onTick(long irRaw)
     char mcText[48] = " mc=off";
     if (mcEnabled) {
         float cut = (mcInPow > 0) ? 1.0f - mcOutPow / mcInPow : 0;
-        snprintf(mcText, sizeof(mcText), " mc=on mot=%.2f cut=%d%%",
-                 (double)sqrtf(mcMotPow), (int)(CLAMP(cut, -9.99f, 1.0f) * 100.0f));
+        /* cut is what the filter would remove; " bypass" = output unused because cut < 0 */
+        snprintf(mcText, sizeof(mcText), " mc=on mot=%.2f cut=%d%%%s",
+                 (double)sqrtf(mcMotPow), (int)(CLAMP(cut, -9.99f, 1.0f) * 100.0f),
+                 mcBypass ? " bypass" : "");
     }
 
     /* logLine, not LOG_INF: the testing page needs this in bench mode too (the
      * ESP32 sends it there), to plot the device's own (motion-cancelled) estimate. */
-    logLine("status: ir=%ld avgBpm=%s led=%u acdc=%.2f%% r=%.2f fs=%.1f est=%.1fms%s",
+    logLine("status: ir=%ld avgBpm=%s led=%u acdc=%.2f%% r=%.2f fs=%.1f est=%.1fms%s%s",
             irRaw, bpmText, ledCurrent, (double)(acdc * 100.0f), (double)lastR,
-            (double)fsHz, (double)(acUs / 1000.0f), mcText);
+            (double)fsHz, (double)(acUs / 1000.0f), mcText, hrText);
 }
 
 /* acc: accelerometer (m/s^2) aligned to this sample, or NULL if there is none. */
@@ -803,6 +871,10 @@ static void processSample(long irRaw, long redRaw, const float *acc)
     float ir = (float)irRaw;
     float red = (float)redRaw;
     sampleIdx++;
+
+    /* The spectral tracker gets the raw signal and keeps its own filters, so the
+     * classic path's holdoff resets and the adaptive filter don't affect it. */
+    spectral_hr_add_sample(ir, acc);
 
     if (needInit) { /* first sample of the session */
         needInit = false;
@@ -840,18 +912,32 @@ static void processSample(long irRaw, long redRaw, const float *acc)
     float irBefore = irF;
 
     if (mcEnabled && acc != NULL) {
-        bool adapt = sampleIdx >= holdoffUntil;
-        float irC;
+        /* During a holdoff the PPG filters have just been reset but the accelerometer's
+         * haven't, so subtracting then only adds noise: pass through and don't learn. */
+        bool live = sampleIdx >= holdoffUntil;
+        float irC, redC;
 
         mc_push_ref(acc);
-        irC = mc_cancel(&irNlms, irF, adapt);
-        redF = mc_cancel(&redNlms, redF, adapt);
-        mcInPow += 0.01f * (irF * irF - mcInPow);
-        mcOutPow += 0.01f * (irC * irC - mcOutPow);
-        irF = irC;
+        irC = mc_cancel(&irNlms, irF, live);
+        redC = mc_cancel(&redNlms, redF, live);
+        if (live) {
+            mcInPow += 0.01f * (irF * irF - mcInPow);
+            mcOutPow += 0.01f * (irC * irC - mcOutPow);
+            /* Never worse than off: bypass while the output has more power than
+             * the input (~1 s average), with hysteresis. It keeps learning meanwhile. */
+            if (mcOutPow > MC_BYPASS_ON * mcInPow) {
+                mcBypass = true;
+            } else if (mcOutPow < MC_BYPASS_OFF * mcInPow) {
+                mcBypass = false;
+            }
+            if (!mcBypass) {
+                irF = irC;
+                redF = redC;
+            }
+        }
     }
     if (motion_available()) {
-        mc_record(irBefore, irF);
+        mc_record(irBefore, irF, acc);
     }
 
     redSlopeAvg = 0.7f * redSlopeAvg + 0.3f * (redF - redPrevFiltered);
@@ -913,6 +999,8 @@ static void startSession(void)
     rateSpot = 0;
     beatMedian = 0;
     mc_reset(); /* a new LED/session means a different motion-to-PPG coupling */
+    spectral_hr_reset();
+    specValid = false;
     sessionStartMs = k_uptime_get();
     LOG_INF("SESSION START - warming up ~10s (2s settle + 8s window), keep finger still");
 }
@@ -963,7 +1051,7 @@ static void ppg_poll(void)
     /* One IMU reading per poll, taken just before the FIFO read so it lines up
      * with the newest PPG sample; the samples in between are interpolated from
      * the previous poll's reading (polls are 50 ms apart, motion is < 4 Hz). */
-    bool accOk = mcEnabled && motion_read_accel(accNow) == 0;
+    bool accOk = motion_available() && motion_read_accel(accNow) == 0; /* also when off: recorded */
 
     if (i2c_reg_read_byte_dt(&ppg_i2c, MAX3010X_REG_FIFO_WR_PTR, &wr) < 0 ||
         i2c_reg_read_byte_dt(&ppg_i2c, MAX3010X_REG_FIFO_RD_PTR, &rd) < 0) {
@@ -988,7 +1076,14 @@ static void ppg_poll(void)
         }
         sensor_channel_get(ppg_sensor, ppg_chan, &sample);
 
-        /* As on the ESP32: the single LED is fed in as both channels. */
+        /* Slot 2 (if any) only goes out on the raw stream, as its second value. */
+        struct sensor_value sample2 = sample;
+
+        if (PPG_SLOT2_LED != 0) {
+            sensor_channel_get(ppg_sensor, ppg_chan2, &sample2);
+        }
+
+        /* As on the ESP32: the slot 1 LED is fed in as both pipeline channels. */
         float acc[MC_AXES];
         const float *accp = NULL;
 
@@ -1001,7 +1096,7 @@ static void ppg_poll(void)
             accp = acc;
         }
 
-        sendRawSample(sample.val1, sample.val1);
+        sendRawSample(sample.val1, sample2.val1);
         processSample(sample.val1, sample.val1, accp);
     }
 
@@ -1012,8 +1107,13 @@ static void ppg_poll(void)
 
     bench_poll_rx();
 
-    heart_rate_valid = hrValid;
-    latest_heart_rate = hrValid ? (int32_t)(hrEstimate + 0.5f) : 0;
+    if (hrSpectral) {
+        heart_rate_valid = specValid;
+        latest_heart_rate = specValid ? (int32_t)(specBpm + 0.5f) : 0;
+    } else {
+        heart_rate_valid = hrValid;
+        latest_heart_rate = hrValid ? (int32_t)(hrEstimate + 0.5f) : 0;
+    }
 }
 
 #endif /* HR_MAIN_C */

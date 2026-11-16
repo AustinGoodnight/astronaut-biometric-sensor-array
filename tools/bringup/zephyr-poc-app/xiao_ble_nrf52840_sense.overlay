@@ -8,3 +8,10 @@
  * MAX30101, which is on i2c1. IMU-only Kconfig lives in
  * boards/xiao_ble_nrf52840_sense.conf. */
 #include "xiao_ble_shared.dtsi"
+
+/* Start the IMU driver from motion_init() instead of during boot: at boot it runs
+ * right after the IMU's power switch turns on and can fail before the chip is
+ * ready ("IMU ... not ready"). By motion_init() power has been stable for a while. */
+&lsm6ds3tr_c {
+    zephyr,deferred-init;
+};

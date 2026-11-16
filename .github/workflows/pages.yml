@@ -1,10 +1,11 @@
-name: Deploy web apps (overview, HR dashboard, LoRa range test)
+name: Deploy web apps (overview, HR dashboard, HR algorithm compare, LoRa range test)
 
 on:
   push:
     branches: [main]
     paths:
       - 'tools/bringup/hr-max30102-ble/ppg_dashboard.html'
+      - 'tools/hr-algo-compare/**'
       - 'tools/test-base-station/range-app/**'
       - 'tools/overview/index.html'
       - '.github/pages/**'
@@ -31,9 +32,10 @@ jobs:
       # One sub-URL per app; the root is a small index linking to each.
       - name: Stage the apps
         run: |
-          mkdir -p site/hr-testing site/lora-range site/overview
+          mkdir -p site/hr-testing site/hr-compare site/lora-range site/overview
           cp .github/pages/index.html site/index.html
           cp tools/bringup/hr-max30102-ble/ppg_dashboard.html site/hr-testing/index.html
+          cp tools/hr-algo-compare/index.html site/hr-compare/index.html
           cp tools/test-base-station/range-app/*.html site/lora-range/
           cp tools/overview/index.html site/overview/index.html
       - uses: actions/upload-pages-artifact@v3

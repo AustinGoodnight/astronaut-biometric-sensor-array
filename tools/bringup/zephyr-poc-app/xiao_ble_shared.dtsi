@@ -40,15 +40,18 @@
      * 400 samples/s with 4x on-chip averaging = 100 samples/s into the FIFO.
      *
      * The heart-rate code reads whichever LED is in slot 1 (1 red, 2 IR, 3 green)
-     * and its current from led-pa, so switching LEDs is just these two lines.
-     * Green (ESP32 default: led-slot <3 0 0 0>, led-pa [00 00 7F]) gave too weak a
-     * pulse on this board (AC/DC ~0.1-0.4%), so this uses IR. */
+     * and its current from led-pa, so switching LEDs is just these two lines
+     * (or at runtime from the HR testing page's LED colour menu).
+     *
+     * Green, full current: on the wrist with the sealed harness (2026-11-14) it gave
+     * the strongest pulse, AC/DC ~0.08% (0.04-0.13) vs IR ~0.04% and red ~0.01%.
+     * Even at 0xFF it only reaches ~19% of the ADC range, so there is no headroom. */
     ppg: max30101@57 {
         compatible = "maxim,max30101";
         reg = <0x57>;
         acq-mode = "multi-led";
-        led-slot = <2 0 0 0>;     /* slot 1 = IR, others off */
-        led-pa = [00 2F 00];      /* red, IR, green: IR 0x2F ~9.4 mA (MAX30102 ESP32 build's value) */
+        led-slot = <3 2 0 0>;     /* slot 1 = green (heart rate), slot 2 = IR (streamed only) */
+        led-pa = [00 1F FF];      /* red, IR, green: IR 0x1F (~44% of range on the wrist), green 0xFF ~50 mA */
         smp-ave = <4>;
         smp-sr = <400>;
         led-pw = <411>;           /* 411 us, 18-bit */

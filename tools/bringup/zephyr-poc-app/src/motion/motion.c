@@ -3,6 +3,7 @@
 
 #include <zephyr/kernel.h>
 #include <zephyr/device.h>
+#include <zephyr/drivers/i2c.h>
 #include <zephyr/drivers/sensor.h>
 #include <zephyr/logging/log.h>
 
@@ -10,16 +11,38 @@
 
 LOG_MODULE_REGISTER(motion, LOG_LEVEL_INF);
 
-static const struct device *const imu = DEVICE_DT_GET(DT_NODELABEL(lsm6ds3tr_c));
+#define IMU_NODE         DT_NODELABEL(lsm6ds3tr_c)
+#define IMU_REG_WHO_AM_I 0x0F
+#define IMU_WHO_AM_I     0x6A   /* LSM6DSL and LSM6DS3TR-C both answer this */
+
+static const struct device *const imu = DEVICE_DT_GET(IMU_NODE);
+static const struct i2c_dt_spec imu_i2c = I2C_DT_SPEC_GET(IMU_NODE);
 static bool imu_ok;
 
 bool motion_init(void)
 {
+    /* The IMU node is zephyr,deferred-init (Sense overlay), so its driver starts
+     * here, well after its power switch came on at boot. */
+    int err = device_init(imu);
+
     imu_ok = device_is_ready(imu);
-    if (!imu_ok) {
-        LOG_ERR("IMU %s not ready: is this really a Sense board?", imu->name);
+    if (imu_ok) {
+        return true;
     }
-    return imu_ok;
+
+    /* The driver's own failure messages are debug-level only, so probe the chip
+     * directly to say whether it's power/wiring or the chip itself. */
+    uint8_t id;
+    int probe = i2c_reg_read_byte_dt(&imu_i2c, IMU_REG_WHO_AM_I, &id);
+
+    if (probe < 0) {
+        LOG_ERR("IMU driver init failed (%d) and no ACK from 0x%02x on %s (err %d): "
+                "IMU power switch or bus problem", err, imu_i2c.addr, imu_i2c.bus->name, probe);
+    } else {
+        LOG_ERR("IMU driver init failed (%d); chip answers WHO_AM_I=0x%02x (driver expects 0x%02x)",
+                err, id, IMU_WHO_AM_I);
+    }
+    return false;
 }
 
 bool motion_available(void)
