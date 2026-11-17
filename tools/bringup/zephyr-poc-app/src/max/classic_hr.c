@@ -54,12 +54,10 @@ static struct {
 
 void classic_hr_reset(void)
 {
-    static const struct bandpass init = BANDPASS_INIT;
-
-    //zero everything, then set the things that mustn't start at 0: the filter's
-    //coefficients, the sample rate, and "the next sample is the first one"
+    //zero everything, then set the things that mustn't start at 0: the filter (it needs
+    //setting up), the sample rate, and "the next sample is the first one"
     memset(&state, 0, sizeof(state));
-    state.filter = init;
+    bandpass_reset(&state.filter);
     state.fs = FS_NOMINAL;
     state.firstSample = true;
 }

@@ -6,12 +6,13 @@
  * Every second: take the last 8 s of PPG, find which rhythms are in it (FFT), delete
  * the rhythms the accelerometer says are motion (and their 0.5x/2x/3x), then pick the
  * heart-rate peak that is most consistent with the recent past (causal Viterbi: heart
- * rate can only move ~2 bpm per second). No Zephyr dependencies, so it also builds and
- * runs on a host against bench recordings. */
+ * rate can only move ~2 bpm per second). No Zephyr dependencies (only CMSIS-DSP, which
+ * builds anywhere), so it also builds and runs on a host against bench recordings. */
 
 #include <stdbool.h>
 
-/* Forget everything (new session, LED change). */
+/* Forget everything (new session, LED change). Must also be called once before the
+ * first sample: it sets up the filters. */
 void spectral_hr_reset(void);
 
 /* Feed one raw PPG sample at 100 Hz. acc: accelerometer x/y/z in m/s^2 for the same

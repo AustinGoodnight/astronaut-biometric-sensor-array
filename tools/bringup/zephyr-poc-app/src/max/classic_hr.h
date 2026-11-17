@@ -14,14 +14,15 @@
  *      bpm = 60 * 25 / lag
  *   6. report the median of the last 5 estimates; "--" after 5 s without a good one
  *
- * No Zephyr dependencies, so it also builds and runs on a host against recordings. */
+ * No Zephyr dependencies (only CMSIS-DSP, which builds anywhere), so it also builds and runs on a host against recordings. */
 
 #include <stdbool.h>
 
 /* A reading with no good window for this long is dropped (step 6). */
 #define CLASSIC_HR_MAX_AGE_SEC 5
 
-/* Forget everything (new session, LED change). Also resets the sample rate to 100 Hz. */
+/* Forget everything (new session, LED change). Also resets the sample rate to 100 Hz.
+ * Must also be called once before the first sample: it sets up the filter. */
 void classic_hr_reset(void);
 
 /* The real sample rate, if it's been measured (~100 Hz). Used for every "seconds"

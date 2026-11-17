@@ -11,7 +11,6 @@ target_sources(app PRIVATE
     src/max/hr_main.c
     src/max/bench.c
     src/max/classic_hr.c
-    src/max/fft.c
     src/max/spectral_hr.c
     src/skin-temp/max30205.c
 )

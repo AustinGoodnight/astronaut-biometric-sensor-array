@@ -10,14 +10,16 @@
 #include <math.h>
 #include <string.h>
 
+#include <arm_math.h>   /* CMSIS-DSP (ARM's DSP library, part of NCS): the FFT */
+
 #include "bandpass.h"
-#include "fft.h"
 
 #define SPEC_PI               3.14159265358979f
 #define SPEC_DOWNSAMPLE       4                  /* average every 4 samples: 100 Hz in -> 25 Hz */
 #define SPEC_FS               25.0f              /* sample rate after downsampling */
 #define SPEC_WINDOW_LEN       200                /* 8 s at 25 Hz */
-#define SPEC_FFT_LEN          1024               /* window zero-padded to this: 25/1024 Hz = 1.46 bpm bins */
+#define SPEC_FFT_LEN          1024               /* window zero-padded to this: 25/1024 Hz = 1.46 bpm bins.
+                                                  * must stay 1024: see arm_rfft_fast_init_1024_f32 below */
 #define SPEC_BIN_HZ           (SPEC_FS / SPEC_FFT_LEN)
 #define SPEC_HR_BIN_MIN       28                 /* heart-rate candidates: 0.68 Hz =  41 bpm... */
 #define SPEC_HR_BIN_MAX       122                /* ...to 2.98 Hz = 179 bpm */
@@ -40,9 +42,10 @@
 /* Each motion rhythm is notched at these multiples of its frequency. */
 static const float notch_multiples[] = { 0.5f, 1.0f, 2.0f, 3.0f };
 
-/* Same 0.7-3.5 Hz bandpass as the classic path (bandpass.h), on PPG and accel alike. */
-static struct bandpass ppg_filter = BANDPASS_INIT;
-static struct bandpass acc_filter[SPEC_AXES] = { BANDPASS_INIT, BANDPASS_INIT, BANDPASS_INIT };
+/* Same 0.7-3.5 Hz bandpass as the classic path (bandpass.h), on PPG and accel alike.
+ * Set up by spectral_hr_reset(). */
+static struct bandpass ppg_filter;
+static struct bandpass acc_filter[SPEC_AXES];
 static float ppg_first, acc_first[SPEC_AXES];    /* the first sample, subtracted from all later ones */
 static bool first_sample = true; /* true until the first sample since reset has been handled */
 
@@ -61,19 +64,19 @@ static int next_slot, window_filled;             /* window_filled stops at 200 *
 static float track_score[SPEC_HR_BINS];
 static bool first_update = true; /* true until the tracker has a score history */
 
-/* Scratch for the FFTs (static: too big for a work queue stack). */
-static float fft_re[SPEC_FFT_LEN], fft_im[SPEC_FFT_LEN];
+/* The FFT (CMSIS-DSP's real FFT): its setup, and its input/output buffers (static: too
+ * big for a work queue stack). */
+static arm_rfft_fast_instance_f32 fft_setup;
+static float fft_in[SPEC_FFT_LEN], fft_out[SPEC_FFT_LEN];
 static float hann_window[SPEC_WINDOW_LEN];
-static bool hann_built;
+static bool setup_done;          /* fft_setup and hann_window are built on first use */
 static float ppg_power[SPEC_MOTION_BIN_MAX + 1], acc_power[SPEC_MOTION_BIN_MAX + 1];
 
 void spectral_hr_reset(void)
 {
-    static const struct bandpass init = BANDPASS_INIT;
-
-    ppg_filter = init;
+    bandpass_reset(&ppg_filter);
     for (int a = 0; a < SPEC_AXES; a++) {
-        acc_filter[a] = init;
+        bandpass_reset(&acc_filter[a]);
     }
     first_sample = true;
     ppg_sum = 0;
@@ -159,16 +162,26 @@ static void power_spectrum(const float *window, float *power)
     //unroll the ring oldest first (next_slot = oldest), remove the mean, and fade the ends
     //to 0 (hann) so the clip's sudden start/end don't smear power across every bin
     for (int i = 0; i < SPEC_WINDOW_LEN; i++) {
-        fft_re[i] = (window[(next_slot + i) % SPEC_WINDOW_LEN] - mean) * hann_window[i];
+        fft_in[i] = (window[(next_slot + i) % SPEC_WINDOW_LEN] - mean) * hann_window[i];
     }
     //zero pad 200 -> 1024. doesn't add info, just draws the same spectrum with finer bins
-    memset(&fft_re[SPEC_WINDOW_LEN], 0, (SPEC_FFT_LEN - SPEC_WINDOW_LEN) * sizeof(float));
-    memset(fft_im, 0, sizeof(fft_im));
-    fft(fft_re, fft_im, SPEC_FFT_LEN);
+    memset(&fft_in[SPEC_WINDOW_LEN], 0, (SPEC_FFT_LEN - SPEC_WINDOW_LEN) * sizeof(float));
+
+    //the fft (library call). last argument 0 = forward (signal -> frequencies).
+    //note it uses fft_in as scratch space, so fft_in is garbage afterwards
+    arm_rfft_fast_f32(&fft_setup, fft_in, fft_out, 0);
+
+    //fft_out holds bin k's cosine part (re) and sine part (im) side by side:
+    //  fft_out[2k] = re of bin k,  fft_out[2k+1] = im of bin k     (k = 1..511)
+    //except the first pair: bin 0 has no sine part (always 0), so the library stores the
+    //top bin (512) in its slot instead: fft_out[0] = re of bin 0, fft_out[1] = re of bin 512
+    power[0] = fft_out[0] * fft_out[0];
     //power = re^2 + im^2. bin k is k * 25/1024 Hz. only bins up to MOTION_BIN_MAX (239 bpm)
-    //are ever looked at, and bins above 512 are a mirror image anyway
-    for (int k = 0; k <= SPEC_MOTION_BIN_MAX; k++) {
-        power[k] = fft_re[k] * fft_re[k] + fft_im[k] * fft_im[k];
+    //are ever looked at
+    for (int k = 1; k <= SPEC_MOTION_BIN_MAX; k++) {
+        float re = fft_out[2 * k], im = fft_out[2 * k + 1];
+
+        power[k] = re * re + im * im;
     }
 }
 
@@ -302,12 +315,17 @@ bool spectral_hr_update(float *bpm, float *conf, float *motion)
     if (window_filled < SPEC_WINDOW_LEN) {
         return false;
     }
-    //hann = 0 at both ends, 1 in the middle. computed once, the first time it's needed
-    if (!hann_built) {
+    //one-time setup, the first time it's needed
+    if (!setup_done) {
+        //the fft library precomputes its tables for this size. the _1024 version only
+        //pulls in the 1024-point tables (the general one links every size up to 4096,
+        //a lot of flash for nothing)
+        arm_rfft_fast_init_1024_f32(&fft_setup);
+        //hann = 0 at both ends, 1 in the middle
         for (int i = 0; i < SPEC_WINDOW_LEN; i++) {
             hann_window[i] = 0.5f - 0.5f * cosf(2.0f * SPEC_PI * i / (SPEC_WINDOW_LEN - 1));
         }
-        hann_built = true;
+        setup_done = true;
     }
 
     //1. how tall each frequency bar is in the last 8 s of ppg

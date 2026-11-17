@@ -55,9 +55,8 @@ Board: XIAO Sense build, motion removal ON
 | `boards/xiao_ble_nrf52840_sense.conf` | Sense-only Kconfig (IMU rate and range). Never put IMU options in `prj.conf`: they don't exist on the plain board and break its build. |
 | `src/main.c` | Startup, sensor polling, BLE packet layout |
 | `src/max/hr_main.c` | Heart-rate glue: reads the MAX30101, runs both algorithms, status line, published HR |
-| `src/max/spectral_hr.c` | Spectral heart rate (FFT, motion notches, tracker); published by default |
+| `src/max/spectral_hr.c` | Spectral heart rate (FFT, motion notches, tracker); published by default. The FFT is CMSIS-DSP's `arm_rfft_fast_f32` (ships with NCS, turned on in `prj.conf`) |
 | `src/max/classic_hr.c` | Classic heart rate (autocorrelation, still wrist only) |
-| `src/max/fft.c` | The FFT the spectral heart rate uses |
 | `src/max/bandpass.h` | The 0.7-3.5 Hz filter every path shares |
 | `src/max/bench.c` | USB bench protocol for the testing pages (commands and `raw,`/`mc,`/`status:` lines) |
 | `src/persp/` | Skin resistance (ADC) |
