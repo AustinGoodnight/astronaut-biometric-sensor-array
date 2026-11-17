@@ -10,96 +10,78 @@
 #include <math.h>
 #include <string.h>
 
-#define SPEC_PI        3.14159265358979f
-#define SPEC_DECIM     4                         /* 100 Hz in -> 25 Hz */
-#define SPEC_FS        25.0f
-#define SPEC_WIN       200                       /* 8 s at 25 Hz */
-#define SPEC_NFFT      1024                      /* zero-padded: 25/1024 Hz = 1.46 bpm bins */
-#define SPEC_BIN_HZ    (SPEC_FS / SPEC_NFFT)
-#define SPEC_K_LO      28                        /* 0.68 Hz =  41 bpm */
-#define SPEC_K_HI      122                       /* 2.98 Hz = 179 bpm */
-#define SPEC_NSTATE    (SPEC_K_HI - SPEC_K_LO + 1)
-#define SPEC_KM_LO     21                        /* motion peak search: 0.51 Hz... */
-#define SPEC_KM_HI     163                       /* ...to 3.98 Hz */
-#define SPEC_AXES      3
+#include "bandpass.h"
+#include "fft.h"
 
-#define SPEC_SIGMA_BPM 2.0f   /* how far heart rate may move per second (higher = follows faster, jumps more) */
-#define SPEC_MOT_RMS   0.2f   /* m/s^2 in-band: below this, no motion removal */
-#define SPEC_MOT_FRAC  0.2f   /* accel peaks above 20% of the strongest count as motion */
-#define SPEC_MOT_PEAKS 3      /* only the strongest few */
+#define SPEC_PI               3.14159265358979f
+#define SPEC_DOWNSAMPLE       4                  /* average every 4 samples: 100 Hz in -> 25 Hz */
+#define SPEC_FS               25.0f              /* sample rate after downsampling */
+#define SPEC_WINDOW_LEN       200                /* 8 s at 25 Hz */
+#define SPEC_FFT_LEN          1024               /* window zero-padded to this: 25/1024 Hz = 1.46 bpm bins */
+#define SPEC_BIN_HZ           (SPEC_FS / SPEC_FFT_LEN)
+#define SPEC_HR_BIN_MIN       28                 /* heart-rate candidates: 0.68 Hz =  41 bpm... */
+#define SPEC_HR_BIN_MAX       122                /* ...to 2.98 Hz = 179 bpm */
+#define SPEC_HR_BINS          (SPEC_HR_BIN_MAX - SPEC_HR_BIN_MIN + 1) /* 95 candidates */
+#define SPEC_MOTION_BIN_MIN   21                 /* motion peak search: 0.51 Hz... */
+#define SPEC_MOTION_BIN_MAX   163                /* ...to 3.98 Hz */
+#define SPEC_AXES             3
+
+#define SPEC_HR_CHANGE_BPM    2.0f   /* how far heart rate may move per second (higher = follows faster, jumps more) */
+#define SPEC_MOTION_MIN_RMS   0.2f   /* m/s^2 in-band: below this, no motion removal */
+#define SPEC_MOTION_PEAK_FRAC 0.2f   /* accel peaks above 20% of the strongest count as motion */
+#define SPEC_MOTION_MAX_PEAKS 3      /* only the strongest few */
 /* +-2 bins = +-0.05 Hz (+-3 bpm) around each motion rhythm. That only takes the top off a
  * motion peak (an 8 s Hann window smears it over ~+-7 bpm at half height), but +-5 was
  * tried on a 9-minute wrist recording (2026-11-16) and did worse: wider notches cut away
  * the real pulse peak whenever it sits near a motion harmonic, and the tracker then locks
  * onto a different track (15-30 bpm off) for tens of seconds. */
-#define SPEC_NOTCH_K   2
+#define SPEC_NOTCH_HALF_WIDTH 2
 
-static const float notch_harm[] = { 0.5f, 1.0f, 2.0f, 3.0f };
+/* Each motion rhythm is notched at these multiples of its frequency. */
+static const float notch_multiples[] = { 0.5f, 1.0f, 2.0f, 3.0f };
 
-/* Same 0.7-3.5 Hz Butterworth bandpass as the PPG pipeline (designed for 100 Hz). */
-struct biquad { float b0, b1, b2, a1, a2, z1, z2; };
-struct bandpass { struct biquad s0, s1; };
-#define SPEC_BANDPASS_INIT { \
-    { 0.006867866f, 0.013735731f, 0.006867866f, -1.786023501f, 0.820363944f, 0, 0 }, \
-    { 1.0f, -2.0f, 1.0f, -1.948065846f, 0.950479924f, 0, 0 } }
+/* Same 0.7-3.5 Hz bandpass as the classic path (bandpass.h), on PPG and accel alike. */
+static struct bandpass ppg_filter = BANDPASS_INIT;
+static struct bandpass acc_filter[SPEC_AXES] = { BANDPASS_INIT, BANDPASS_INIT, BANDPASS_INIT };
+static float ppg_first, acc_first[SPEC_AXES];    /* the first sample, subtracted from all later ones */
+static bool first_sample = true; /* true until the first sample since reset has been handled */
 
-//one filter stage. output = mix of this input, the last 2 inputs and the last 2 outputs:
-//  y = b0*x + b1*x_prev + b2*x_prev2 - a1*y_prev - a2*y_prev2
-//z1/z2 hold that history already partly added up, so we only keep 2 numbers instead of 4
-//b's decide what frequencies get blocked, a's (feeding old outputs back in) make it resonate
-static float biquad_step(struct biquad *q, float x)
-{
-    float y = q->b0 * x + q->z1;
+/* Downsampling: 4 filtered samples are summed here, then averaged into one 25 Hz sample. */
+static float ppg_sum, acc_sum[SPEC_AXES];
+static int sum_count;            /* how many are in the sums (0..3) */
+static bool sum_has_acc;         /* false if any of them had no accel reading */
 
-    q->z1 = q->b1 * x - q->a1 * y + q->z2;
-    q->z2 = q->b2 * x - q->a2 * y;
-    return y;
-}
+/* The last 8 s at 25 Hz, as ring buffers. next_slot is where the next sample goes, which
+ * (once the window is full) is also where the oldest one is. */
+static float ppg_window[SPEC_WINDOW_LEN], acc_window[SPEC_AXES][SPEC_WINDOW_LEN];
+static bool acc_present[SPEC_WINDOW_LEN];        /* that 25 Hz sample had accel data */
+static int next_slot, window_filled;             /* window_filled stops at 200 */
 
-//2 stages back to back: s0 is a lowpass (cuts above ~3.5 Hz), s1 is a highpass (cuts below ~0.7 Hz)
-//so only 0.7-3.5 Hz (42-210 bpm) makes it through
-static float bandpass_step(struct bandpass *f, float x)
-{
-    return biquad_step(&f->s1, biquad_step(&f->s0, x));
-}
-
-static struct bandpass ppg_f = SPEC_BANDPASS_INIT;
-static struct bandpass acc_f[SPEC_AXES] = { SPEC_BANDPASS_INIT, SPEC_BANDPASS_INIT, SPEC_BANDPASS_INIT };
-static float ppg_dc0, acc_dc0[SPEC_AXES];
-static bool primed;
-
-static float ppg_acc, acc_acc[SPEC_AXES];        /* decimation sums */
-static int dec_n;
-static bool dec_has_acc;
-
-static float ppg_ring[SPEC_WIN], acc_ring[SPEC_AXES][SPEC_WIN];
-static bool acc_valid[SPEC_WIN];
-static int head, count;
-
-static float score[SPEC_NSTATE];
-static bool have_score;
+/* The tracker's running score for each of the 95 candidate bins (0 = the leader). */
+static float track_score[SPEC_HR_BINS];
+static bool first_update = true; /* true until the tracker has a score history */
 
 /* Scratch for the FFTs (static: too big for a work queue stack). */
-static float fre[SPEC_NFFT], fim[SPEC_NFFT];
-static float hann[SPEC_WIN];
-static bool hann_ready;
-static float pspec[SPEC_KM_HI + 1], aspec[SPEC_KM_HI + 1];
+static float fft_re[SPEC_FFT_LEN], fft_im[SPEC_FFT_LEN];
+static float hann_window[SPEC_WINDOW_LEN];
+static bool hann_built;
+static float ppg_power[SPEC_MOTION_BIN_MAX + 1], acc_power[SPEC_MOTION_BIN_MAX + 1];
 
 void spectral_hr_reset(void)
 {
-    static const struct bandpass init = SPEC_BANDPASS_INIT;
+    static const struct bandpass init = BANDPASS_INIT;
 
-    ppg_f = init;
+    ppg_filter = init;
     for (int a = 0; a < SPEC_AXES; a++) {
-        acc_f[a] = init;
+        acc_filter[a] = init;
     }
-    primed = false;
-    ppg_acc = 0;
-    memset(acc_acc, 0, sizeof(acc_acc));
-    dec_n = 0;
-    dec_has_acc = true;
-    head = count = 0;
-    have_score = false;
+    first_sample = true;
+    ppg_sum = 0;
+    memset(acc_sum, 0, sizeof(acc_sum));
+    sum_count = 0;
+    sum_has_acc = true;
+    next_slot = window_filled = 0;
+    first_update = true;
 }
 
 
@@ -110,245 +92,249 @@ void spectral_hr_add_sample(float ppg_raw, const float *acc)
     //the filter starts out "thinking" the input has always been 0. raw ppg is ~100000, so the
     //first sample looks like a huge jump and the filter wobbles from it for seconds.
     //subtracting the first sample makes the input start near 0 so there's no jump
-    if (!primed) {
-        ppg_dc0 = ppg_raw;
+    if (first_sample) {
+        ppg_first = ppg_raw;
         for (int a = 0; a < SPEC_AXES; a++) {
-            acc_dc0[a] = acc ? acc[a] : 0;
+            acc_first[a] = acc ? acc[a] : 0;
         }
-        primed = true;
+        first_sample = false;
     }
 
     //bandpass
     //filter ppg and accel the same way so motion shows up at the same bins in both ffts
-    ppg_acc += bandpass_step(&ppg_f, ppg_raw - ppg_dc0);
+    ppg_sum += bandpass_step(&ppg_filter, ppg_raw - ppg_first);
     if (acc) {
         for (int a = 0; a < SPEC_AXES; a++) {
-            acc_acc[a] += bandpass_step(&acc_f[a], acc[a] - acc_dc0[a]);
+            acc_sum[a] += bandpass_step(&acc_filter[a], acc[a] - acc_first[a]);
         }
     } else {
-        dec_has_acc = false;
+        sum_has_acc = false;
     }
 
-    //average every 4 samples -> 25 Hz. nothing above 3.5 Hz is left so 100 Hz is overkill,
-    //and the fft gets 4x cheaper. averaging is also a small extra lowpass
-    if (++dec_n < SPEC_DECIM) {
+    //wait for 4 samples to average
+    if (++sum_count < SPEC_DOWNSAMPLE) {
         return;
     }
-    //head = next slot to write = oldest sample. count stops at 200 once the 8 s window is full
-    ppg_ring[head] = ppg_acc / SPEC_DECIM;
+
+    //add to PPG ring buffer
+    ppg_window[next_slot] = ppg_sum / SPEC_DOWNSAMPLE;
+    //add to acc ring buffer
     for (int a = 0; a < SPEC_AXES; a++) {
-        acc_ring[a][head] = acc_acc[a] / SPEC_DECIM;
+        acc_window[a][next_slot] = acc_sum[a] / SPEC_DOWNSAMPLE;
     }
-    acc_valid[head] = dec_has_acc;
-    head = (head + 1) % SPEC_WIN;
-    if (count < SPEC_WIN) {
-        count++;
+    acc_present[next_slot] = sum_has_acc;
+    next_slot = (next_slot + 1) % SPEC_WINDOW_LEN;
+    if (window_filled < SPEC_WINDOW_LEN) {
+        window_filled++;
     }
-    ppg_acc = 0;
-    memset(acc_acc, 0, sizeof(acc_acc));
-    dec_n = 0;
-    dec_has_acc = true;
+    //reset values
+    ppg_sum = 0;
+    memset(acc_sum, 0, sizeof(acc_sum));
+    sum_count = 0;
+    sum_has_acc = true;
 }
 
 
 
-//fft transform (standard textbook version, don't need to touch it)
-//first loop shuffles samples into bit-reversed order, second loop does the butterfly passes
-static void fft(float *re, float *im, int n)
-{
-    for (int i = 1, j = 0; i < n; i++) {
-        int bit = n >> 1;
-
-        for (; j & bit; bit >>= 1) {
-            j ^= bit;
-        }
-        j ^= bit;
-        if (i < j) {
-            float t = re[i]; re[i] = re[j]; re[j] = t;
-            t = im[i]; im[i] = im[j]; im[j] = t;
-        }
-    }
-    for (int len = 2; len <= n; len <<= 1) {
-        float ang = -2.0f * SPEC_PI / (float)len;
-        float wr = cosf(ang), wi = sinf(ang);
-
-        for (int i = 0; i < n; i += len) {
-            float cr = 1.0f, ci = 0.0f;
-
-            for (int j = 0; j < len / 2; j++) {
-                int a = i + j, b = a + len / 2;
-                float tr = re[b] * cr - im[b] * ci;
-                float ti = re[b] * ci + im[b] * cr;
-
-                re[b] = re[a] - tr; im[b] = im[a] - ti;
-                re[a] += tr;        im[a] += ti;
-                float ncr = cr * wr - ci * wi;
-                ci = cr * wi + ci * wr;
-                cr = ncr;
-            }
-        }
-    }
-}
-
-/* Power spectrum (bins 0..SPEC_KM_HI) of a ring buffer, oldest sample first, Hann-windowed. */
-static void power_spectrum(const float *ring, float *out)
+//strength of fft rythm
+/* Power spectrum of the last 8 s in a window: power[k] = how much of the signal is a
+ * rhythm at bin k's frequency (k * 25/1024 Hz = k * 1.46 bpm), for k = 0..MOTION_BIN_MAX.
+ *
+ * The fft gives two numbers per bin: how well the signal matches a cosine at that
+ * frequency (re) and a sine (im). Which of the two a pulse shows up in depends only on
+ * where in the 8 s the beats happen to fall, so re^2 + im^2 (the power) is what's left
+ * once that timing is thrown away: a big number = a strong rhythm at that frequency,
+ * whenever its beats land. Only relative sizes matter; the tracker uses each bin's
+ * share of the total. */
+static void power_spectrum(const float *window, float *power)
 {
     float mean = 0;
 
-    for (int i = 0; i < SPEC_WIN; i++) {
-        mean += ring[i];
+    //the average level isn't a rhythm, it would just be a giant bin 0 that leaks into the
+    //low bins. take it out first
+    for (int i = 0; i < SPEC_WINDOW_LEN; i++) {
+        mean += window[i];
     }
-    mean /= SPEC_WIN;
-    //unroll the ring oldest first, remove the mean, and fade the ends to 0 (hann) so the
-    //clip's start/end don't smear power across every bin
-    for (int i = 0; i < SPEC_WIN; i++) {
-        fre[i] = (ring[(head + i) % SPEC_WIN] - mean) * hann[i];
+    mean /= SPEC_WINDOW_LEN;
+    //unroll the ring oldest first (next_slot = oldest), remove the mean, and fade the ends
+    //to 0 (hann) so the clip's sudden start/end don't smear power across every bin
+    for (int i = 0; i < SPEC_WINDOW_LEN; i++) {
+        fft_re[i] = (window[(next_slot + i) % SPEC_WINDOW_LEN] - mean) * hann_window[i];
     }
     //zero pad 200 -> 1024. doesn't add info, just draws the same spectrum with finer bins
-    memset(&fre[SPEC_WIN], 0, (SPEC_NFFT - SPEC_WIN) * sizeof(float));
-    memset(fim, 0, sizeof(fim));
-    fft(fre, fim, SPEC_NFFT);
-    //power = re^2 + im^2. bin k is k * 25/1024 Hz
-    for (int k = 0; k <= SPEC_KM_HI; k++) {
-        out[k] = fre[k] * fre[k] + fim[k] * fim[k];
+    memset(&fft_re[SPEC_WINDOW_LEN], 0, (SPEC_FFT_LEN - SPEC_WINDOW_LEN) * sizeof(float));
+    memset(fft_im, 0, sizeof(fft_im));
+    fft(fft_re, fft_im, SPEC_FFT_LEN);
+    //power = re^2 + im^2. bin k is k * 25/1024 Hz. only bins up to MOTION_BIN_MAX (239 bpm)
+    //are ever looked at, and bins above 512 are a mirror image anyway
+    for (int k = 0; k <= SPEC_MOTION_BIN_MAX; k++) {
+        power[k] = fft_re[k] * fft_re[k] + fft_im[k] * fft_im[k];
     }
 }
 
-bool spectral_hr_update(float *bpm, float *conf, float *motion)
+//how much is the wrist moving? rms of the filtered accel over all 3 axes, in m/s^2.
+//only trusted if every sample in the window had an accel reading (0 otherwise, which
+//turns motion removal off)
+static float motion_level(void)
 {
-    if (count < SPEC_WIN) {
-        return false;
-    }
-    if (!hann_ready) {
-        for (int i = 0; i < SPEC_WIN; i++) {
-            hann[i] = 0.5f - 0.5f * cosf(2.0f * SPEC_PI * i / (SPEC_WIN - 1));
-        }
-        hann_ready = true;
-    }
+    bool acc_complete = true;
+    float motion_rms = 0;
 
-    power_spectrum(ppg_ring, pspec);
-
-    //how much is the wrist moving? rms of the filtered accel over all 3 axes.
-    //only trust it if every sample in the window had an accel reading
-    bool acc_ok = true;
-    float mot = 0;
-
-    for (int i = 0; i < SPEC_WIN; i++) {
-        acc_ok &= acc_valid[i];
+    for (int i = 0; i < SPEC_WINDOW_LEN; i++) {
+        acc_complete &= acc_present[i];
         for (int a = 0; a < SPEC_AXES; a++) {
-            mot += acc_ring[a][i] * acc_ring[a][i];
+            motion_rms += acc_window[a][i] * acc_window[a][i];
         }
     }
-    mot = acc_ok ? sqrtf(mot / SPEC_WIN) : 0;
+    return acc_complete ? sqrtf(motion_rms / SPEC_WINDOW_LEN) : 0;
+}
 
-    //only remove motion if there's real motion. when still the accel fft is just noise and
-    //its "peaks" would cut random holes in a good ppg spectrum
-    if (acc_ok && mot > SPEC_MOT_RMS) {
-        static float tmp[SPEC_KM_HI + 1];
+//find the arm's rhythms in the accel spectrum and zero them (and their 0.5x/2x/3x) in
+//ppg_power, so the tracker can't pick motion as the heart rate
+static void notch_motion(void)
+{
+    static float axis_power[SPEC_MOTION_BIN_MAX + 1];
 
-        //add the 3 axis spectra together, we only care how often the arm moves, not which way
-        memset(aspec, 0, sizeof(aspec));
-        for (int a = 0; a < SPEC_AXES; a++) {
-            power_spectrum(acc_ring[a], tmp);
-            for (int k = 0; k <= SPEC_KM_HI; k++) {
-                aspec[k] += tmp[k];
+    //add the 3 axis spectra together, we only care how often the arm moves, not which way
+    memset(acc_power, 0, sizeof(acc_power));
+    for (int a = 0; a < SPEC_AXES; a++) {
+        power_spectrum(acc_window[a], axis_power);
+        for (int k = 0; k <= SPEC_MOTION_BIN_MAX; k++) {
+            acc_power[k] += axis_power[k];
+        }
+    }
+    float acc_max = 0;
+
+    for (int k = SPEC_MOTION_BIN_MIN; k <= SPEC_MOTION_BIN_MAX; k++) {
+        acc_max = fmaxf(acc_max, acc_power[k]);
+    }
+    //find up to 3 motion peaks, strongest first. each pass picks the highest bin that is
+    //a local peak (>= both neighbours), above 20% of the strongest, and not picked yet
+    int motion_peaks[SPEC_MOTION_MAX_PEAKS], n_peaks = 0;
+
+    for (int pass = 0; pass < SPEC_MOTION_MAX_PEAKS; pass++) {
+        int best_bin = -1;
+
+        for (int k = SPEC_MOTION_BIN_MIN + 1; k < SPEC_MOTION_BIN_MAX; k++) {
+            bool already_picked = false;
+
+            for (int p = 0; p < n_peaks; p++) {
+                already_picked |= motion_peaks[p] == k;
+            }
+            if (!already_picked && acc_power[k] > SPEC_MOTION_PEAK_FRAC * acc_max &&
+                acc_power[k] >= acc_power[k - 1] && acc_power[k] >= acc_power[k + 1] &&
+                (best_bin < 0 || acc_power[k] > acc_power[best_bin])) {
+                best_bin = k;
             }
         }
-        float amax = 0;
-
-        for (int k = SPEC_KM_LO; k <= SPEC_KM_HI; k++) {
-            amax = fmaxf(amax, aspec[k]);
+        if (best_bin < 0) {                  //no more peaks big enough
+            break;
         }
-        /* Strongest SPEC_MOT_PEAKS local maxima above the threshold. */
-        int peaks[SPEC_MOT_PEAKS], np = 0;
+        motion_peaks[n_peaks++] = best_bin;
+    }
+    //zero those freqs out of the ppg fft, plus 0.5x/2x/3x of each:
+    //  2x/3x: motion isn't a clean sine, a swing jolts at both ends
+    //  0.5x: accel often peaks at step rate while the ppg picks up stride rate (half)
+    //+-NOTCH_HALF_WIDTH bins (+-3 bpm) only removes the top of each motion peak; its edges
+    //survive, but notching wider costs more real pulse than it saves (see SPEC_NOTCH_HALF_WIDTH)
+    for (int p = 0; p < n_peaks; p++) {
+        for (unsigned m = 0; m < sizeof(notch_multiples) / sizeof(notch_multiples[0]); m++) {
+            int center = (int)lroundf(motion_peaks[p] * notch_multiples[m]);
 
-        for (int n = 0; n < SPEC_MOT_PEAKS; n++) {
-            int best = -1;
-
-            for (int k = SPEC_KM_LO + 1; k < SPEC_KM_HI; k++) {
-                bool taken = false;
-
-                for (int m = 0; m < np; m++) {
-                    taken |= peaks[m] == k;
-                }
-                if (!taken && aspec[k] > SPEC_MOT_FRAC * amax &&
-                    aspec[k] >= aspec[k - 1] && aspec[k] >= aspec[k + 1] &&
-                    (best < 0 || aspec[k] > aspec[best])) {
-                    best = k;
-                }
-            }
-            if (best < 0) {
-                break;
-            }
-            peaks[np++] = best;
-        }
-        //zero those freqs out of the ppg fft, plus 0.5x/2x/3x of each:
-        //  2x/3x: motion isn't a clean sine, a swing jolts at both ends
-        //  0.5x: accel often peaks at step rate while the ppg picks up stride rate (half)
-        //+-SPEC_NOTCH_K bins (+-3 bpm) only removes the top of each motion peak; its edges
-        //survive, but notching wider costs more real pulse than it saves (see SPEC_NOTCH_K)
-        for (int m = 0; m < np; m++) {
-            for (unsigned h = 0; h < sizeof(notch_harm) / sizeof(notch_harm[0]); h++) {
-                int kc = (int)lroundf(peaks[m] * notch_harm[h]);
-
-                for (int k = kc - SPEC_NOTCH_K; k <= kc + SPEC_NOTCH_K; k++) {
-                    if (k >= 0 && k <= SPEC_KM_HI) {
-                        pspec[k] = 0;
-                    }
+            for (int k = center - SPEC_NOTCH_HALF_WIDTH; k <= center + SPEC_NOTCH_HALF_WIDTH; k++) {
+                if (k >= 0 && k <= SPEC_MOTION_BIN_MAX) {
+                    ppg_power[k] = 0;
                 }
             }
         }
     }
+}
 
-    //pick the heart rate. candidates are bins 28-122 (41-179 bpm).
-    //total = all the power in that range, so each bin can be scored as a share of it
-    float total = 0;
-
-    for (int k = SPEC_K_LO; k <= SPEC_K_HI; k++) {
-        total += pspec[k];
-    }
-    total += 1e-12f;
-
-    /* Causal Viterbi step: best path ending at each candidate, penalising fast changes. */
-    static float next[SPEC_NSTATE];
+/* The tracker. One causal Viterbi step: best path ending at each candidate, penalising
+ * fast changes. Updates track_score and returns the winning candidate (0..94, add
+ * SPEC_HR_BIN_MIN for the bin).
+ *
+ * for each candidate bpm i:
+ *   evidence     = how good bpm i looks this second, log(its share of power)
+ *                  30% -> -1.2, 1% -> -4.6, notched (0) -> -13.8 which basically rules it out
+ *   best_arrival = best score from last second, minus a cost for jumping from there to i
+ *                  cost = 0.5*(jump/2bpm)^2 -> 1.5 bpm costs 0.27, 10 bpm costs 12.8, 30 bpm costs 105
+ *   new_score[i] = evidence + best_arrival = running total, so it remembers the whole
+ *                  history in 95 numbers
+ * so a 1 second motion spike can't pull it off, but a slow real hr change gets followed */
+static int track_step(float band_power)
+{
+    static float new_score[SPEC_HR_BINS];
     const float bin_bpm = SPEC_BIN_HZ * 60.0f;
-    float best = -INFINITY;
-    int besti = 0;
+    float best_score = -INFINITY;
+    int winner = 0;
 
-    //for each candidate bpm i:
-    //  le   = how good bpm i looks this second, log(its share of power)
-    //         30% -> -1.2, 1% -> -4.6, notched (0) -> -13.8 which basically rules it out
-    //  prev = best score from last second, minus a cost for jumping from there to i
-    //         cost = 0.5*(jump/2bpm)^2 -> 1.5 bpm costs 0.27, 10 bpm costs 12.8, 30 bpm costs 105
-    //  score[i] = le + prev = running total, so it remembers the whole history in 95 numbers
-    //so a 1 second motion spike can't pull it off, but a slow real hr change gets followed
-    for (int i = 0; i < SPEC_NSTATE; i++) {
-        float le = logf(pspec[SPEC_K_LO + i] / total + 1e-6f);
-        float prev = 0;
+    for (int i = 0; i < SPEC_HR_BINS; i++) {
+        float evidence = logf(ppg_power[SPEC_HR_BIN_MIN + i] / band_power + 1e-6f);
+        float best_arrival = 0;
 
         //first update has no history yet, so it's just the biggest peak
-        if (have_score) {
-            prev = -INFINITY;
-            for (int j = 0; j < SPEC_NSTATE; j++) {
-                float d = (float)(i - j) * bin_bpm / SPEC_SIGMA_BPM;
-                prev = fmaxf(prev, score[j] - 0.5f * d * d);
+        if (!first_update) {
+            best_arrival = -INFINITY;
+            for (int from = 0; from < SPEC_HR_BINS; from++) {
+                //jump from bin `from` to bin i, in units of HR_CHANGE_BPM
+                float jump = (float)(i - from) * bin_bpm / SPEC_HR_CHANGE_BPM;
+
+                best_arrival = fmaxf(best_arrival, track_score[from] - 0.5f * jump * jump);
             }
         }
-        next[i] = le + prev;
-        if (next[i] > best) {
-            best = next[i];
-            besti = i;
+        new_score[i] = evidence + best_arrival;
+        if (new_score[i] > best_score) {
+            best_score = new_score[i];
+            winner = i;
         }
     }
-    for (int i = 0; i < SPEC_NSTATE; i++) {
-        score[i] = next[i] - best; /* keep numbers small */
+    for (int i = 0; i < SPEC_HR_BINS; i++) {
+        track_score[i] = new_score[i] - best_score; /* keep numbers small: leader = 0 */
     }
-    have_score = true;
+    first_update = false;
+    return winner;
+}
 
-    //answer = whichever candidate has the best running score right now
+//once a second: spectrum -> remove motion -> tracker -> answer
+bool spectral_hr_update(float *bpm, float *conf, float *motion)
+{
+    if (window_filled < SPEC_WINDOW_LEN) {
+        return false;
+    }
+    //hann = 0 at both ends, 1 in the middle. computed once, the first time it's needed
+    if (!hann_built) {
+        for (int i = 0; i < SPEC_WINDOW_LEN; i++) {
+            hann_window[i] = 0.5f - 0.5f * cosf(2.0f * SPEC_PI * i / (SPEC_WINDOW_LEN - 1));
+        }
+        hann_built = true;
+    }
+
+    //1. how tall each frequency bar is in the last 8 s of ppg
+    power_spectrum(ppg_window, ppg_power);
+
+    //2. remove motion, but only if there's real motion. when still the accel fft is just
+    //noise and its "peaks" would cut random holes in a good ppg spectrum
+    float motion_rms = motion_level();
+
+    if (motion_rms > SPEC_MOTION_MIN_RMS) {
+        notch_motion();
+    }
+
+    //3. pick the heart rate. candidates are bins 28-122 (41-179 bpm).
+    //band_power = all the power in that range, so each bin can be scored as a share of it
+    float band_power = 0;
+
+    for (int k = SPEC_HR_BIN_MIN; k <= SPEC_HR_BIN_MAX; k++) {
+        band_power += ppg_power[k];
+    }
+    band_power += 1e-12f;                    //never divide by 0
+    int winner = track_step(band_power);
+
+    //4. answer = whichever candidate has the best running score right now
     //conf = that bin's share of power. near 0 means it's coasting on history, not this second's data
-    *bpm = (float)(SPEC_K_LO + besti) * bin_bpm;
-    *conf = pspec[SPEC_K_LO + besti] / total;
-    *motion = mot;
+    *bpm = (float)(SPEC_HR_BIN_MIN + winner) * SPEC_BIN_HZ * 60.0f;
+    *conf = ppg_power[SPEC_HR_BIN_MIN + winner] / band_power;
+    *motion = motion_rms;
     return true;
 }

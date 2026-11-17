@@ -9,11 +9,11 @@
 #include "persp/persp.h"
 #include "ble/ble.h"
 #include "motion/motion.h"
-/* Must come before hr_main.c: it is #included here and uses LOG_*. */
-LOG_MODULE_REGISTER(blinky_main, LOG_LEVEL_INF);
-
-#include "max/hr_main.c"
+#include "max/hr_main.h"
 #include "skin-temp/max30205.h"
+
+/* src/max/ logs under this module too (LOG_MODULE_DECLARE). */
+LOG_MODULE_REGISTER(blinky_main, LOG_LEVEL_INF);
 
 struct sensor_data {
     int hr;
@@ -157,7 +157,9 @@ static void sensor_polling_handler(struct k_work *work)
     }
 
 
-    sd1.hr = heart_rate_valid ? latest_heart_rate : 0;
+    int32_t bpm;
+
+    sd1.hr = hr_latest(&bpm) ? bpm : 0;
     sd1.resp_rate = respiration_handler();
     sd1.skin_resistance_kohms = resistance_kohms;
     sd1.skin_temp = (temperature_millicelsius / 1000.0f) * 9.0f / 5.0f + 32.0f;
@@ -194,12 +196,12 @@ int main(void)
 
     /* Say which build this is, so a serial log shows it at a glance. */
 #ifdef CONFIG_LSM6DSL
-    /* hr_main.c turns its adaptive filter on from this same result
+    /* The spectral heart rate removes motion only if this succeeded
      * (motion_available()), so the banner matches what actually runs. */
-    LOG_INF("Board: XIAO Sense build, motion cancel %s",
-            motion_init() ? "ON (adaptive filter)" : "OFF (IMU not found)");
+    LOG_INF("Board: XIAO Sense build, motion removal %s",
+            motion_init() ? "ON" : "OFF (IMU not found)");
 #else
-    LOG_INF("Board: XIAO build, motion cancel OFF (no IMU)");
+    LOG_INF("Board: XIAO build, motion removal OFF (no IMU)");
 #endif
 
     /* Bluetooth failing shouldn't stop the sensors; the USB log still works. */

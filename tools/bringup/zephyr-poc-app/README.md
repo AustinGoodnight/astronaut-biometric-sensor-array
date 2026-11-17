@@ -9,8 +9,8 @@ then sends a 15-byte packet over BLE (Nordic UART Service, advertised as
 
 | Board | Build target | What you get |
 |---|---|---|
-| Seeed XIAO nRF52840 (plain) | `xiao_ble/nrf52840` | Everything except motion cancelling |
-| Seeed XIAO nRF52840 **Sense** | `xiao_ble/nrf52840/sense` | Same, plus the on-board IMU for motion cancelling |
+| Seeed XIAO nRF52840 (plain) | `xiao_ble/nrf52840` | Everything except motion removal |
+| Seeed XIAO nRF52840 **Sense** | `xiao_ble/nrf52840/sense` | Same, plus the on-board IMU, so the spectral heart rate can remove motion |
 
 If you're not sure, use the plain target. It runs on both boards; on a Sense
 it just ignores the IMU.
@@ -40,8 +40,8 @@ The extension finds the right overlay and `.conf` files on its own.
 At boot the serial log says which build is running:
 
 ```
-Board: XIAO build, motion cancel OFF (no IMU)
-Board: XIAO Sense build, motion cancel ON
+Board: XIAO build, motion removal OFF (no IMU)
+Board: XIAO Sense build, motion removal ON
 ```
 
 ## Where things live
@@ -54,12 +54,17 @@ Board: XIAO Sense build, motion cancel ON
 | `xiao_ble_nrf52840_sense.overlay` | Sense: includes the shared file; Sense-only devicetree goes here |
 | `boards/xiao_ble_nrf52840_sense.conf` | Sense-only Kconfig (IMU rate and range). Never put IMU options in `prj.conf`: they don't exist on the plain board and break its build. |
 | `src/main.c` | Startup, sensor polling, BLE packet layout |
-| `src/max/hr_main.c` | Heart-rate pipeline (filters, beat detection, autocorrelation) |
+| `src/max/hr_main.c` | Heart-rate glue: reads the MAX30101, runs both algorithms, status line, published HR |
+| `src/max/spectral_hr.c` | Spectral heart rate (FFT, motion notches, tracker); published by default |
+| `src/max/classic_hr.c` | Classic heart rate (autocorrelation, still wrist only) |
+| `src/max/fft.c` | The FFT the spectral heart rate uses |
+| `src/max/bandpass.h` | The 0.7-3.5 Hz filter every path shares |
+| `src/max/bench.c` | USB bench protocol for the testing pages (commands and `raw,`/`mc,`/`status:` lines) |
 | `src/persp/` | Skin resistance (ADC) |
 | `src/ble/` | BLE advertising and NUS |
-| `src/motion/` | IMU access for motion cancelling (Sense only, see below) |
+| `src/motion/` | IMU access for motion removal (Sense only, see below) |
 
-## Motion cancelling (Sense only)
+## Motion removal (Sense only)
 
 The Sense has an LSM6DS3TR-C IMU on its own internal I2C bus (`i2c0`), so it
 never shares a bus with the MAX30101 on `i2c1`. `src/motion/motion.c` is
@@ -73,9 +78,11 @@ Call it from anywhere without `#if`:
 
 float accel[3];
 if (motion_available() && motion_read_accel(accel) == 0) {
-    /* accel[0..2] in m/s^2: use it to cancel motion in the PPG signal */
+    /* accel[0..2] in m/s^2 */
 }
 ```
 
-On the plain board `motion_available()` is always false and the code
-compiles to nothing, so the heart-rate pipeline runs unchanged.
+The spectral heart rate uses it to find the arm's motion rhythms and notch them
+out of the PPG spectrum (see `src/max/spectral_hr.c`). On the plain board
+`motion_available()` is always false and the code compiles to nothing, so the
+spectral tracker just skips motion removal.

@@ -177,9 +177,8 @@ th { color: var(--ink2); font-weight: 500; position: sticky; top: 0; background:
     <label><input type="checkbox" id="follow" checked> Follow live</label>
     <label>Inspect second <input type="range" id="selSlider" min="0" max="0" value="0" style="width:240px"> <output id="selOut">--</output></label>
     <span class="grow"></span>
-    <label title="Motion cancelling in the page's classic path (the board has its own M/m setting)"><input type="checkbox" id="optMc" checked> Classic: motion cancel</label>
-    <label title="Firmware: SPEC_NOTCH_K = 2">Spectral notch ±<input type="range" id="optNotch" min="0" max="15" value="2"><output id="outNotch">2 bins</output></label>
-    <label title="Firmware: SPEC_SIGMA_BPM = 2">Spectral max change <input type="range" id="optSigma" min="0.5" max="10" step="0.5" value="2"><output id="outSigma">2 bpm/s</output></label>
+    <label title="Firmware: SPEC_NOTCH_HALF_WIDTH = 2">Spectral notch ±<input type="range" id="optNotch" min="0" max="15" value="2"><output id="outNotch">2 bins</output></label>
+    <label title="Firmware: SPEC_HR_CHANGE_BPM = 2">Spectral max change <input type="range" id="optSigma" min="0.5" max="10" step="0.5" value="2"><output id="outSigma">2 bpm/s</output></label>
     <button id="btnDefaults" title="Back to the firmware's values">Firmware values</button>
     <span class="pill warn" id="pillTuned" style="display:none">tuned: page differs from firmware</span>
   </section>
@@ -231,7 +230,7 @@ th { color: var(--ink2); font-weight: 500; position: sticky; top: 0; background:
     </section>
 
     <section aria-label="Classic algorithm">
-      <h2 class="col-h" style="color:var(--classic)"><span class="swatch" style="background:var(--classic)"></span><span class="t">Classic: motion cancelled, autocorrelation, rules</span></h2>
+      <h2 class="col-h" style="color:var(--classic)"><span class="swatch" style="background:var(--classic)"></span><span class="t">Classic: bandpass, autocorrelation, median</span></h2>
 
       <div class="card">
         <div class="card-h"><h3>Autocorrelation of the last 8 s (x: beat period as bpm)</h3>
@@ -244,12 +243,11 @@ th { color: var(--ink2); font-weight: 500; position: sticky; top: 0; background:
       <div class="card">
         <div class="card-h"><h3>Pulse signal, last 8 s (classic path)</h3>
           <div class="legend">
-            <span><i class="swatch" style="background:var(--neutral)"></i>before motion cancel</span>
-            <span><i class="swatch" style="background:var(--classic)"></i>after</span>
-            <span><i class="k-box" style="background:var(--ink3);opacity:.25"></i>holdoff</span>
+            <span><i class="swatch" style="background:var(--classic)"></i>bandpassed PPG</span>
+            <span><i class="k-box" style="background:var(--ink3);opacity:.25"></i>paused (step artifact)</span>
           </div>
         </div>
-        <canvas id="cvSig" class="cv-sig" tabindex="0" role="img" aria-label="Filtered pulse before and after motion cancelling for the inspected window"></canvas>
+        <canvas id="cvSig" class="cv-sig" tabindex="0" role="img" aria-label="Bandpassed pulse signal for the inspected window"></canvas>
         <div class="readout" id="roSig"></div>
       </div>
 
@@ -257,12 +255,11 @@ th { color: var(--ink2); font-weight: 500; position: sticky; top: 0; background:
         <div class="card-h"><h3>Last 60 s: each second's estimate and what got published</h3>
           <div class="legend">
             <span><i class="k-dot" style="background:var(--classic)"></i>accepted</span>
-            <span><i class="k-dot" style="border:2px solid var(--classic);width:9px;height:9px"></i>held back (jump)</span>
             <span style="color:var(--ink2)">× failed</span>
             <span><i class="swatch" style="background:var(--classic)"></i>published</span>
           </div>
         </div>
-        <canvas id="cvPub" class="cv-pub" tabindex="0" role="img" aria-label="Classic per-second estimates, held-back jumps, failures and the published value"></canvas>
+        <canvas id="cvPub" class="cv-pub" tabindex="0" role="img" aria-label="Classic per-second estimates, failures and the published value (median of 5)"></canvas>
       </div>
     </section>
   </div>
@@ -280,7 +277,7 @@ th { color: var(--ink2); font-weight: 500; position: sticky; top: 0; background:
 /* =========================================================================
  * ALGORITHMS — ports of the firmware. Keep in sync with:
  *   spectral: tools/bringup/zephyr-poc-app/src/max/spectral_hr.c
- *   classic:  tools/bringup/zephyr-poc-app/src/max/hr_main.c (processSample/onTick)
+ *   classic:  tools/bringup/zephyr-poc-app/src/max/classic_hr.c + motion_cancel.c
  * Checked sample-for-sample against the Python ports in zephyr-poc-app/scripts/,
  * which are checked against the C. Plain JS, no DOM (runs in node too).
  * ===================================================================== BEGIN-ALGO */
@@ -335,11 +332,11 @@ function makeSpectral(cfg) {
   const W = SPEC.WIN, hann = new Float64Array(W);
   for (let i = 0; i < W; i++) hann[i] = 0.5 - 0.5 * Math.cos(2 * Math.PI * i / (W - 1));
   const re = new Float64Array(SPEC.NFFT), im = new Float64Array(SPEC.NFFT);
-  let ppgF, accF, ppgDc0, accDc0, primed, ppgAcc, accAcc, decN, decHasAcc;
+  let ppgF, accF, ppgDc0, accDc0, firstSample, ppgAcc, accAcc, decN, decHasAcc;
   let ppgRing, accRing, accValid, head, count, score, haveScore;
   function reset() {
     ppgF = makeBandpass(); accF = [makeBandpass(), makeBandpass(), makeBandpass()];
-    ppgDc0 = 0; accDc0 = [0, 0, 0]; primed = false; ppgAcc = 0; accAcc = [0, 0, 0]; decN = 0; decHasAcc = true;
+    ppgDc0 = 0; accDc0 = [0, 0, 0]; firstSample = true; ppgAcc = 0; accAcc = [0, 0, 0]; decN = 0; decHasAcc = true;
     ppgRing = new Float64Array(W); accRing = [new Float64Array(W), new Float64Array(W), new Float64Array(W)];
     accValid = new Uint8Array(W); head = 0; count = 0; score = new Float64Array(SPEC.NSTATE); haveScore = false;
   }
@@ -353,7 +350,7 @@ function makeSpectral(cfg) {
     for (let k = 0; k <= SPEC.KM_HI; k++) out[k] = re[k] * re[k] + im[k] * im[k];
   }
   function push(ppg, acc) {
-    if (!primed) { ppgDc0 = ppg; for (let a = 0; a < 3; a++) accDc0[a] = acc ? acc[a] : 0; primed = true; }
+    if (firstSample) { firstSample = false; ppgDc0 = ppg; for (let a = 0; a < 3; a++) accDc0[a] = acc ? acc[a] : 0; }
     ppgAcc += ppgF.step(ppg - ppgDc0);
     if (acc) for (let a = 0; a < 3; a++) accAcc[a] += accF[a].step(acc[a] - accDc0[a]);
     else decHasAcc = false;
@@ -427,15 +424,11 @@ function makeSpectral(cfg) {
   return { push, tick, reset };
 }
 
-/* ---- Classic path (hr_main.c): holdoff, DC, bandpass, NLMS, autocorrelation, publish rules ---- */
+/* ---- Classic path (classic_hr.c): DC, bandpass, step pause, autocorrelation, median ---- */
 const CL = { WIN_DECIM: 4, WIN_LEN: 200, MAX_LAG: 40, FS_WIN: 25, AC_MIN: 0.5, PEAK_FRAC: 0.85,
-             JUMP: 15, JUMP_CONFIRM: 3, FAIL_TICKS: 5, HIST: 5, STALE_SEC: 15, DC_ALPHA: 0.01,
-             STEP_FRAC: 0.03, HOLDOFF_SEC: 1.5, SETTLE_SEC: 2,
-             TAPS: 8, MU: 0.05, REST: 0.05, LEAK: 0.9995, BYP_ON: 1.0, BYP_OFF: 0.9 };
+             HIST: 5, MAX_AGE_SEC: 5, DC_ALPHA: 0.01, STEP_FRAC: 0.03, PAUSE_SEC: 1.5, SETTLE_SEC: 2 };
 CL.LAG_MIN = Math.max(2, Math.trunc(CL.FS_WIN * 60 / 220));
 CL.LAG_MAX = Math.min(CL.MAX_LAG - 1, Math.trunc(CL.FS_WIN * 60 / 42 + 0.5));
-CL.N = CL.TAPS * 3;
-CL.EPS = CL.N * CL.REST * CL.REST;
 const SIG_LEN = 800;   // 8 s of per-sample trace kept for the signal chart
 
 function estimateHr(win) {
@@ -468,61 +461,31 @@ function estimateHr(win) {
 }
 
 function makeClassic(cfg) {
-  let filt, accF, accDc, ref, w, mcPrimed, inPow, outPow, bypass;
-  let idx, needInit, irDc, prev, holdUntil, win, decAcc, decN, lastTick;
-  let hist, pendBpm, pendN, valid, est, lastHr, fail, mot;
-  let sigBefore, sigAfter, sigHold, sigHead;
+  let filt, idx, firstSample, irDc, prev, holdUntil, win, decAcc, decN, lastTick;
+  let hist, valid, est, lastGood;
+  let sig, sigHold, sigHead;
   function reset() {
-    filt = makeBandpass(); accF = [makeBandpass(), makeBandpass(), makeBandpass()];
-    accDc = [0, 0, 0]; ref = new Float64Array(CL.N); w = new Float64Array(CL.N);
-    mcPrimed = false; inPow = outPow = 0; bypass = false;
-    idx = 0; needInit = true; irDc = prev = 0; holdUntil = 0; win = []; decAcc = 0; decN = 0; lastTick = 0;
-    hist = []; pendBpm = 0; pendN = 0; valid = false; est = 0; lastHr = 0; fail = 0; mot = 0;
-    sigBefore = new Float32Array(SIG_LEN); sigAfter = new Float32Array(SIG_LEN); sigHold = new Uint8Array(SIG_LEN); sigHead = 0;
+    filt = makeBandpass();
+    idx = 0; firstSample = true; irDc = prev = 0; holdUntil = 0; win = []; decAcc = 0; decN = 0; lastTick = 0;
+    hist = []; valid = false; est = 0; lastGood = 0;
+    sig = new Float32Array(SIG_LEN); sigHold = new Uint8Array(SIG_LEN); sigHead = 0;
   }
-  function clear() { valid = false; hist = []; pendN = 0; }
-  /* One sample. Returns a snapshot on the once-a-second tick, else null. */
+  function clear() { valid = false; hist = []; }
+  /* One sample. Returns a snapshot on the once-a-second tick, else null. (acc is unused:
+   * classic doesn't remove motion; the argument is kept so both paths take the same input.) */
   function push(ir, acc) {
     idx++;
-    if (needInit) { needInit = false; irDc = prev = ir; holdUntil = CL.SETTLE_SEC * FS_IN; }
+    if (firstSample) { firstSample = false; irDc = prev = ir; holdUntil = CL.SETTLE_SEC * FS_IN; }
     if (Math.abs(ir - prev) > CL.STEP_FRAC * irDc) {
-      if (Math.abs(ir - prev) > 0.10 * irDc && valid) clear();
+      if (Math.abs(ir - prev) > 0.10 * irDc) clear();
       filt.reset(); irDc = ir; win = []; decAcc = 0; decN = 0;
-      holdUntil = idx + CL.HOLDOFF_SEC * FS_IN;
+      holdUntil = idx + CL.PAUSE_SEC * FS_IN;
     }
     prev = ir;
     const x = ir - irDc;
     irDc += CL.DC_ALPHA * x;
-    let f = filt.step(x);
-    const before = f;
-    if (cfg.mc && acc) {
-      const live = idx >= holdUntil;
-      if (!mcPrimed) { for (let a = 0; a < 3; a++) accDc[a] = acc[a]; mcPrimed = true; }
-      let refPow = 0, newest = 0;
-      for (let a = 0; a < 3; a++) {
-        const d = acc[a] - accDc[a];
-        accDc[a] += 0.01 * d;
-        const o = a * CL.TAPS;
-        for (let k = CL.TAPS - 1; k > 0; k--) ref[o + k] = ref[o + k - 1];
-        ref[o] = accF[a].step(d);
-        newest += ref[o] * ref[o];
-      }
-      for (let i = 0; i < CL.N; i++) refPow += ref[i] * ref[i];
-      mot += 0.01 * (newest - mot);
-      let y = 0;
-      for (let i = 0; i < CL.N; i++) y += w[i] * ref[i];
-      const e = f - y;
-      if (live) {
-        const g = CL.MU * e / (CL.EPS + refPow);
-        for (let i = 0; i < CL.N; i++) w[i] = CL.LEAK * w[i] + g * ref[i];
-        inPow += 0.01 * (f * f - inPow);
-        outPow += 0.01 * (e * e - outPow);
-        if (outPow > CL.BYP_ON * inPow) bypass = true;
-        else if (outPow < CL.BYP_OFF * inPow) bypass = false;
-        if (!bypass) f = e;
-      }
-    }
-    sigBefore[sigHead] = before; sigAfter[sigHead] = f; sigHold[sigHead] = idx < holdUntil ? 1 : 0;
+    const f = filt.step(x);
+    sig[sigHead] = f; sigHold[sigHead] = idx < holdUntil ? 1 : 0;
     sigHead = (sigHead + 1) % SIG_LEN;
     if (idx >= holdUntil) {
       decAcc += f;
@@ -534,38 +497,24 @@ function makeClassic(cfg) {
     }
     if (idx - lastTick < FS_IN) return null;
     lastTick = idx;
-    if (valid && idx - lastHr > CL.STALE_SEC * FS_IN) clear();
-    const T = { warm: win.length < CL.WIN_LEN, filled: win.length / CL.WIN_LEN, ok: false, raw: null, held: false,
+    const T = { warm: win.length < CL.WIN_LEN, filled: win.length / CL.WIN_LEN, ok: false, raw: null,
                 rmax: 0, ac: null, lag: null, failed: false };
     if (!T.warm) {
       const r = estimateHr(win);
       Object.assign(T, { ok: r.ok, raw: r.bpm, rmax: r.rmax, ac: r.ac, lag: r.lag, failed: !r.ok });
       if (r.ok) {
-        fail = 0;
-        let adopt = true;
-        if (valid && Math.abs(r.bpm - est) > CL.JUMP) {
-          pendN = (pendN > 0 && Math.abs(r.bpm - pendBpm) <= 10) ? pendN + 1 : 1;
-          pendBpm = r.bpm;
-          if (pendN < CL.JUMP_CONFIRM) { adopt = false; T.held = true; } else hist = [];
-        }
-        if (adopt) {
-          pendN = 0;
-          hist.push(r.bpm); if (hist.length > CL.HIST) hist.shift();
-          const s = hist.slice().sort((p, q) => p - q);
-          est = s[Math.floor(s.length / 2)]; valid = true; lastHr = idx;
-        }
-      } else {
-        fail = Math.min(fail + 1, 255);
-        if (fail >= CL.FAIL_TICKS && valid) clear();
+        hist.push(r.bpm); if (hist.length > CL.HIST) hist.shift();
+        const s = hist.slice().sort((p, q) => p - q);
+        est = s[Math.floor(s.length / 2)]; valid = true; lastGood = idx;
       }
     }
+    if (valid && idx - lastGood >= CL.MAX_AGE_SEC * FS_IN) clear();
     T.out = valid ? est : null;
-    T.bypass = bypass; T.mot = Math.sqrt(Math.max(0, mot)); T.mcActive = !!(cfg.mc && acc);
     // signal trace, oldest first
-    T.sigBefore = new Float32Array(SIG_LEN); T.sigAfter = new Float32Array(SIG_LEN); T.sigHold = new Uint8Array(SIG_LEN);
+    T.sig = new Float32Array(SIG_LEN); T.sigHold = new Uint8Array(SIG_LEN);
     for (let i = 0; i < SIG_LEN; i++) {
       const j = (sigHead + i) % SIG_LEN;
-      T.sigBefore[i] = sigBefore[j]; T.sigAfter[i] = sigAfter[j]; T.sigHold[i] = sigHold[j];
+      T.sig[i] = sig[j]; T.sigHold[i] = sigHold[j];
     }
     return T;
   }
@@ -580,7 +529,7 @@ function makeClassic(cfg) {
 /* ---------------- state ---------------- */
 const MAX_SNAPS = 900;          // detailed per-second snapshots kept (15 min)
 const HR_VIEW_SEC = 180;        // live view width of the HR chart
-const cfg = { mc: true, notchK: SPEC_DEFAULTS.notchK, sigmaBpm: SPEC_DEFAULTS.sigmaBpm };
+const cfg = { notchK: SPEC_DEFAULTS.notchK, sigmaBpm: SPEC_DEFAULTS.sigmaBpm };
 let spec = makeSpectral(cfg), classic = makeClassic(cfg);
 const S = {
   source: 'none', n: 0,                          // samples processed
@@ -615,7 +564,7 @@ function processSample(ir, red, acc) {
 }
 function slim(T) {   // keep only what the HR chart / table need
   if (!T.spec.warm) T.spec = { warm: false, bpm: T.spec.bpm, naive: T.spec.naive, conf: T.spec.conf, mot: T.spec.mot, slim: true };
-  T.cl = { warm: T.cl.warm, ok: T.cl.ok, raw: T.cl.raw, held: T.cl.held, failed: T.cl.failed, out: T.cl.out, rmax: T.cl.rmax, slim: true };
+  T.cl = { warm: T.cl.warm, ok: T.cl.ok, raw: T.cl.raw, failed: T.cl.failed, out: T.cl.out, rmax: T.cl.rmax, slim: true };
 }
 /* Re-run everything received with the current settings (settings change on a recording/after the fact). */
 function rerun() {
@@ -637,7 +586,7 @@ function flushPending(accRows) {
 }
 const RAW_RE = /^raw,(\d+)((?:,\d+:\d+)+)$/;
 const MC_RE = /^mc,(\d+)((?:,-?\d+(?::-?\d+)+)+)$/;
-const STATUS_BPM_RE = /avgBpm=(\S+)/, STATUS_ALG_RE = / hr=(spec|classic) alt=(\S+)/, STATUS_MC_RE = / mc=(on|off)/;
+const STATUS_BPM_RE = /avgBpm=(\S+)/, STATUS_ALG_RE = / hr=(spec|classic) alt=(\S+)/;
 function onLine(line) {
   if (line.startsWith('raw,')) {
     const m = RAW_RE.exec(line);
@@ -662,11 +611,11 @@ function onLine(line) {
     });
     flushPending(rows.length === pending.ir.length ? rows : null);
   } else if (line.startsWith('status:')) {
-    const b = STATUS_BPM_RE.exec(line), a = STATUS_ALG_RE.exec(line), mc = STATUS_MC_RE.exec(line);
+    const b = STATUS_BPM_RE.exec(line), a = STATUS_ALG_RE.exec(line);
     if (!b || !a) return;
     const num = v => /^\d+$/.test(v) ? +v : null;
     const cur = num(b[1]), alt = num(a[2]), isSpec = a[1] === 'spec';
-    S.dev.push({ t: S.n / FS_IN, spec: isSpec ? cur : alt, classic: isSpec ? alt : cur, mcOn: !!mc && mc[1] === 'on', alg: a[1] });
+    S.dev.push({ t: S.n / FS_IN, spec: isSpec ? cur : alt, classic: isSpec ? alt : cur, alg: a[1] });
     S.dirty = true;
   } else if (line.trim()) {
     if (/restarting session|SESSION START/.test(line)) {
@@ -796,19 +745,19 @@ $('btnTheme').addEventListener('click', () => {
 $('follow').addEventListener('change', e => { S.follow = e.target.checked; if (S.follow) S.sel = -1; S.dirty = true; });
 $('selSlider').addEventListener('input', e => { S.follow = false; $('follow').checked = false; S.sel = +e.target.value; S.dirty = true; });
 function settingsChanged() {
-  cfg.mc = $('optMc').checked; cfg.notchK = +$('optNotch').value; cfg.sigmaBpm = +$('optSigma').value;
+  cfg.notchK = +$('optNotch').value; cfg.sigmaBpm = +$('optSigma').value;
   $('outNotch').textContent = cfg.notchK + ' bins';
   $('outSigma').textContent = cfg.sigmaBpm + ' bpm/s';
-  const tuned = !cfg.mc || cfg.notchK !== SPEC_DEFAULTS.notchK || cfg.sigmaBpm !== SPEC_DEFAULTS.sigmaBpm;
+  const tuned = cfg.notchK !== SPEC_DEFAULTS.notchK || cfg.sigmaBpm !== SPEC_DEFAULTS.sigmaBpm;
   $('pillTuned').style.display = tuned ? '' : 'none';
   rerun();   // replay everything received so far with the new settings
 }
-['optMc', 'optNotch', 'optSigma'].forEach(id => $(id).addEventListener('change', settingsChanged));
+['optNotch', 'optSigma'].forEach(id => $(id).addEventListener('change', settingsChanged));
 ['optNotch', 'optSigma'].forEach(id => $(id).addEventListener('input', () => {
   $('outNotch').textContent = $('optNotch').value + ' bins'; $('outSigma').textContent = $('optSigma').value + ' bpm/s';
 }));
 $('btnDefaults').addEventListener('click', () => {
-  $('optMc').checked = true; $('optNotch').value = SPEC_DEFAULTS.notchK; $('optSigma').value = SPEC_DEFAULTS.sigmaBpm; settingsChanged();
+  $('optNotch').value = SPEC_DEFAULTS.notchK; $('optSigma').value = SPEC_DEFAULTS.sigmaBpm; settingsChanged();
 });
 $('btnTable').addEventListener('click', e => {
   const on = e.currentTarget.getAttribute('aria-pressed') !== 'true';
@@ -1156,26 +1105,24 @@ function drawClassic(si) {
       { color: TH.classic, label: 'correlation', value: cl.ac[L].toFixed(2) },
       { label: 'needs', value: '≥ ' + Math.max(CL.AC_MIN, CL.PEAK_FRAC * cl.rmax).toFixed(2) } ] };
   };
-  const why = cl.ok ? (cl.held ? ` → <b>held back</b> (more than ${CL.JUMP} bpm from the published value, must repeat ${CL.JUMP_CONFIRM}×)` : ' → accepted')
+  const why = cl.ok ? ' → accepted'
     : cl.rmax < CL.AC_MIN ? ` → <b>failed</b>: nothing reaches ${CL.AC_MIN}` : ' → <b>failed</b>: no clean peak';
   $('roAc').innerHTML = `At <b>${fmtTime(T.t)}</b>: best correlation ${cl.rmax.toFixed(2)} at ${(60 * CL.FS_WIN / gl).toFixed(0)} bpm`
     + (cl.lag != null ? `; first peak above 85% of it: <b>${cl.raw.toFixed(1)} bpm</b>` : '') + why
-    + `. Published: <b>${cl.out == null ? '--' : cl.out.toFixed(0)}</b>`;
+    + `. Published (median of last 5): <b>${cl.out == null ? '--' : cl.out.toFixed(0)}</b>`;
 
   // signal
-  const n = cl.sigAfter.length, xs = Array.from({ length: n }, (_, i) => T.t - (n - i) / FS_IN);
-  let m = 1; for (let i = 0; i < n; i++) m = Math.max(m, Math.abs(cl.sigBefore[i]), Math.abs(cl.sigAfter[i]));
+  const n = cl.sig.length, xs = Array.from({ length: n }, (_, i) => T.t - (n - i) / FS_IN);
+  let m = 1; for (let i = 0; i < n; i++) m = Math.max(m, Math.abs(cl.sig[i]));
   const s = chart(cvSig, xs[0], T.t, -m * 1.08, m * 1.08, { xFmt: v => fmtTime(v), yCount: 4 });
   for (let i = 0; i < n; i++) if (cl.sigHold[i]) { let j = i; while (j < n && cl.sigHold[j]) j++; band(s, xs[i], xs[Math.min(j, n - 1)], 'color-mix(in srgb, ' + TH.ink3 + ' 22%, transparent)'); i = j; }
-  if (cl.mcActive) line(s, xs, Array.from(cl.sigBefore), TH.neutral, 1.2);
-  line(s, xs, Array.from(cl.sigAfter), TH.classic, 1.6);
+  line(s, xs, Array.from(cl.sig), TH.classic, 1.6);
   cvSig._hover = mx => {
     const i = Math.round((mx - s.L) / (s.R - s.L) * (n - 1)); if (i < 0 || i >= n) return null;
     return { title: fmtTime(xs[i]) + '.' + String(Math.round((xs[i] % 1) * 100)).padStart(2, '0'), rows: [
-      { color: TH.neutral, label: 'before', value: cl.sigBefore[i].toFixed(0) }, { color: TH.classic, label: 'after', value: cl.sigAfter[i].toFixed(0) } ] };
+      { color: TH.classic, label: 'bandpassed', value: cl.sig[i].toFixed(0) } ] };
   };
-  $('roSig').innerHTML = !cl.mcActive ? (S.hasAcc ? 'Motion cancelling is off in the page settings.' : 'No accelerometer data: nothing to cancel.')
-    : `Motion cancel: wrist ${cl.mot.toFixed(2)} m/s²` + (cl.bypass ? ', <b>bypassed</b> (cancelling was making the signal bigger, so its output is ignored)' : ', active');
+  $('roSig').innerHTML = 'DC removed, bandpassed 0.7–3.5 Hz. Classic doesn’t remove motion: with the wrist moving, use spectral.';
 
   // publish strip: last 60 s ending at k
   const from = Math.max(0, k - 59), seg = S.ticks.slice(from, k + 1);
@@ -1187,14 +1134,13 @@ function drawClassic(si) {
   line(p, seg.map(Q => Q.t), seg.map(Q => Q.cl.out), TH.classic, 2);
   seg.forEach(Q => {
     if (Q.cl.failed) cross(p, Q.t, lo + (hi - lo) * 0.06, TH.ink2);
-    else if (Q.cl.held) dot(p, Q.t, Q.cl.raw, TH.classic, 4, true);
     else if (Q.cl.ok) dot(p, Q.t, Q.cl.raw, TH.classic, 3);
   });
   cvPub._hover = mx => {
     const t = p.x0 + (mx - p.L) / (p.R - p.L) * (p.x1 - p.x0); let b = null;
     seg.forEach(Q => { if (!b || Math.abs(Q.t - t) < Math.abs(b.t - t)) b = Q; });
     if (!b) return null;
-    const st = b.cl.warm ? 'warming' : b.cl.failed ? 'failed' : b.cl.held ? 'held back' : 'accepted';
+    const st = b.cl.warm ? 'warming' : b.cl.failed ? 'failed' : 'accepted';
     return { title: fmtTime(b.t), rows: [{ color: TH.classic, label: 'estimate (' + st + ')', value: fb(b.cl.raw) }, { color: TH.classic, label: 'published', value: fb(b.cl.out) }] };
   };
 }
@@ -1208,14 +1154,14 @@ function drawTiles(si) {
   $('nSpec').textContent = T.spec.warm ? `warming ${Math.round(T.spec.filled * 8)}/8 s` : `biggest bin ${T.spec.naive.toFixed(0)} · confidence ${(T.spec.conf * 100).toFixed(0)}%`;
   setVal('vClassic', T.cl.out == null ? null : T.cl.out.toFixed(0), 'bpm');
   $('nClassic').textContent = T.cl.warm ? `warming ${Math.round(T.cl.filled * 8)}/8 s` : T.cl.failed ? `this second failed (r ${T.cl.rmax.toFixed(2)})` :
-    T.cl.held ? `held back a jump to ${T.cl.raw.toFixed(0)}` : `this second ${T.cl.raw.toFixed(0)} (r ${T.cl.rmax.toFixed(2)})`;
+    `this second ${T.cl.raw.toFixed(0)} (r ${T.cl.rmax.toFixed(2)})`;
   let dv = null; for (let i = S.dev.length - 1; i >= 0; i--) if (S.dev[i].t <= T.t + 1) { dv = S.dev[i]; break; }
   if (dv) {
     $('vDev').classList.remove('empty');
     $('vDev').innerHTML = `<span style="color:var(--ink)">${dv.spec ?? '--'}</span><small> spec</small> <span>${dv.classic ?? '--'}</span><small> classic</small>`;
     const ds = dv.spec != null && !T.spec.warm ? (T.spec.bpm - dv.spec) : null, dc = dv.classic != null && T.cl.out != null ? (T.cl.out - dv.classic) : null;
     const f = d => d == null ? '--' : (d >= 0 ? '+' : '') + d.toFixed(0);
-    $('nDev').textContent = `page − board: spectral ${f(ds)}, classic ${f(dc)} · board publishes ${dv.alg === 'spec' ? 'spectral' : 'classic'}, motion cancel ${dv.mcOn ? 'on' : 'off'}`;
+    $('nDev').textContent = `page − board: spectral ${f(ds)}, classic ${f(dc)} · board publishes ${dv.alg === 'spec' ? 'spectral' : 'classic'}`;
   } else { $('vDev').classList.add('empty'); $('vDev').textContent = '--'; }
   const mot = T.spec.mot;   // undefined while spectral is still filling its 8 s window
   setVal('vMot', S.hasAcc && mot != null ? mot.toFixed(2) : null, 'm/s²');

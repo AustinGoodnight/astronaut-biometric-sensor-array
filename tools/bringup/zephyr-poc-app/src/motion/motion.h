@@ -1,7 +1,8 @@
 #ifndef MOTION_H
 #define MOTION_H
 
-/* Wrist motion from the XIAO Sense's on-board IMU, for motion cancelling.
+/* Wrist motion from the XIAO Sense's on-board IMU, for motion removal in the
+ * spectral heart rate.
  *
  * Safe to call on every board. The IMU code is only built for
  * xiao_ble/nrf52840/sense (CONFIG_LSM6DSL). On the plain board these are

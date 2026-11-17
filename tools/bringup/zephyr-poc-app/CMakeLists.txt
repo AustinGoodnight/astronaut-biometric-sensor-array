@@ -8,6 +8,10 @@ target_sources(app PRIVATE
     src/main.c
     src/persp/persp.c
     src/ble/ble.c
+    src/max/hr_main.c
+    src/max/bench.c
+    src/max/classic_hr.c
+    src/max/fft.c
     src/max/spectral_hr.c
     src/skin-temp/max30205.c
 )

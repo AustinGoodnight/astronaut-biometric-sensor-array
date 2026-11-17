@@ -7,9 +7,10 @@ each one does every second:
 - **Spectral** ([spectral_hr.c](../bringup/zephyr-poc-app/src/max/spectral_hr.c)):
   the 8 s spectrum, the accelerometer peaks that get notched out, and the
   tracker's choice compared with the biggest bin.
-- **Classic** ([hr_main.c](../bringup/zephyr-poc-app/src/max/hr_main.c)):
-  motion cancelling before/after, the autocorrelation with its 0.5 and 85%
-  thresholds, and the publish rules (jump guard, median, failures).
+- **Classic** ([classic_hr.c](../bringup/zephyr-poc-app/src/max/classic_hr.c)):
+  the bandpassed signal, the autocorrelation with its 0.5 and 85% thresholds,
+  and what got published (median of the last 5, "--" after 5 s without a good
+  window). Classic doesn't remove motion; it's the still-wrist algorithm.
 
 It's published on GitHub Pages at `/hr-compare/` (see
 [.github/workflows/pages.yml](../../.github/workflows/pages.yml)). Locally,
@@ -29,7 +30,7 @@ serve this folder over http (`python3 -m http.server`) and open
 - **Save CSV** writes everything received as `ir,red,ax,ay,az`, which the
   plotting scripts in [zephyr-poc-app/scripts](../bringup/zephyr-poc-app/scripts) also read.
 
-The settings (classic motion cancel, spectral notch width, spectral max change)
+The settings (spectral notch width, spectral max change)
 only change the page's copy, and re-run everything received so far. A
 "tuned" badge shows when they differ from the firmware.
 
