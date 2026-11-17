@@ -42,7 +42,7 @@ SIGMA_BPM = 2.0
 MOT_RMS = 0.2
 MOT_FRAC = 0.2
 MOT_PEAKS = 3
-NOTCH_K = 5                   # must match SPEC_NOTCH_K in spectral_hr.c
+NOTCH_K = 2                   # must match SPEC_NOTCH_K in spectral_hr.c
 NOTCH_HARM = (0.5, 1.0, 2.0, 3.0)
 
 # 0.7-3.5 Hz Butterworth bandpass @ 100 Hz, two biquads (b0 b1 b2 a1 a2)

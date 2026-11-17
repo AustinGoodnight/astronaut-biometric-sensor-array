@@ -27,10 +27,12 @@
 #define SPEC_MOT_RMS   0.2f   /* m/s^2 in-band: below this, no motion removal */
 #define SPEC_MOT_FRAC  0.2f   /* accel peaks above 20% of the strongest count as motion */
 #define SPEC_MOT_PEAKS 3      /* only the strongest few */
-/* +-5 bins = +-0.12 Hz (+-7 bpm) around each motion rhythm. The 1.46 bpm bins come from
- * zero-padding; an 8 s Hann window really smears a peak over +-1/8 s = +-0.125 Hz at
- * half height, so a narrower notch (was +-2) leaves the motion peak's shoulders behind. */
-#define SPEC_NOTCH_K   5
+/* +-2 bins = +-0.05 Hz (+-3 bpm) around each motion rhythm. That only takes the top off a
+ * motion peak (an 8 s Hann window smears it over ~+-7 bpm at half height), but +-5 was
+ * tried on a 9-minute wrist recording (2026-11-16) and did worse: wider notches cut away
+ * the real pulse peak whenever it sits near a motion harmonic, and the tracker then locks
+ * onto a different track (15-30 bpm off) for tens of seconds. */
+#define SPEC_NOTCH_K   2
 
 static const float notch_harm[] = { 0.5f, 1.0f, 2.0f, 3.0f };
 
@@ -283,7 +285,8 @@ bool spectral_hr_update(float *bpm, float *conf, float *motion)
         //zero those freqs out of the ppg fft, plus 0.5x/2x/3x of each:
         //  2x/3x: motion isn't a clean sine, a swing jolts at both ends
         //  0.5x: accel often peaks at step rate while the ppg picks up stride rate (half)
-        //note +-2 bins (+-3 bpm) is narrower than a peak (~+-15 bpm), so the edges survive
+        //+-SPEC_NOTCH_K bins (+-3 bpm) only removes the top of each motion peak; its edges
+        //survive, but notching wider costs more real pulse than it saves (see SPEC_NOTCH_K)
         for (int m = 0; m < np; m++) {
             for (unsigned h = 0; h < sizeof(notch_harm) / sizeof(notch_harm[0]); h++) {
                 int kc = (int)lroundf(peaks[m] * notch_harm[h]);
