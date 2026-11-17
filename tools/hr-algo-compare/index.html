@@ -178,7 +178,7 @@ th { color: var(--ink2); font-weight: 500; position: sticky; top: 0; background:
     <label>Inspect second <input type="range" id="selSlider" min="0" max="0" value="0" style="width:240px"> <output id="selOut">--</output></label>
     <span class="grow"></span>
     <label title="Motion cancelling in the page's classic path (the board has its own M/m setting)"><input type="checkbox" id="optMc" checked> Classic: motion cancel</label>
-    <label title="Firmware: SPEC_NOTCH_K = 2">Spectral notch ±<input type="range" id="optNotch" min="0" max="15" value="2"><output id="outNotch">2 bins</output></label>
+    <label title="Firmware: SPEC_NOTCH_K = 5">Spectral notch ±<input type="range" id="optNotch" min="0" max="15" value="5"><output id="outNotch">5 bins</output></label>
     <label title="Firmware: SPEC_SIGMA_BPM = 2">Spectral max change <input type="range" id="optSigma" min="0.5" max="10" step="0.5" value="2"><output id="outSigma">2 bpm/s</output></label>
     <button id="btnDefaults" title="Back to the firmware's values">Firmware values</button>
     <span class="pill warn" id="pillTuned" style="display:none">tuned: page differs from firmware</span>
@@ -329,7 +329,7 @@ const SPEC = { DECIM: 4, FS: 25, WIN: 200, NFFT: 1024, K_LO: 28, K_HI: 122, KM_L
                MOT_RMS: 0.2, MOT_FRAC: 0.2, MOT_PEAKS: 3, HARM: [0.5, 1, 2, 3] };
 SPEC.BIN_BPM = SPEC.FS / SPEC.NFFT * 60;
 SPEC.NSTATE = SPEC.K_HI - SPEC.K_LO + 1;
-const SPEC_DEFAULTS = { notchK: 2, sigmaBpm: 2 };
+const SPEC_DEFAULTS = { notchK: 5, sigmaBpm: 2 };
 
 function makeSpectral(cfg) {
   const W = SPEC.WIN, hann = new Float64Array(W);

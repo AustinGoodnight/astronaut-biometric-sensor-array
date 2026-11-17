@@ -27,7 +27,10 @@
 #define SPEC_MOT_RMS   0.2f   /* m/s^2 in-band: below this, no motion removal */
 #define SPEC_MOT_FRAC  0.2f   /* accel peaks above 20% of the strongest count as motion */
 #define SPEC_MOT_PEAKS 3      /* only the strongest few */
-#define SPEC_NOTCH_K   2      /* +-2 bins = +-0.05 Hz around each motion rhythm */
+/* +-5 bins = +-0.12 Hz (+-7 bpm) around each motion rhythm. The 1.46 bpm bins come from
+ * zero-padding; an 8 s Hann window really smears a peak over +-1/8 s = +-0.125 Hz at
+ * half height, so a narrower notch (was +-2) leaves the motion peak's shoulders behind. */
+#define SPEC_NOTCH_K   5
 
 static const float notch_harm[] = { 0.5f, 1.0f, 2.0f, 3.0f };
 
