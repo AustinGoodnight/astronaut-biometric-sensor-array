@@ -648,7 +648,7 @@ function onLine(line) {
       const gap = (seq - usb.lastSeq - 1 + 65536) % 65536;
       if (gap > 0 && gap < 1000) { S.gaps.push(S.n / FS_IN); log(`lost ${gap} batch(es) (${(gap * BATCH / FS_IN).toFixed(2)} s): page and board will differ a little`, true); }
     }
-    usb.lastSeq = seq; usb.gotRaw = true;
+    usb.lastSeq = seq; usb.gotRaw = true; usb.lastRawAt = performance.now();
     pending = { seq, ir: [], red: [] };
     for (const p of pairs) { const c = p.split(':'); pending.ir.push(+c[0]); pending.red.push(+c[1]); }
     pendingTimer = setTimeout(() => flushPending(null), 120);
@@ -682,10 +682,15 @@ async function connectUsb() {
   try {
     const port = await navigator.serial.requestPort();
     await port.open({ baudRate: 115200, bufferSize: 65536 });
+    /* The firmware leaves bench mode whenever DTR is low (it reads that as "page closed"),
+       and not every browser/OS raises DTR on open, so raise it explicitly. */
+    try { await port.setSignals({ dataTerminalReady: true, requestToSend: true }); } catch (e) {}
     resetAll(); S.source = 'usb';
     const enc = new TextEncoder(), writer = port.writable.getWriter();
-    usb = { port, writer, stop: false, gotRaw: false, lastSeq: -1, reader: null, nag: null };
-    const ask = () => { if (usb && !usb.gotRaw) writer.write(enc.encode('R\n')).catch(() => {}); };
+    usb = { port, writer, stop: false, gotRaw: false, lastSeq: -1, lastRawAt: 0, reader: null, nag: null };
+    /* Keep asking until raw lines flow, and again if they stop for 2 s (board reset,
+       bench mode dropped): 'R' is a no-op while the stream is already on. */
+    const ask = () => { if (usb && performance.now() - usb.lastRawAt > 2000) writer.write(enc.encode('R\n')).catch(() => {}); };
     ask(); usb.nag = setInterval(ask, 1000);
     setConn('USB: waiting for samples', '');
     document.getElementById('btnUsb').textContent = 'Disconnect';
@@ -1212,9 +1217,9 @@ function drawTiles(si) {
     const f = d => d == null ? '--' : (d >= 0 ? '+' : '') + d.toFixed(0);
     $('nDev').textContent = `page − board: spectral ${f(ds)}, classic ${f(dc)} · board publishes ${dv.alg === 'spec' ? 'spectral' : 'classic'}, motion cancel ${dv.mcOn ? 'on' : 'off'}`;
   } else { $('vDev').classList.add('empty'); $('vDev').textContent = '--'; }
-  const mot = T.spec.mot;
-  setVal('vMot', S.hasAcc ? mot.toFixed(2) : null, 'm/s²');
-  $('nMot').textContent = !S.hasAcc ? 'no accelerometer data' : mot > SPEC.MOT_RMS ? 'moving: spectral is notching' : 'still';
+  const mot = T.spec.mot;   // undefined while spectral is still filling its 8 s window
+  setVal('vMot', S.hasAcc && mot != null ? mot.toFixed(2) : null, 'm/s²');
+  $('nMot').textContent = !S.hasAcc ? 'no accelerometer data' : mot == null ? 'warming up' : mot > SPEC.MOT_RMS ? 'moving: spectral is notching' : 'still';
 }
 function drawTable() {
   if ($('tableWrap').style.display === 'none') return;
